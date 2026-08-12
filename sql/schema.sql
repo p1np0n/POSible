@@ -1,0 +1,111 @@
+-- POSible: esquema de base de datos para Supabase
+-- Cómo usarlo: en tu proyecto de Supabase entra a "SQL Editor" -> "New query",
+-- pega TODO este archivo y dale "Run". Se puede ejecutar varias veces sin problema.
+
+create extension if not exists pgcrypto;
+
+create table if not exists categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category_id uuid references categories(id) on delete set null,
+  price numeric(12,2) not null default 0,
+  cost numeric(12,2),
+  sku text,
+  barcode text,
+  stock_quantity numeric(12,2) not null default 0,
+  track_stock boolean not null default true,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  phone text,
+  email text,
+  loyalty_points integer not null default 0,
+  total_spent numeric(12,2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists cash_sessions (
+  id uuid primary key default gen_random_uuid(),
+  opened_at timestamptz not null default now(),
+  closed_at timestamptz,
+  opening_amount numeric(12,2) not null default 0,
+  closing_amount numeric(12,2),
+  status text not null default 'open' check (status in ('open', 'closed')),
+  notes text,
+  user_id uuid references auth.users(id)
+);
+
+create table if not exists sales (
+  id uuid primary key default gen_random_uuid(),
+  cash_session_id uuid references cash_sessions(id),
+  customer_id uuid references customers(id),
+  subtotal numeric(12,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'card', 'other')),
+  loyalty_points_earned integer not null default 0,
+  created_at timestamptz not null default now(),
+  user_id uuid references auth.users(id)
+);
+
+create table if not exists sale_items (
+  id uuid primary key default gen_random_uuid(),
+  sale_id uuid not null references sales(id) on delete cascade,
+  product_id uuid references products(id),
+  product_name text not null,
+  unit_price numeric(12,2) not null,
+  quantity numeric(12,2) not null,
+  subtotal numeric(12,2) not null
+);
+
+-- Funciones para ajustar stock y puntos de lealtad de forma atómica
+-- (evita perder datos si dos ventas ocurren al mismo tiempo)
+create or replace function adjust_product_stock(p_id uuid, p_delta numeric)
+returns void
+language sql
+as $$
+  update products set stock_quantity = stock_quantity + p_delta where id = p_id;
+$$;
+
+create or replace function adjust_customer_loyalty(p_id uuid, p_points_delta integer, p_spend_delta numeric)
+returns void
+language sql
+as $$
+  update customers
+  set loyalty_points = loyalty_points + p_points_delta,
+      total_spent = total_spent + p_spend_delta
+  where id = p_id;
+$$;
+
+-- Seguridad: solo usuarios que iniciaron sesión (los que tú creas) pueden
+-- leer/escribir datos. Ver LEEME.md: además debes desactivar el registro
+-- público de cuentas nuevas en Supabase para que nadie más pueda entrar.
+alter table categories enable row level security;
+alter table products enable row level security;
+alter table customers enable row level security;
+alter table cash_sessions enable row level security;
+alter table sales enable row level security;
+alter table sale_items enable row level security;
+
+drop policy if exists "auth full access" on categories;
+drop policy if exists "auth full access" on products;
+drop policy if exists "auth full access" on customers;
+drop policy if exists "auth full access" on cash_sessions;
+drop policy if exists "auth full access" on sales;
+drop policy if exists "auth full access" on sale_items;
+
+create policy "auth full access" on categories for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on products for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on customers for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on cash_sessions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on sales for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on sale_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
