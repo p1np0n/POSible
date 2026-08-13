@@ -45,10 +45,32 @@ create table if not exists cash_sessions (
   user_id uuid references auth.users(id)
 );
 
+create table if not exists discounts (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  type text not null default 'percentage' check (type in ('percentage', 'fixed')),
+  value numeric(12,2) not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists store_settings (
+  id integer primary key default 1 check (id = 1),
+  tax_rate_percent numeric(5,2) not null default 0,
+  updated_at timestamptz not null default now()
+);
+insert into store_settings (id) values (1) on conflict (id) do nothing;
+
+create sequence if not exists sales_receipt_seq start 1;
+
 create table if not exists sales (
   id uuid primary key default gen_random_uuid(),
+  receipt_number bigint not null default nextval('sales_receipt_seq'),
   cash_session_id uuid references cash_sessions(id),
   customer_id uuid references customers(id),
+  discount_id uuid references discounts(id),
+  discount_amount numeric(12,2) not null default 0,
+  tax_amount numeric(12,2) not null default 0,
   subtotal numeric(12,2) not null default 0,
   total numeric(12,2) not null default 0,
   payment_method text not null default 'cash' check (payment_method in ('cash', 'card', 'other')),
@@ -56,6 +78,17 @@ create table if not exists sales (
   created_at timestamptz not null default now(),
   user_id uuid references auth.users(id)
 );
+
+-- Estas columnas pueden faltar si ya habías corrido este script antes de que
+-- existiera Recibos/Descuentos/Impuestos: se agregan aquí de forma segura.
+alter table sales add column if not exists receipt_number bigint;
+alter table sales add column if not exists discount_id uuid references discounts(id);
+alter table sales add column if not exists discount_amount numeric(12,2) not null default 0;
+alter table sales add column if not exists tax_amount numeric(12,2) not null default 0;
+update sales set receipt_number = nextval('sales_receipt_seq') where receipt_number is null;
+alter table sales alter column receipt_number set not null;
+alter table sales alter column receipt_number set default nextval('sales_receipt_seq');
+create unique index if not exists sales_receipt_number_idx on sales(receipt_number);
 
 create table if not exists sale_items (
   id uuid primary key default gen_random_uuid(),
@@ -95,6 +128,8 @@ alter table customers enable row level security;
 alter table cash_sessions enable row level security;
 alter table sales enable row level security;
 alter table sale_items enable row level security;
+alter table discounts enable row level security;
+alter table store_settings enable row level security;
 
 drop policy if exists "auth full access" on categories;
 drop policy if exists "auth full access" on products;
@@ -102,6 +137,8 @@ drop policy if exists "auth full access" on customers;
 drop policy if exists "auth full access" on cash_sessions;
 drop policy if exists "auth full access" on sales;
 drop policy if exists "auth full access" on sale_items;
+drop policy if exists "auth full access" on discounts;
+drop policy if exists "auth full access" on store_settings;
 
 create policy "auth full access" on categories for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth full access" on products for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -109,3 +146,5 @@ create policy "auth full access" on customers for all using (auth.role() = 'auth
 create policy "auth full access" on cash_sessions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth full access" on sales for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth full access" on sale_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on discounts for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on store_settings for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

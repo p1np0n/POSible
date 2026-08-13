@@ -9,16 +9,23 @@ class SalesRepository {
     required List<CartItem> items,
     required String cashSessionId,
     String? customerId,
+    String? discountId,
+    double discountAmount = 0,
+    double taxAmount = 0,
     required String paymentMethod,
     required int loyaltyPointsEarned,
   }) async {
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
+    final total = subtotal - discountAmount + taxAmount;
 
     final saleData = await _client.from('sales').insert({
       'cash_session_id': cashSessionId,
       'customer_id': customerId,
+      'discount_id': discountId,
+      'discount_amount': discountAmount,
+      'tax_amount': taxAmount,
       'subtotal': subtotal,
-      'total': subtotal,
+      'total': total,
       'payment_method': paymentMethod,
       'loyalty_points_earned': loyaltyPointsEarned,
       'user_id': _client.auth.currentUser?.id,

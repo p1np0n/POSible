@@ -73,20 +73,36 @@ También te recomiendo mantener este repositorio de GitHub como **Privado**
 Click en el workflow fallido → click en el paso que tiene la X roja → copia
 el texto del error y pégamelo en el chat, lo reviso contigo.
 
-## Qué incluye esta primera versión
-- **Ventas y caja**: apertura/cierre de caja, carrito, pago en efectivo,
-  tarjeta u otro método.
-- **Inventario**: productos, categorías, control de existencias (el stock
-  baja solo con cada venta).
+## ⚠️ Cuando actualices la app, vuelve a correr el SQL
+Cada vez que agreguemos una función nueva que necesite datos (como Recibos,
+Descuentos o Impuestos), `sql/schema.sql` se actualiza. **Vuelve a copiar y
+pegar TODO el archivo en el SQL Editor de Supabase y dale Run de nuevo** —
+está pensado para poder ejecutarse varias veces sin borrar tus datos. Si no
+lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
+
+## Qué incluye esta versión
+- **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
+  impuestos, pago en efectivo, tarjeta u otro método.
+- **Recibos**: historial de ventas agrupado por día, con número de recibo,
+  buscador y detalle de cada venta.
+- **Inventario (Artículos)**: productos, categorías, descuentos, control de
+  existencias (el stock baja solo con cada venta).
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
   acumulados por compra (1 punto por cada unidad de moneda gastada).
+- **Configuración**: tasa de impuesto y cierre de sesión.
+- **Menú lateral** (como Loyverse) para navegar entre todas las secciones.
+- **Panel web**: la misma app corriendo en el navegador, publicada en
+  GitHub Pages.
 
 ## Próximas mejoras posibles (dime cuáles te sirven y las agregamos)
+- Modificadores de productos (personalizar una venta, ej. tamaño/extras)
+- Escanear código de barras con la cámara
+- Modo oscuro
+- Vista en lista de productos (además de la cuadrícula)
 - Impresión de recibo por Bluetooth (impresora térmica portátil)
-- Código de barras usando la cámara del celular
-- Descuentos y promociones
+- Pantalla secundaria para clientes
 - Múltiples usuarios/empleados con permisos distintos
 - Múltiples sucursales
 - Canje de puntos de lealtad (no solo acumularlos)
