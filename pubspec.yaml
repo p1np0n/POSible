@@ -1,0 +1,21 @@
+name: posible
+description: POSible - sistema de punto de venta (POS) con inventario, reportes, clientes y lealtad.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.6.0
+  provider: ^6.1.2
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
