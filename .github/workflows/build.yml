@@ -19,7 +19,7 @@ jobs:
           channel: 'stable'
 
       - name: Generar carpeta Android faltante (no toca lib/ ni pubspec.yaml)
-        run: flutter create . --platforms=android --org com.posible.app
+        run: flutter create . --platforms=android --org com.posible.app --project-name posible
 
       - name: Instalar dependencias
         run: flutter pub get
