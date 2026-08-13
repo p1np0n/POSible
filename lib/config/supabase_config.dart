@@ -5,6 +5,6 @@
 // 4. Copia la llave "anon public" y pégala abajo en supabaseAnonKey.
 // Ver LEEME.md para la guía paso a paso.
 class SupabaseConfig {
-  static const String supabaseUrl = 'PON_AQUI_TU_SUPABASE_URL';
-  static const String supabaseAnonKey = 'PON_AQUI_TU_SUPABASE_ANON_KEY';
+  static const String supabaseUrl = 'https://qvnowzwfilwstgpdhzof.supabase.co';
+  static const String supabaseAnonKey = 'sb_publishable_NaEZRB9aB_y-3MUqHbmHUQ_BotaiTvC';
 }
