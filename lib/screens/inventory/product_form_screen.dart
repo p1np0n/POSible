@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
+import '../../services/photo_upload_service.dart';
+import '../../services/product_catalog_repository.dart';
+import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
 import '../scan/barcode_scanner_screen.dart';
 
@@ -20,6 +23,9 @@ class ProductFormScreen extends StatefulWidget {
 class _ProductFormScreenState extends State<ProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final ProductRepository _repository = ProductRepository();
+  final ProductLookupService _lookupService = ProductLookupService();
+  final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
+  final PhotoUploadService _photoService = PhotoUploadService();
 
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
@@ -29,7 +35,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _stockController;
   bool _trackStock = true;
   String? _categoryId;
+  String? _imageUrl;
   bool _saving = false;
+  bool _looking = false;
+  bool _uploadingPhoto = false;
 
   bool get _isEditing => widget.product != null;
 
@@ -47,6 +56,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         TextEditingController(text: product != null ? product.stockQuantity.toStringAsFixed(0) : '0');
     _trackStock = product?.trackStock ?? true;
     _categoryId = product?.categoryId;
+    _imageUrl = product?.imageUrl;
   }
 
   @override
@@ -63,14 +73,17 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final barcode = _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim();
+    final name = _nameController.text.trim();
     final product = Product(
       id: widget.product?.id ?? '',
-      name: _nameController.text.trim(),
+      name: name,
       categoryId: _categoryId,
       price: double.parse(_priceController.text),
       cost: _costController.text.isEmpty ? null : double.tryParse(_costController.text),
       sku: _skuController.text.trim().isEmpty ? null : _skuController.text.trim(),
-      barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
+      barcode: barcode,
+      imageUrl: _imageUrl,
       stockQuantity: double.tryParse(_stockController.text) ?? 0,
       trackStock: _trackStock,
       active: true,
@@ -81,6 +94,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         await _repository.update(widget.product!.id, product);
       } else {
         await _repository.create(product);
+      }
+      if (barcode != null) {
+        // Guardamos en el catálogo propio para no tener que buscarlo de
+        // nuevo la próxima vez que agregues un producto con este código.
+        await _catalogRepository.upsert(barcode: barcode, name: name, imageUrl: _imageUrl);
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -96,7 +114,44 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final code = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
-    if (code != null) setState(() => _barcodeController.text = code);
+    if (code != null) {
+      setState(() => _barcodeController.text = code);
+      _lookupBarcode();
+    }
+  }
+
+  Future<void> _lookupBarcode() async {
+    final barcode = _barcodeController.text.trim();
+    if (barcode.isEmpty) return;
+    setState(() => _looking = true);
+    final entry = await _lookupService.lookup(barcode);
+    if (!mounted) return;
+    setState(() {
+      _looking = false;
+      if (entry != null) {
+        if (_nameController.text.trim().isEmpty) _nameController.text = entry.name;
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(entry != null
+          ? 'Encontrado: ${entry.name}'
+          : 'No se encontró información en internet para ese código. Ingrésalo tú.'),
+    ));
+  }
+
+  Future<void> _takePhoto() async {
+    setState(() => _uploadingPhoto = true);
+    try {
+      final url = await _photoService.takeAndUploadPhoto();
+      if (url != null && mounted) setState(() => _imageUrl = url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al subir la foto: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _delete() async {
@@ -118,6 +173,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cameraEnabled = context.watch<AppPreferencesProvider>().cameraScanEnabled;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar producto' : 'Nuevo producto'),
@@ -130,6 +187,26 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 44,
+                    backgroundImage: _imageUrl != null ? NetworkImage(_imageUrl!) : null,
+                    child: _imageUrl == null ? const Icon(Icons.inventory_2, size: 36) : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _uploadingPhoto ? null : _takePhoto,
+                    icon: _uploadingPhoto
+                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.camera_alt_outlined),
+                    label: Text(_imageUrl == null ? 'Tomar foto' : 'Cambiar foto'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
@@ -169,32 +246,39 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _skuController,
-                    decoration: const InputDecoration(labelText: 'SKU (opcional)', border: OutlineInputBorder()),
-                  ),
+            TextFormField(
+              controller: _skuController,
+              decoration: const InputDecoration(labelText: 'SKU (opcional)', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _barcodeController,
+              decoration: InputDecoration(
+                labelText: 'Código de barras (opcional)',
+                border: const OutlineInputBorder(),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_looking)
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    else
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        tooltip: 'Buscar en internet',
+                        onPressed: _lookupBarcode,
+                      ),
+                    if (cameraEnabled)
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        tooltip: 'Escanear',
+                        onPressed: _scanBarcode,
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _barcodeController,
-                    decoration: InputDecoration(
-                      labelText: 'Código de barras (opcional)',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: context.watch<AppPreferencesProvider>().cameraScanEnabled
-                          ? IconButton(
-                              icon: const Icon(Icons.qr_code_scanner),
-                              tooltip: 'Escanear',
-                              onPressed: _scanBarcode,
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 12),
             SwitchListTile(

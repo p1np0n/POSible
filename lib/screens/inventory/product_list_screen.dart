@@ -113,6 +113,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           itemBuilder: (context, index) {
                             final product = _filtered[index];
                             return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage:
+                                    product.imageUrl != null ? NetworkImage(product.imageUrl!) : null,
+                                child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
+                              ),
                               title: Text(product.name),
                               subtitle: Text(
                                 '${_categoryName(product.categoryId)} · Stock: ${product.trackStock ? product.stockQuantity.toStringAsFixed(0) : 'N/A'}',

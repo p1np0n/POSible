@@ -6,6 +6,7 @@ class Product {
   final double? cost;
   final String? sku;
   final String? barcode;
+  final String? imageUrl;
   final double stockQuantity;
   final bool trackStock;
   final bool active;
@@ -18,6 +19,7 @@ class Product {
     this.cost,
     this.sku,
     this.barcode,
+    this.imageUrl,
     required this.stockQuantity,
     required this.trackStock,
     required this.active,
@@ -31,6 +33,7 @@ class Product {
         cost: (map['cost'] as num?)?.toDouble(),
         sku: map['sku'] as String?,
         barcode: map['barcode'] as String?,
+        imageUrl: map['image_url'] as String?,
         stockQuantity: (map['stock_quantity'] as num).toDouble(),
         trackStock: map['track_stock'] as bool,
         active: map['active'] as bool,
@@ -43,6 +46,7 @@ class Product {
         'cost': cost,
         'sku': sku,
         'barcode': barcode,
+        'image_url': imageUrl,
         'stock_quantity': stockQuantity,
         'track_stock': trackStock,
         'active': active,

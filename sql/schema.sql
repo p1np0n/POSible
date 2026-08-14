@@ -18,11 +18,44 @@ create table if not exists products (
   cost numeric(12,2),
   sku text,
   barcode text,
+  image_url text,
   stock_quantity numeric(12,2) not null default 0,
   track_stock boolean not null default true,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+alter table products add column if not exists image_url text;
+
+-- Catálogo propio: productos ya buscados (por internet o ingresados a mano),
+-- para no tener que volver a buscarlos la próxima vez que agregues el mismo
+-- código de barras. Es una tabla aparte de "products" (que es tu inventario
+-- para vender).
+create table if not exists product_catalog (
+  barcode text primary key,
+  name text not null,
+  brand text,
+  image_url text,
+  source text not null default 'manual' check (source in ('manual', 'openfoodfacts')),
+  updated_at timestamptz not null default now()
+);
+
+-- Bucket de Storage para las fotos de productos (público para poder mostrarlas
+-- en la app sin complicaciones; solo usuarios logueados pueden subir).
+insert into storage.buckets (id, name, public)
+values ('product-photos', 'product-photos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "product photos public read" on storage.objects;
+create policy "product photos public read" on storage.objects
+  for select using (bucket_id = 'product-photos');
+
+drop policy if exists "product photos auth upload" on storage.objects;
+create policy "product photos auth upload" on storage.objects
+  for insert with check (bucket_id = 'product-photos' and auth.role() = 'authenticated');
+
+drop policy if exists "product photos auth update" on storage.objects;
+create policy "product photos auth update" on storage.objects
+  for update using (bucket_id = 'product-photos' and auth.role() = 'authenticated');
 
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
@@ -130,6 +163,7 @@ alter table sales enable row level security;
 alter table sale_items enable row level security;
 alter table discounts enable row level security;
 alter table store_settings enable row level security;
+alter table product_catalog enable row level security;
 
 drop policy if exists "auth full access" on categories;
 drop policy if exists "auth full access" on products;
@@ -139,6 +173,7 @@ drop policy if exists "auth full access" on sales;
 drop policy if exists "auth full access" on sale_items;
 drop policy if exists "auth full access" on discounts;
 drop policy if exists "auth full access" on store_settings;
+drop policy if exists "auth full access" on product_catalog;
 
 create policy "auth full access" on categories for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth full access" on products for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -148,3 +183,4 @@ create policy "auth full access" on sales for all using (auth.role() = 'authenti
 create policy "auth full access" on sale_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth full access" on discounts for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "auth full access" on store_settings for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "auth full access" on product_catalog for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
