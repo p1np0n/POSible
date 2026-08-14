@@ -13,19 +13,27 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+  bool _isSignUp = false;
   String? _errorMessage;
+  String? _infoMessage;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _loading = true;
       _errorMessage = null;
+      _infoMessage = null;
     });
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final auth = Supabase.instance.client.auth;
+      if (_isSignUp) {
+        await auth.signUp(email: _emailController.text.trim(), password: _passwordController.text);
+      } else {
+        await auth.signInWithPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
     } on AuthException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
@@ -75,7 +83,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
-                    validator: (value) => (value == null || value.isEmpty) ? 'Ingresa tu contraseña' : null,
+                    validator: (value) =>
+                        (value == null || value.length < 6) ? 'Mínimo 6 caracteres' : null,
                   ),
                   const SizedBox(height: 16),
                   if (_errorMessage != null)
@@ -83,12 +92,29 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
                     ),
+                  if (_infoMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(_infoMessage!, style: const TextStyle(color: Colors.green)),
+                    ),
                   FilledButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
                         ? const SizedBox(
                             height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Iniciar sesión'),
+                        : Text(_isSignUp ? 'Crear cuenta' : 'Iniciar sesión'),
+                  ),
+                  TextButton(
+                    onPressed: _loading
+                        ? null
+                        : () => setState(() {
+                              _isSignUp = !_isSignUp;
+                              _errorMessage = null;
+                              _infoMessage = null;
+                            }),
+                    child: Text(_isSignUp
+                        ? '¿Ya tienes cuenta? Inicia sesión'
+                        : '¿Eres empleado nuevo? Crea tu cuenta'),
                   ),
                 ],
               ),

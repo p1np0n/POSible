@@ -3,9 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../config/app_config.dart';
 import '../customers/customer_list_screen.dart';
+import '../employees/employees_screen.dart';
 import '../inventory/product_list_screen.dart';
-import '../pos/cash_session_sheet.dart';
 import '../pos/pos_screen.dart';
+import '../pos/turno_screen.dart';
 import '../receipts/receipts_screen.dart';
 import '../reports/reports_screen.dart';
 import '../settings/settings_screen.dart';
@@ -23,26 +24,28 @@ class _HomeShellState extends State<HomeShell> {
   final _screens = const [
     PosScreen(),
     ReceiptsScreen(),
+    TurnoScreen(),
     ProductListScreen(),
     ReportsScreen(),
     CustomerListScreen(),
+    EmployeesScreen(),
     SettingsScreen(),
   ];
 
-  final _titles = const ['Ventas', 'Recibos', 'Artículos', 'Reportes', 'Clientes', 'Configuración'];
+  final _titles = const [
+    'Ventas',
+    'Recibos',
+    'Turno',
+    'Artículos',
+    'Reportes',
+    'Clientes',
+    'Empleados',
+    'Configuración',
+  ];
 
   void _selectIndex(int index) {
     Navigator.of(context).pop();
     setState(() => _index = index);
-  }
-
-  void _openTurno() {
-    Navigator.of(context).pop();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const CashSessionSheet(),
-    );
   }
 
   @override
@@ -83,32 +86,39 @@ class _HomeShellState extends State<HomeShell> {
             ListTile(
               leading: const Icon(Icons.schedule),
               title: const Text('Turno'),
-              onTap: _openTurno,
-            ),
-            ListTile(
-              leading: const Icon(Icons.inventory_2),
-              title: const Text('Artículos'),
               selected: _index == 2,
               onTap: () => _selectIndex(2),
             ),
             ListTile(
-              leading: const Icon(Icons.bar_chart),
-              title: const Text('Reportes'),
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Artículos'),
               selected: _index == 3,
               onTap: () => _selectIndex(3),
             ),
             ListTile(
-              leading: const Icon(Icons.people),
-              title: const Text('Clientes'),
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Reportes'),
               selected: _index == 4,
               onTap: () => _selectIndex(4),
             ),
+            ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('Clientes'),
+              selected: _index == 5,
+              onTap: () => _selectIndex(5),
+            ),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('Empleados'),
+              selected: _index == 6,
+              onTap: () => _selectIndex(6),
+            ),
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Configuración'),
-              selected: _index == 5,
-              onTap: () => _selectIndex(5),
+              selected: _index == 7,
+              onTap: () => _selectIndex(7),
             ),
           ],
         ),

@@ -17,12 +17,19 @@ class CashSessionRepository {
     return CashSession.fromMap(data);
   }
 
+  Future<List<CashSession>> getHistory({int limit = 100}) async {
+    final data =
+        await _client.from('cash_sessions').select().order('opened_at', ascending: false).limit(limit);
+    return (data as List).map((e) => CashSession.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   Future<CashSession> open(double openingAmount) async {
-    final userId = _client.auth.currentUser!.id;
+    final user = _client.auth.currentUser!;
     final data = await _client.from('cash_sessions').insert({
       'opening_amount': openingAmount,
       'status': 'open',
-      'user_id': userId,
+      'user_id': user.id,
+      'user_email': user.email,
     }).select().single();
     return CashSession.fromMap(data);
   }

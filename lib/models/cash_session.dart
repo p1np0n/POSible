@@ -6,6 +6,7 @@ class CashSession {
   final double? closingAmount;
   final String status;
   final String? notes;
+  final String? userEmail;
 
   CashSession({
     required this.id,
@@ -15,6 +16,7 @@ class CashSession {
     this.closingAmount,
     required this.status,
     this.notes,
+    this.userEmail,
   });
 
   bool get isOpen => status == 'open';
@@ -27,5 +29,6 @@ class CashSession {
         closingAmount: (map['closing_amount'] as num?)?.toDouble(),
         status: map['status'] as String,
         notes: map['notes'] as String?,
+        userEmail: map['user_email'] as String?,
       );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
@@ -8,6 +9,7 @@ import '../../services/photo_upload_service.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
+import '../../services/shared_catalog_repository.dart';
 import '../scan/barcode_scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final ProductRepository _repository = ProductRepository();
   final ProductLookupService _lookupService = ProductLookupService();
   final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
+  final SharedCatalogRepository _sharedCatalogRepository = SharedCatalogRepository();
   final PhotoUploadService _photoService = PhotoUploadService();
 
   late final TextEditingController _nameController;
@@ -97,8 +100,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       }
       if (barcode != null) {
         // Guardamos en el catálogo propio para no tener que buscarlo de
-        // nuevo la próxima vez que agregues un producto con este código.
+        // nuevo la próxima vez que agregues un producto con este código, y
+        // lo aportamos al catálogo compartido (si está configurado) para
+        // que otros negocios que usan POSible también se beneficien.
         await _catalogRepository.upsert(barcode: barcode, name: name, imageUrl: _imageUrl);
+        await _sharedCatalogRepository.contribute(barcode: barcode, name: name, imageUrl: _imageUrl);
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -140,10 +146,32 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     ));
   }
 
-  Future<void> _takePhoto() async {
+  Future<void> _choosePhotoSource() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Tomar foto'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Elegir de la galería'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
     setState(() => _uploadingPhoto = true);
     try {
-      final url = await _photoService.takeAndUploadPhoto();
+      final url = await _photoService.pickAndUploadPhoto(source);
       if (url != null && mounted) setState(() => _imageUrl = url);
     } catch (e) {
       if (mounted) {
@@ -197,11 +225,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: _uploadingPhoto ? null : _takePhoto,
+                    onPressed: _uploadingPhoto ? null : _choosePhotoSource,
                     icon: _uploadingPhoto
                         ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.camera_alt_outlined),
-                    label: Text(_imageUrl == null ? 'Tomar foto' : 'Cambiar foto'),
+                        : const Icon(Icons.add_a_photo_outlined),
+                    label: Text(_imageUrl == null ? 'Agregar foto' : 'Cambiar foto'),
                   ),
                 ],
               ),

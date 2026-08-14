@@ -7,10 +7,11 @@ class PhotoUploadService {
   final SupabaseClient _client = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
 
-  /// Abre la cámara, sube la foto tomada a Supabase Storage y devuelve su
-  /// URL pública. Devuelve null si el usuario cancela.
-  Future<String?> takeAndUploadPhoto() async {
-    final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+  /// Abre la cámara o la galería (según [source]), sube la foto elegida a
+  /// Supabase Storage y devuelve su URL pública. Devuelve null si el
+  /// usuario cancela.
+  Future<String?> pickAndUploadPhoto(ImageSource source) async {
+    final file = await _picker.pickImage(source: source, imageQuality: 80);
     if (file == null) return null;
 
     final bytes = await file.readAsBytes();
