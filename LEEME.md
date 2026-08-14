@@ -93,22 +93,32 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
   de turnos con quién lo hizo y cuánto se vendió en cada uno.
-- **Inventario (Artículos)**: productos, categorías, descuentos, control de
-  existencias (el stock baja solo con cada venta), foto por producto
-  (tomada con la cámara o elegida de la galería), y búsqueda automática por
-  código de barras (en tu catálogo, en el catálogo compartido de POSible, y
-  en Open Food Facts si no lo tienen los otros dos).
+- **Artículos** (solo en el panel web — ver más abajo): lista de productos,
+  categorías, modificadores, descuentos, control de existencias, foto por
+  producto (cámara o galería), y búsqueda automática por código de barras
+  (en tu catálogo, en el catálogo compartido de POSible, y en Open Food
+  Facts si no lo tienen los otros dos).
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
   acumulados por compra (1 punto por cada unidad de moneda gastada).
-- **Empleados**: cualquiera crea su cuenta desde la app, pero no ve nada
-  hasta que la apruebas desde Configuración → Empleados.
+- **Empleados** (solo en el panel web): cualquiera crea su cuenta desde la
+  app, pero no ve nada hasta que la apruebas desde Empleados.
 - **Configuración**: tasa de impuesto, modo oscuro, vista en lista, cerrar
   sesión.
-- **Menú lateral** (como Loyverse) para navegar entre todas las secciones.
-- **Panel web**: la misma app corriendo en el navegador, publicada en
-  GitHub Pages.
+
+### APK vs panel web: no son exactamente lo mismo
+El **APK** (celular) se queda con lo esencial para atender en el mostrador:
+Ventas, Recibos, Turno, Reportes, Clientes y Configuración. El **panel
+web** además tiene todo lo de administración (back office): Artículos con
+su submenú (Lista de artículos, Categorías, Modificadores, Descuentos) y
+Empleados. Así el celular queda simple y rápido para vender, y la
+administración más completa la haces desde la computadora.
+
+### Diseño que se adapta a la pantalla
+El menú se ve distinto según el tamaño de pantalla: en el celular es un
+menú deslizable (como antes), y en una pantalla ancha (computador) se
+muestra fijo al costado, como un panel de administración normal.
 
 ## Catálogo compartido entre negocios (opcional)
 Además de tu catálogo propio (que ya funciona solo), POSible puede conectarse

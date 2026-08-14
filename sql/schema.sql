@@ -77,6 +77,15 @@ create table if not exists discounts (
   created_at timestamptz not null default now()
 );
 
+-- Opciones para personalizar un producto al venderlo (ej. "Extra queso").
+create table if not exists modifiers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  price_adjustment numeric(12,2) not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists store_settings (
   id integer primary key default 1 check (id = 1),
   tax_rate_percent numeric(5,2) not null default 0,
@@ -216,6 +225,7 @@ alter table cash_sessions enable row level security;
 alter table sales enable row level security;
 alter table sale_items enable row level security;
 alter table discounts enable row level security;
+alter table modifiers enable row level security;
 alter table store_settings enable row level security;
 alter table product_catalog enable row level security;
 
@@ -235,6 +245,7 @@ drop policy if exists "solo aprobados" on cash_sessions;
 drop policy if exists "solo aprobados" on sales;
 drop policy if exists "solo aprobados" on sale_items;
 drop policy if exists "solo aprobados" on discounts;
+drop policy if exists "solo aprobados" on modifiers;
 drop policy if exists "solo aprobados" on store_settings;
 drop policy if exists "solo aprobados" on product_catalog;
 
@@ -245,6 +256,7 @@ create policy "solo aprobados" on cash_sessions for all using (public.is_approve
 create policy "solo aprobados" on sales for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on sale_items for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on discounts for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on modifiers for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on store_settings for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on product_catalog for all using (public.is_approved()) with check (public.is_approved());
 
