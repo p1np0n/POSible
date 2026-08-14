@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
 import '../../models/product.dart';
+import '../../providers/app_preferences_provider.dart';
 import '../../services/product_repository.dart';
+import '../scan/barcode_scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
   final Product? product;
@@ -89,6 +92,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     }
   }
 
+  Future<void> _scanBarcode() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (code != null) setState(() => _barcodeController.text = code);
+  }
+
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -171,8 +181,17 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _barcodeController,
-                    decoration: const InputDecoration(
-                        labelText: 'Código de barras (opcional)', border: OutlineInputBorder()),
+                    decoration: InputDecoration(
+                      labelText: 'Código de barras (opcional)',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: context.watch<AppPreferencesProvider>().cameraScanEnabled
+                          ? IconButton(
+                              icon: const Icon(Icons.qr_code_scanner),
+                              tooltip: 'Escanear',
+                              onPressed: _scanBarcode,
+                            )
+                          : null,
+                    ),
                   ),
                 ),
               ],

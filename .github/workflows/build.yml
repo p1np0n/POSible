@@ -20,11 +20,14 @@ jobs:
       - name: Generar carpeta Android faltante (no toca lib/ ni pubspec.yaml)
         run: flutter create . --platforms=android --org com.posible.app --project-name posible
 
-      - name: Asegurar permiso de Internet en Android
+      - name: Asegurar permisos de Internet y cámara en Android
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
             sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
+          fi
+          if ! grep -q 'android.permission.CAMERA' "$MANIFEST"; then
+            sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.CAMERA" />' "$MANIFEST"
           fi
           grep -n 'uses-permission' "$MANIFEST" || echo "sin permisos declarados"
 

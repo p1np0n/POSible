@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../providers/app_preferences_provider.dart';
 import '../../services/settings_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -59,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
+    final prefs = context.watch<AppPreferencesProvider>();
 
     return _loading
         ? const Center(child: CircularProgressIndicator())
@@ -84,6 +87,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : const Text('Guardar'),
               ),
               const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('General', style: Theme.of(context).textTheme.titleMedium),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Modo oscuro'),
+                value: prefs.darkMode,
+                onChanged: prefs.setDarkMode,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Vista en lista de artículos'),
+                subtitle: const Text('En vez de la cuadrícula, en la pantalla de Ventas'),
+                value: prefs.useListLayout,
+                onChanged: prefs.setUseListLayout,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Utilice la cámara para escanear códigos de barras'),
+                value: prefs.cameraScanEnabled,
+                onChanged: prefs.setCameraScanEnabled,
+              ),
+              const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),
               Text('Cuenta', style: Theme.of(context).textTheme.titleMedium),
