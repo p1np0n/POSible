@@ -38,9 +38,10 @@ class SalesRepository {
               'sale_id': saleId,
               'product_id': item.product.id,
               'product_name': item.product.name,
-              'unit_price': item.product.price,
+              'unit_price': item.unitPrice,
               'quantity': item.quantity,
               'subtotal': item.subtotal,
+              'modifiers_summary': item.modifiersLabel.isEmpty ? null : item.modifiersLabel,
             })
         .toList();
 

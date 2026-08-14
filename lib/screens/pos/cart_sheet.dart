@@ -136,20 +136,20 @@ class _CartSheetState extends State<CartSheet> {
                     final item = cart.items[index];
                     return ListTile(
                       title: Text(item.product.name),
-                      subtitle: CurrencyText(item.product.price),
+                      subtitle: item.modifiersLabel.isEmpty
+                          ? CurrencyText(item.unitPrice)
+                          : Text('${item.modifiersLabel} · \$${item.unitPrice.toStringAsFixed(2)}'),
                       leading: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: () =>
-                                context.read<CartProvider>().decrementQuantity(item.product.id),
+                            onPressed: () => context.read<CartProvider>().decrementItem(item),
                           ),
                           Text(item.quantity.toStringAsFixed(0)),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () =>
-                                context.read<CartProvider>().incrementQuantity(item.product.id),
+                            onPressed: () => context.read<CartProvider>().incrementItem(item),
                           ),
                         ],
                       ),

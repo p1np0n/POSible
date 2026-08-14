@@ -97,7 +97,9 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
   (en tu catálogo, en el catálogo compartido de POSible, y en Open Food
-  Facts si no lo tienen los otros dos).
+  Facts si no lo tienen los otros dos). Si tienes modificadores activos
+  (ej. "Extra queso"), al tocar un producto en Ventas te deja elegirlos
+  antes de agregarlo al carrito, y quedan reflejados en el recibo.
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
@@ -140,7 +142,6 @@ Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
 adicional (usa tu catálogo propio y Open Food Facts).
 
 ## Próximas mejoras posibles (dime cuáles te sirven y las agregamos)
-- Modificadores de productos (personalizar una venta, ej. tamaño/extras)
 - Impresión de recibo por Bluetooth (impresora térmica portátil)
 - Pantalla secundaria para clientes
 - Permisos distintos por empleado (ej. que un cajero no vea Reportes)

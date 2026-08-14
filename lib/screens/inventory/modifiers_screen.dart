@@ -74,8 +74,8 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
         children: [
           const Text(
             'Opciones para personalizar un producto al venderlo (ej. "Extra queso +\$500", '
-            '"Sin cebolla"). Todavía no se aplican en el carrito de Ventas — por ahora puedes '
-            'crearlas y las conectamos con el checkout más adelante.',
+            '"Sin cebolla"). Si hay modificadores activos, al tocar un producto en Ventas '
+            'aparecerá primero la lista para elegir cuáles aplicar.',
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 16),

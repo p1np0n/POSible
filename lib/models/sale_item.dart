@@ -6,6 +6,7 @@ class SaleItem {
   final double unitPrice;
   final double quantity;
   final double subtotal;
+  final String? modifiersSummary;
 
   SaleItem({
     required this.id,
@@ -15,6 +16,7 @@ class SaleItem {
     required this.unitPrice,
     required this.quantity,
     required this.subtotal,
+    this.modifiersSummary,
   });
 
   factory SaleItem.fromMap(Map<String, dynamic> map) => SaleItem(
@@ -25,5 +27,6 @@ class SaleItem {
         unitPrice: (map['unit_price'] as num).toDouble(),
         quantity: (map['quantity'] as num).toDouble(),
         subtotal: (map['subtotal'] as num).toDouble(),
+        modifiersSummary: map['modifiers_summary'] as String?,
       );
 }
