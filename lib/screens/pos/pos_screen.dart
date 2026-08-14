@@ -15,6 +15,7 @@ import '../scan/barcode_scanner_screen.dart';
 import 'cart_sheet.dart';
 import 'cash_session_sheet.dart';
 import 'modifier_picker_sheet.dart';
+import 'quick_item_dialog.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -119,6 +120,16 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
+  Future<void> _addQuickItem() async {
+    final product = await showDialog<Product>(
+      context: context,
+      builder: (_) => const QuickItemDialog(),
+    );
+    if (product != null && mounted) {
+      context.read<CartProvider>().addProduct(product);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
@@ -158,6 +169,11 @@ class _PosScreenState extends State<PosScreen> {
                     tooltip: 'Escanear código de barras',
                     onPressed: _scanBarcode,
                   ),
+                IconButton(
+                  icon: const Icon(Icons.flash_on),
+                  tooltip: 'Artículo rápido',
+                  onPressed: cashSession.isOpen ? _addQuickItem : null,
+                ),
               ],
             ),
           ),

@@ -25,6 +25,21 @@ class Product {
     required this.active,
   });
 
+  static const _quickItemIdPrefix = 'quick-';
+
+  /// Un ítem agregado a mano en Ventas (nombre y precio libres), sin pasar
+  /// por el inventario. No se guarda en la tabla "products".
+  factory Product.quickItem({required String name, required double price}) => Product(
+        id: '$_quickItemIdPrefix${DateTime.now().microsecondsSinceEpoch}',
+        name: name,
+        price: price,
+        stockQuantity: 0,
+        trackStock: false,
+        active: true,
+      );
+
+  bool get isQuickItem => id.startsWith(_quickItemIdPrefix);
+
   factory Product.fromMap(Map<String, dynamic> map) => Product(
         id: map['id'] as String,
         name: map['name'] as String,

@@ -88,7 +88,9 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 
 ## Qué incluye esta versión
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
-  impuestos, pago en efectivo, tarjeta u otro método.
+  impuestos, pago en efectivo, tarjeta u otro método, y "artículo rápido"
+  (agregar algo con nombre y precio libres sin que esté en tu inventario,
+  ej. algo pesado en el momento o un cargo especial).
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
@@ -106,6 +108,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   acumulados por compra (1 punto por cada unidad de moneda gastada).
 - **Empleados** (solo en el panel web): cualquiera crea su cuenta desde la
   app, pero no ve nada hasta que la apruebas desde Empleados.
+- **Inventario** (solo en el panel web): administra el catálogo de
+  productos COMPARTIDO entre TODAS las tiendas que usan POSible (no solo
+  la tuya) — buscar, agregar, editar y borrar cualquier producto. Solo
+  aparece si configuraste el catálogo compartido (ver más abajo).
+  ⚠️ Como ese proyecto de Supabase es público (sin cuentas de usuario),
+  cualquiera con la app puede editar o borrar productos que cargó otra
+  tienda distinta a la tuya — se eligió así a propósito para que sea fácil
+  de mantener entre todos, pero ten en cuenta esa contraparte.
 - **Configuración**: tasa de impuesto, modo oscuro, vista en lista, cerrar
   sesión.
 
@@ -140,6 +150,12 @@ implica crear un proyecto de Supabase aparte (público, no el de tu negocio):
 
 Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
 adicional (usa tu catálogo propio y Open Food Facts).
+
+## En camino (ya lo pediste, va después de esta versión)
+- Tickets abiertos: dejar una venta en pausa y atender a otro cliente
+- Acciones de ticket: anular, dividir el pago, mover a otra caja, asignar a un cliente
+- Login rápido con PIN para cambiar de cajero
+- Cierre de turno con detalle de tesorería (cobros, reembolsos, depositado, retiros)
 
 ## Próximas mejoras posibles (dime cuáles te sirven y las agregamos)
 - Impresión de recibo por Bluetooth (impresora térmica portátil)
