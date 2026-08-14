@@ -129,8 +129,10 @@ create table if not exists sale_items (
   product_name text not null,
   unit_price numeric(12,2) not null,
   quantity numeric(12,2) not null,
-  subtotal numeric(12,2) not null
+  subtotal numeric(12,2) not null,
+  modifiers_summary text
 );
+alter table sale_items add column if not exists modifiers_summary text;
 
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)

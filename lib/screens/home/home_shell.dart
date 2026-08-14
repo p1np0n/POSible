@@ -32,6 +32,10 @@ class _HomeShellState extends State<HomeShell> {
 
   // El APK (celular) se queda con lo esencial para atender en el mostrador.
   // El panel web además tiene la administración completa (back office).
+  //
+  // Solo se muestra _screens[_index] (no IndexedStack), así cada pantalla
+  // vuelve a cargar sus datos al seleccionarla — si agregas un producto en
+  // Artículos y vuelves a Ventas, ya lo ves sin tener que refrescar a mano.
   late final List<Widget> _screens = [
     const PosScreen(),
     const ReceiptsScreen(),
@@ -202,7 +206,7 @@ class _HomeShellState extends State<HomeShell> {
                     title: Text(_titles[_index]),
                     automaticallyImplyLeading: false,
                   ),
-                  Expanded(child: IndexedStack(index: _index, children: _screens)),
+                  Expanded(child: _screens[_index]),
                 ],
               ),
             ),
@@ -214,7 +218,7 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       appBar: AppBar(title: Text(_titles[_index])),
       drawer: Drawer(child: _buildNav(context, closeDrawer: true)),
-      body: IndexedStack(index: _index, children: _screens),
+      body: _screens[_index],
     );
   }
 }

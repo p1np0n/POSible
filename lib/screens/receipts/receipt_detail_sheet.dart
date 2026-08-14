@@ -65,7 +65,11 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
                 ..._items.map((item) => ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(item.productName),
-                      subtitle: Text('${item.quantity.toStringAsFixed(0)} x \$${item.unitPrice.toStringAsFixed(2)}'),
+                      subtitle: Text(
+                        item.modifiersSummary == null || item.modifiersSummary!.isEmpty
+                            ? '${item.quantity.toStringAsFixed(0)} x \$${item.unitPrice.toStringAsFixed(2)}'
+                            : '${item.quantity.toStringAsFixed(0)} x \$${item.unitPrice.toStringAsFixed(2)} · ${item.modifiersSummary}',
+                      ),
                       trailing: CurrencyText(item.subtotal, bold: true),
                     )),
               const Divider(),

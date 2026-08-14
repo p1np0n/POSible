@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
+import '../../models/modifier.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../services/category_repository.dart';
+import '../../services/modifier_repository.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'cart_sheet.dart';
 import 'cash_session_sheet.dart';
+import 'modifier_picker_sheet.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -23,10 +26,12 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final ModifierRepository _modifierRepository = ModifierRepository();
   final _searchController = TextEditingController();
 
   List<Product> _products = [];
   List<Category> _categories = [];
+  List<Modifier> _modifiers = [];
   String? _selectedCategoryId;
   String _search = '';
   bool _loading = true;
@@ -51,12 +56,29 @@ class _PosScreenState extends State<PosScreen> {
     final results = await Future.wait([
       _productRepository.getAll(),
       _categoryRepository.getAll(),
+      _modifierRepository.getAll(onlyActive: true),
     ]);
     setState(() {
       _products = results[0] as List<Product>;
       _categories = results[1] as List<Category>;
+      _modifiers = results[2] as List<Modifier>;
       _loading = false;
     });
+  }
+
+  Future<void> _addToCart(Product product) async {
+    if (_modifiers.isEmpty) {
+      context.read<CartProvider>().addProduct(product);
+      return;
+    }
+    final selected = await showModalBottomSheet<List<Modifier>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ModifierPickerSheet(product: product, modifiers: _modifiers),
+    );
+    if (selected != null && mounted) {
+      context.read<CartProvider>().addProduct(product, modifiers: selected);
+    }
   }
 
   List<Product> get _filteredProducts {
@@ -212,7 +234,7 @@ class _PosScreenState extends State<PosScreen> {
         return Card(
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: (outOfStock || !cashSession.isOpen) ? null : () => context.read<CartProvider>().addProduct(product),
+            onTap: (outOfStock || !cashSession.isOpen) ? null : () => _addToCart(product),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -274,7 +296,7 @@ class _PosScreenState extends State<PosScreen> {
                   : null,
           trailing: CurrencyText(product.price, bold: true),
           enabled: !outOfStock && cashSession.isOpen,
-          onTap: () => context.read<CartProvider>().addProduct(product),
+          onTap: () => _addToCart(product),
         );
       },
     );
