@@ -5,8 +5,6 @@ import '../../models/product.dart';
 import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
-import 'category_manager_dialog.dart';
-import 'discount_manager_dialog.dart';
 import 'product_form_screen.dart';
 
 class ProductListScreen extends StatefulWidget {
@@ -59,15 +57,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     if (changed == true) _loadData();
   }
 
-  Future<void> _openCategoryManager() async {
-    await showDialog(context: context, builder: (_) => const CategoryManagerDialog());
-    _loadData();
-  }
-
-  Future<void> _openDiscountManager() async {
-    await showDialog(context: context, builder: (_) => const DiscountManagerDialog());
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,30 +66,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        labelText: 'Buscar producto',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (value) => setState(() => _search = value),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.category),
-                    tooltip: 'Categorías',
-                    onPressed: _openCategoryManager,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.sell_outlined),
-                    tooltip: 'Descuentos',
-                    onPressed: _openDiscountManager,
-                  ),
-                ],
+              child: TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Buscar producto',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (value) => setState(() => _search = value),
               ),
             ),
             Expanded(
