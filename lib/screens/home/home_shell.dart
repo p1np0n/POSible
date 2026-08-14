@@ -7,6 +7,7 @@ import '../customers/customer_list_screen.dart';
 import '../employees/employees_screen.dart';
 import '../inventory/categories_screen.dart';
 import '../inventory/discounts_screen.dart';
+import '../inventory/inventory_screen.dart';
 import '../inventory/modifiers_screen.dart';
 import '../inventory/product_list_screen.dart';
 import '../pos/pos_screen.dart';
@@ -49,6 +50,7 @@ class _HomeShellState extends State<HomeShell> {
       const ModifiersScreen(),
       const DiscountsScreen(),
       const EmployeesScreen(),
+      const InventoryScreen(),
     ],
   ];
 
@@ -65,6 +67,7 @@ class _HomeShellState extends State<HomeShell> {
       'Modificadores',
       'Descuentos',
       'Empleados',
+      'Inventario',
     ],
   ];
 
@@ -79,6 +82,7 @@ class _HomeShellState extends State<HomeShell> {
   static const _modifiersIndex = 8;
   static const _discountsIndex = 9;
   static const _employeesIndex = 10;
+  static const _inventoryIndex = 11;
 
   void _selectIndex(int index, {required bool closeDrawer}) {
     if (closeDrawer) Navigator.of(context).maybePop();
@@ -154,6 +158,14 @@ class _HomeShellState extends State<HomeShell> {
                 onTap: () => _selectIndex(_discountsIndex, closeDrawer: closeDrawer),
               ),
             ],
+          ),
+        if (kIsWeb)
+          ListTile(
+            leading: const Icon(Icons.public),
+            title: const Text('Inventario'),
+            subtitle: const Text('Catálogo de todas las tiendas', style: TextStyle(fontSize: 11)),
+            selected: _index == _inventoryIndex,
+            onTap: () => _selectIndex(_inventoryIndex, closeDrawer: closeDrawer),
           ),
         ListTile(
           leading: const Icon(Icons.bar_chart),

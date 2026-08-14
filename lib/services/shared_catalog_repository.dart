@@ -49,4 +49,44 @@ class SharedCatalogRepository {
       // por conexión; no debe interrumpir el flujo de agregar el producto.
     }
   }
+
+  /// Lista/busca en el catálogo compartido de TODAS las tiendas que usan
+  /// POSible. Se usa desde el menú web "Inventario".
+  Future<List<CatalogEntry>> getAll({String? search}) async {
+    final client = _clientOrNull;
+    if (client == null) return [];
+    var query = client.from('shared_products').select();
+    if (search != null && search.trim().isNotEmpty) {
+      query = query.or('name.ilike.%$search%,barcode.ilike.%$search%,brand.ilike.%$search%');
+    }
+    final data = await query.order('name');
+    return (data as List).map((e) => CatalogEntry.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> create(CatalogEntry entry) async {
+    final client = _clientOrNull;
+    if (client == null) return;
+    await client.from('shared_products').insert({
+      'barcode': entry.barcode,
+      'name': entry.name,
+      'brand': entry.brand,
+      'image_url': entry.imageUrl,
+    });
+  }
+
+  Future<void> update(String barcode, CatalogEntry entry) async {
+    final client = _clientOrNull;
+    if (client == null) return;
+    await client.from('shared_products').update({
+      'name': entry.name,
+      'brand': entry.brand,
+      'image_url': entry.imageUrl,
+    }).eq('barcode', barcode);
+  }
+
+  Future<void> deleteByBarcode(String barcode) async {
+    final client = _clientOrNull;
+    if (client == null) return;
+    await client.from('shared_products').delete().eq('barcode', barcode);
+  }
 }

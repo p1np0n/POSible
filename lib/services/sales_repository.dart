@@ -36,7 +36,7 @@ class SalesRepository {
     final itemRows = items
         .map((item) => {
               'sale_id': saleId,
-              'product_id': item.product.id,
+              'product_id': item.product.isQuickItem ? null : item.product.id,
               'product_name': item.product.name,
               'unit_price': item.unitPrice,
               'quantity': item.quantity,
