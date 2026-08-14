@@ -42,12 +42,18 @@ con tus datos). Tú mismo creas tu usuario:
    si aparece (así no necesitas confirmar por correo).
 3. Con ese correo y contraseña vas a entrar a la app POSible.
 
-### Muy importante — seguridad
-Por defecto, Supabase permite que cualquiera con tu link de proyecto se
-registre como usuario nuevo. Para evitarlo:
+### Sobre el registro de empleados
+A partir de la versión con "Empleados", la app SÍ permite que cualquiera
+cree una cuenta desde la pantalla de inicio de sesión — pero esa cuenta
+nueva no puede ver ni tocar ningún dato hasta que tú la apruebes desde
+**Configuración → Empleados** dentro de la app. Por eso necesitas dejar
+estas dos opciones así en tu proyecto de Supabase:
 1. Ve a **Authentication** → **Sign In / Providers** → **Email**.
-2. Apaga la opción **"Allow new users to sign up"** (permitir registro).
-Así solo pueden entrar los usuarios que tú creas manualmente en el Paso 3.
+2. Activa **"Allow new users to sign up"** (permitir registro) — así tus
+   empleados pueden crear su cuenta ellos mismos.
+3. Apaga **"Confirm email"** (o "Enable email confirmations") — ya vimos
+   antes que el correo de confirmación no funciona bien para esta app, así
+   que mejor que no dependa de eso.
 También te recomiendo mantener este repositorio de GitHub como **Privado**
 (Settings → General → Danger Zone → Change visibility).
 
@@ -85,25 +91,49 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   impuestos, pago en efectivo, tarjeta u otro método.
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
+- **Turno**: cada empleado abre y cierra su propia caja; hay un historial
+  de turnos con quién lo hizo y cuánto se vendió en cada uno.
 - **Inventario (Artículos)**: productos, categorías, descuentos, control de
-  existencias (el stock baja solo con cada venta).
+  existencias (el stock baja solo con cada venta), foto por producto
+  (tomada con la cámara o elegida de la galería), y búsqueda automática por
+  código de barras (en tu catálogo, en el catálogo compartido de POSible, y
+  en Open Food Facts si no lo tienen los otros dos).
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
   acumulados por compra (1 punto por cada unidad de moneda gastada).
-- **Configuración**: tasa de impuesto y cierre de sesión.
+- **Empleados**: cualquiera crea su cuenta desde la app, pero no ve nada
+  hasta que la apruebas desde Configuración → Empleados.
+- **Configuración**: tasa de impuesto, modo oscuro, vista en lista, cerrar
+  sesión.
 - **Menú lateral** (como Loyverse) para navegar entre todas las secciones.
 - **Panel web**: la misma app corriendo en el navegador, publicada en
   GitHub Pages.
 
+## Catálogo compartido entre negocios (opcional)
+Además de tu catálogo propio (que ya funciona solo), POSible puede conectarse
+a un catálogo de productos COMPARTIDO entre todos los negocios que usan la
+app — para que si otra tienda ya cargó un producto, tú no tengas que
+buscarlo de nuevo, y viceversa. Es opcional y requiere un paso tuyo, porque
+implica crear un proyecto de Supabase aparte (público, no el de tu negocio):
+
+1. Crea un proyecto NUEVO en supabase.com (distinto al de tu negocio), por
+   ejemplo llamado "posible-catalogo-compartido".
+2. En su SQL Editor, corre TODO el contenido de
+   `sql/shared_catalog_schema.sql` de este repositorio.
+3. Copia el Project URL y la llave anon/publishable de ESE proyecto (nuevo)
+   y pégalas en `lib/config/shared_catalog_config.dart`, reemplazando los
+   textos `PON_AQUI_...`.
+4. Sube el cambio (commit) para que se recompile la app.
+
+Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
+adicional (usa tu catálogo propio y Open Food Facts).
+
 ## Próximas mejoras posibles (dime cuáles te sirven y las agregamos)
 - Modificadores de productos (personalizar una venta, ej. tamaño/extras)
-- Escanear código de barras con la cámara
-- Modo oscuro
-- Vista en lista de productos (además de la cuadrícula)
 - Impresión de recibo por Bluetooth (impresora térmica portátil)
 - Pantalla secundaria para clientes
-- Múltiples usuarios/empleados con permisos distintos
+- Permisos distintos por empleado (ej. que un cajero no vea Reportes)
 - Múltiples sucursales
 - Canje de puntos de lealtad (no solo acumularlos)
 - Gráficos en los reportes

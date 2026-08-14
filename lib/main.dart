@@ -3,11 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
+import 'models/employee_profile.dart';
 import 'providers/app_preferences_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/cash_session_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/pending_approval_screen.dart';
 import 'screens/home/home_shell.dart';
+import 'services/profile_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,11 +64,18 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   late final Stream<AuthState> _authStateStream;
+  Future<EmployeeProfile?>? _profileFuture;
+  String? _profileForUserId;
 
   @override
   void initState() {
     super.initState();
     _authStateStream = Supabase.instance.client.auth.onAuthStateChange;
+  }
+
+  void _loadProfile(String userId) {
+    _profileForUserId = userId;
+    _profileFuture = ProfileRepository().getMyProfile();
   }
 
   @override
@@ -74,10 +84,31 @@ class _AuthGateState extends State<AuthGate> {
       stream: _authStateStream,
       builder: (context, snapshot) {
         final session = Supabase.instance.client.auth.currentSession;
-        if (session != null) {
-          return const HomeShell();
+        if (session == null) {
+          _profileFuture = null;
+          _profileForUserId = null;
+          return const LoginScreen();
         }
-        return const LoginScreen();
+
+        if (_profileForUserId != session.user.id) {
+          _loadProfile(session.user.id);
+        }
+
+        return FutureBuilder<EmployeeProfile?>(
+          future: _profileFuture,
+          builder: (context, profileSnapshot) {
+            if (profileSnapshot.connectionState != ConnectionState.done) {
+              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            }
+            final profile = profileSnapshot.data;
+            if (profile != null && profile.approved) {
+              return const HomeShell();
+            }
+            return PendingApprovalScreen(
+              onRetry: () => setState(() => _loadProfile(session.user.id)),
+            );
+          },
+        );
       },
     );
   }

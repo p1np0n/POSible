@@ -35,27 +35,15 @@ create table if not exists product_catalog (
   name text not null,
   brand text,
   image_url text,
-  source text not null default 'manual' check (source in ('manual', 'openfoodfacts')),
+  source text not null default 'manual' check (source in ('manual', 'openfoodfacts', 'shared')),
   updated_at timestamptz not null default now()
 );
 
 -- Bucket de Storage para las fotos de productos (público para poder mostrarlas
--- en la app sin complicaciones; solo usuarios logueados pueden subir).
+-- en la app sin complicaciones; solo usuarios aprobados pueden subir).
 insert into storage.buckets (id, name, public)
 values ('product-photos', 'product-photos', true)
 on conflict (id) do nothing;
-
-drop policy if exists "product photos public read" on storage.objects;
-create policy "product photos public read" on storage.objects
-  for select using (bucket_id = 'product-photos');
-
-drop policy if exists "product photos auth upload" on storage.objects;
-create policy "product photos auth upload" on storage.objects
-  for insert with check (bucket_id = 'product-photos' and auth.role() = 'authenticated');
-
-drop policy if exists "product photos auth update" on storage.objects;
-create policy "product photos auth update" on storage.objects
-  for update using (bucket_id = 'product-photos' and auth.role() = 'authenticated');
 
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
@@ -75,8 +63,10 @@ create table if not exists cash_sessions (
   closing_amount numeric(12,2),
   status text not null default 'open' check (status in ('open', 'closed')),
   notes text,
-  user_id uuid references auth.users(id)
+  user_id uuid references auth.users(id),
+  user_email text
 );
+alter table cash_sessions add column if not exists user_email text;
 
 create table if not exists discounts (
   id uuid primary key default gen_random_uuid(),
@@ -152,9 +142,73 @@ as $$
   where id = p_id;
 $$;
 
--- Seguridad: solo usuarios que iniciaron sesión (los que tú creas) pueden
--- leer/escribir datos. Ver LEEME.md: además debes desactivar el registro
--- público de cuentas nuevas en Supabase para que nadie más pueda entrar.
+-- ============================================================
+-- Empleados: cualquiera puede crear una cuenta desde la app, pero
+-- no puede ver ni tocar ningún dato hasta que un usuario ya
+-- aprobado lo apruebe desde la pantalla "Empleados".
+-- ============================================================
+
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  approved boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- Los usuarios que ya existían antes de este cambio (los que tú creaste a
+-- mano en Supabase) quedan aprobados automáticamente.
+insert into profiles (id, email, approved)
+select id, email, true from auth.users
+on conflict (id) do nothing;
+
+-- Cuando alguien crea una cuenta nueva desde la app, se le crea un perfil
+-- SIN aprobar. Corre con privilegios elevados (security definer) porque el
+-- usuario recién creado todavía no tiene permiso para escribir en "profiles".
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, approved)
+  values (new.id, new.email, false)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Función que usan las demás tablas para saber si el usuario actual ya fue
+-- aprobado. security definer para poder leer "profiles" sin depender de sus
+-- propias políticas (evita recursión).
+create or replace function public.is_approved()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles where id = auth.uid() and approved = true
+  );
+$$;
+
+alter table profiles enable row level security;
+drop policy if exists "ver mi perfil o si estoy aprobado" on profiles;
+create policy "ver mi perfil o si estoy aprobado" on profiles
+  for select using (id = auth.uid() or public.is_approved());
+drop policy if exists "aprobados pueden aprobar" on profiles;
+create policy "aprobados pueden aprobar" on profiles
+  for update using (public.is_approved()) with check (public.is_approved());
+drop policy if exists "aprobados pueden quitar empleados" on profiles;
+create policy "aprobados pueden quitar empleados" on profiles
+  for delete using (public.is_approved());
+
+-- Seguridad: solo usuarios aprobados pueden leer/escribir datos del negocio.
 alter table categories enable row level security;
 alter table products enable row level security;
 alter table customers enable row level security;
@@ -174,13 +228,36 @@ drop policy if exists "auth full access" on sale_items;
 drop policy if exists "auth full access" on discounts;
 drop policy if exists "auth full access" on store_settings;
 drop policy if exists "auth full access" on product_catalog;
+drop policy if exists "solo aprobados" on categories;
+drop policy if exists "solo aprobados" on products;
+drop policy if exists "solo aprobados" on customers;
+drop policy if exists "solo aprobados" on cash_sessions;
+drop policy if exists "solo aprobados" on sales;
+drop policy if exists "solo aprobados" on sale_items;
+drop policy if exists "solo aprobados" on discounts;
+drop policy if exists "solo aprobados" on store_settings;
+drop policy if exists "solo aprobados" on product_catalog;
 
-create policy "auth full access" on categories for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on products for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on customers for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on cash_sessions for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on sales for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on sale_items for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on discounts for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on store_settings for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "auth full access" on product_catalog for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "solo aprobados" on categories for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on products for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on customers for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on cash_sessions for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on sales for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on sale_items for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on discounts for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on store_settings for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on product_catalog for all using (public.is_approved()) with check (public.is_approved());
+
+drop policy if exists "product photos public read" on storage.objects;
+create policy "product photos public read" on storage.objects
+  for select using (bucket_id = 'product-photos');
+
+drop policy if exists "product photos auth upload" on storage.objects;
+drop policy if exists "product photos aprobados upload" on storage.objects;
+create policy "product photos aprobados upload" on storage.objects
+  for insert with check (bucket_id = 'product-photos' and public.is_approved());
+
+drop policy if exists "product photos auth update" on storage.objects;
+drop policy if exists "product photos aprobados update" on storage.objects;
+create policy "product photos aprobados update" on storage.objects
+  for update using (bucket_id = 'product-photos' and public.is_approved());
