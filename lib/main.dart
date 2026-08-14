@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
+import 'providers/app_preferences_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/cash_session_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -26,15 +27,26 @@ class PosibleApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CashSessionProvider()),
+        ChangeNotifierProvider(create: (_) => AppPreferencesProvider()..load()),
       ],
-      child: MaterialApp(
-        title: 'POSible',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorSchemeSeed: Colors.indigo,
-          useMaterial3: true,
-        ),
-        home: const AuthGate(),
+      child: Consumer<AppPreferencesProvider>(
+        builder: (context, prefs, _) {
+          return MaterialApp(
+            title: 'POSible',
+            debugShowCheckedModeBanner: false,
+            themeMode: prefs.darkMode ? ThemeMode.dark : ThemeMode.light,
+            theme: ThemeData(
+              colorSchemeSeed: Colors.indigo,
+              useMaterial3: true,
+            ),
+            darkTheme: ThemeData(
+              colorSchemeSeed: Colors.indigo,
+              brightness: Brightness.dark,
+              useMaterial3: true,
+            ),
+            home: const AuthGate(),
+          );
+        },
       ),
     );
   }

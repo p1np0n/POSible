@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
 import '../../models/product.dart';
+import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
+import '../scan/barcode_scanner_screen.dart';
 import 'cart_sheet.dart';
 import 'cash_session_sheet.dart';
 
@@ -21,6 +23,7 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final _searchController = TextEditingController();
 
   List<Product> _products = [];
   List<Category> _categories = [];
@@ -35,6 +38,12 @@ class _PosScreenState extends State<PosScreen> {
       context.read<CashSessionProvider>().refresh();
     });
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -53,7 +62,11 @@ class _PosScreenState extends State<PosScreen> {
   List<Product> get _filteredProducts {
     return _products.where((product) {
       final matchesCategory = _selectedCategoryId == null || product.categoryId == _selectedCategoryId;
-      final matchesSearch = _search.isEmpty || product.name.toLowerCase().contains(_search.toLowerCase());
+      final search = _search.toLowerCase();
+      final matchesSearch = _search.isEmpty ||
+          product.name.toLowerCase().contains(search) ||
+          (product.barcode?.toLowerCase().contains(search) ?? false) ||
+          (product.sku?.toLowerCase().contains(search) ?? false);
       return matchesCategory && matchesSearch;
     }).toList();
   }
@@ -74,10 +87,21 @@ class _PosScreenState extends State<PosScreen> {
     ).then((_) => _loadData());
   }
 
+  Future<void> _scanBarcode() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (code != null && mounted) {
+      _searchController.text = code;
+      setState(() => _search = code);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
     final cart = context.watch<CartProvider>();
+    final prefs = context.watch<AppPreferencesProvider>();
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -92,14 +116,27 @@ class _PosScreenState extends State<PosScreen> {
             ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar producto',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onChanged: (value) => setState(() => _search = value),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar producto o código',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (value) => setState(() => _search = value),
+                  ),
+                ),
+                if (prefs.cameraScanEnabled)
+                  IconButton(
+                    icon: const Icon(Icons.qr_code_scanner),
+                    tooltip: 'Escanear código de barras',
+                    onPressed: _scanBarcode,
+                  ),
+              ],
             ),
           ),
           SizedBox(
@@ -133,55 +170,9 @@ class _PosScreenState extends State<PosScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredProducts.isEmpty
                     ? const Center(child: Text('No hay productos'))
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 1.4,
-                        ),
-                        itemCount: _filteredProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = _filteredProducts[index];
-                          final outOfStock = product.trackStock && product.stockQuantity <= 0;
-                          return Card(
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              onTap: (outOfStock || !cashSession.isOpen)
-                                  ? null
-                                  : () => context.read<CartProvider>().addProduct(product),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        CurrencyText(product.price),
-                                        if (outOfStock)
-                                          const Text('Agotado',
-                                              style: TextStyle(color: Colors.red, fontSize: 12))
-                                        else if (product.trackStock)
-                                          Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}',
-                                              style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                    : prefs.useListLayout
+                        ? _buildList(cashSession)
+                        : _buildGrid(cashSession),
           ),
           if (cart.items.isNotEmpty)
             Material(
@@ -202,6 +193,76 @@ class _PosScreenState extends State<PosScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildGrid(CashSessionProvider cashSession) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.4,
+      ),
+      itemCount: _filteredProducts.length,
+      itemBuilder: (context, index) {
+        final product = _filteredProducts[index];
+        final outOfStock = product.trackStock && product.stockQuantity <= 0;
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: (outOfStock || !cashSession.isOpen) ? null : () => context.read<CartProvider>().addProduct(product),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CurrencyText(product.price),
+                      if (outOfStock)
+                        const Text('Agotado', style: TextStyle(color: Colors.red, fontSize: 12))
+                      else if (product.trackStock)
+                        Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildList(CashSessionProvider cashSession) {
+    return ListView.builder(
+      itemCount: _filteredProducts.length,
+      itemBuilder: (context, index) {
+        final product = _filteredProducts[index];
+        final outOfStock = product.trackStock && product.stockQuantity <= 0;
+        return ListTile(
+          title: Text(product.name),
+          subtitle: outOfStock
+              ? const Text('Agotado', style: TextStyle(color: Colors.red))
+              : product.trackStock
+                  ? Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}')
+                  : null,
+          trailing: CurrencyText(product.price, bold: true),
+          enabled: !outOfStock && cashSession.isOpen,
+          onTap: () => context.read<CartProvider>().addProduct(product),
+        );
+      },
     );
   }
 }
