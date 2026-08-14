@@ -219,11 +219,21 @@ class _PosScreenState extends State<PosScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      if (product.imageUrl != null) ...[
+                        CircleAvatar(radius: 14, backgroundImage: NetworkImage(product.imageUrl!)),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Text(
+                          product.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -252,6 +262,10 @@ class _PosScreenState extends State<PosScreen> {
         final product = _filteredProducts[index];
         final outOfStock = product.trackStock && product.stockQuantity <= 0;
         return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: product.imageUrl != null ? NetworkImage(product.imageUrl!) : null,
+            child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
+          ),
           title: Text(product.name),
           subtitle: outOfStock
               ? const Text('Agotado', style: TextStyle(color: Colors.red))

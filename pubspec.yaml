@@ -14,6 +14,8 @@ dependencies:
   cupertino_icons: ^1.0.6
   shared_preferences: ^2.3.2
   mobile_scanner: ^5.2.3
+  http: ^1.2.2
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
