@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/cash_session.dart';
+import '../../models/sale.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../services/cash_session_repository.dart';
 import '../../services/receipts_repository.dart';
@@ -36,7 +37,7 @@ class _TurnoScreenState extends State<TurnoScreen> {
       _receiptsRepository.getRecent(),
     ]);
     final history = results[0] as List<CashSession>;
-    final sales = results[1];
+    final sales = results[1] as List<Sale>;
     final totals = <String, double>{};
     for (final sale in sales) {
       final id = sale.cashSessionId;
