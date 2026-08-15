@@ -18,6 +18,7 @@ import '../../services/modifier_repository.dart';
 import '../../services/open_ticket_repository.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
+import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'cart_sheet.dart';
 import 'cash_session_sheet.dart';
@@ -134,6 +135,13 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
+  Future<void> _addProduct() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ProductFormScreen(categories: _categories)),
+    );
+    if (changed == true) _loadData();
+  }
+
   Future<void> _addQuickItem() async {
     final product = await showDialog<Product>(
       context: context,
@@ -247,6 +255,11 @@ class _PosScreenState extends State<PosScreen> {
                     ),
                     onChanged: (value) => setState(() => _search = value),
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_box_outlined),
+                  tooltip: 'Agregar producto',
+                  onPressed: _addProduct,
                 ),
                 if (prefs.cameraScanEnabled)
                   IconButton(
