@@ -7,6 +7,7 @@ import 'models/employee_profile.dart';
 import 'providers/app_preferences_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/cash_session_provider.dart';
+import 'screens/auth/lock_gate.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/pending_approval_screen.dart';
 import 'screens/auth/pin_login_screen.dart';
@@ -104,7 +105,7 @@ class _AuthGateState extends State<AuthGate> {
             }
             final profile = profileSnapshot.data;
             if (profile != null && profile.approved) {
-              return const HomeShell();
+              return const LockGate(child: HomeShell());
             }
             return PendingApprovalScreen(
               onRetry: () => setState(() => _loadProfile(session.user.id)),
