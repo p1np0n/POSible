@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/cart_item.dart';
 import '../../models/category.dart';
+import '../../models/customer.dart';
+import '../../models/discount.dart';
 import '../../models/modifier.dart';
+import '../../models/open_ticket.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../services/category_repository.dart';
+import '../../services/customer_repository.dart';
+import '../../services/discount_repository.dart';
 import '../../services/modifier_repository.dart';
+import '../../services/open_ticket_repository.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'cart_sheet.dart';
 import 'cash_session_sheet.dart';
 import 'modifier_picker_sheet.dart';
+import 'open_tickets_sheet.dart';
 import 'quick_item_dialog.dart';
 
 class PosScreen extends StatefulWidget {
@@ -28,6 +36,7 @@ class _PosScreenState extends State<PosScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final ModifierRepository _modifierRepository = ModifierRepository();
+  final OpenTicketRepository _openTicketRepository = OpenTicketRepository();
   final _searchController = TextEditingController();
 
   List<Product> _products = [];
@@ -36,12 +45,14 @@ class _PosScreenState extends State<PosScreen> {
   String? _selectedCategoryId;
   String _search = '';
   bool _loading = true;
+  int _openTicketCount = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CashSessionProvider>().refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<CashSessionProvider>().refresh();
+      _refreshOpenTicketCount();
     });
     _loadData();
   }
@@ -107,7 +118,10 @@ class _PosScreenState extends State<PosScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => const CartSheet(),
-    ).then((_) => _loadData());
+    ).then((_) {
+      _loadData();
+      _refreshOpenTicketCount();
+    });
   }
 
   Future<void> _scanBarcode() async {
@@ -128,6 +142,77 @@ class _PosScreenState extends State<PosScreen> {
     if (product != null && mounted) {
       context.read<CartProvider>().addProduct(product);
     }
+  }
+
+  Future<void> _refreshOpenTicketCount() async {
+    final session = context.read<CashSessionProvider>().current;
+    if (session == null) {
+      if (mounted) setState(() => _openTicketCount = 0);
+      return;
+    }
+    final tickets = await _openTicketRepository.getForSession(session.id);
+    if (mounted) setState(() => _openTicketCount = tickets.length);
+  }
+
+  Future<void> _openTicketsList() async {
+    final session = context.read<CashSessionProvider>().current;
+    if (session == null) return;
+    final ticket = await showModalBottomSheet<OpenTicket>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => OpenTicketsSheet(cashSessionId: session.id),
+    );
+    if (ticket != null && mounted) {
+      await _resumeTicket(ticket);
+    }
+    _refreshOpenTicketCount();
+  }
+
+  Future<void> _resumeTicket(OpenTicket ticket) async {
+    final cart = context.read<CartProvider>();
+    if (cart.items.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vacía o cobra el carrito actual antes de retomar un ticket')),
+      );
+      return;
+    }
+
+    final items = ticket.items.map((entry) {
+      Product? found;
+      if (entry.productId != null) {
+        for (final p in _products) {
+          if (p.id == entry.productId) {
+            found = p;
+            break;
+          }
+        }
+      }
+      final product = found ?? Product.quickItem(name: entry.productName, price: entry.unitPrice);
+      final modifiers = _modifiers.where((m) => entry.modifierIds.contains(m.id)).toList();
+      return CartItem(product: product, quantity: entry.quantity, modifiers: modifiers);
+    }).toList();
+
+    cart.loadItems(items);
+    await _openTicketRepository.delete(ticket.id);
+
+    Customer? customer;
+    if (ticket.customerId != null) {
+      customer = await CustomerRepository().getById(ticket.customerId!);
+    }
+    Discount? discount;
+    if (ticket.discountId != null) {
+      discount = await DiscountRepository().getById(ticket.discountId!);
+    }
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CartSheet(initialCustomer: customer, initialDiscount: discount),
+    ).then((_) {
+      _loadData();
+      _refreshOpenTicketCount();
+    });
   }
 
   @override
@@ -173,6 +258,15 @@ class _PosScreenState extends State<PosScreen> {
                   icon: const Icon(Icons.flash_on),
                   tooltip: 'Artículo rápido',
                   onPressed: cashSession.isOpen ? _addQuickItem : null,
+                ),
+                Badge(
+                  label: Text('$_openTicketCount'),
+                  isLabelVisible: _openTicketCount > 0,
+                  child: IconButton(
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    tooltip: 'Tickets en espera',
+                    onPressed: cashSession.isOpen ? _openTicketsList : null,
+                  ),
                 ),
               ],
             ),

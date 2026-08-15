@@ -14,6 +14,11 @@ class CustomerRepository {
     return (data as List).map((e) => Customer.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  Future<Customer?> getById(String id) async {
+    final data = await _client.from('customers').select().eq('id', id).maybeSingle();
+    return data == null ? null : Customer.fromMap(data);
+  }
+
   Future<Customer> create(Customer customer) async {
     final data = await _client.from('customers').insert(customer.toMap()).select().single();
     return Customer.fromMap(data);
