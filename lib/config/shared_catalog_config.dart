@@ -7,8 +7,8 @@
 // 2. Corre ahí el script sql/shared_catalog_schema.sql (ver ese archivo).
 // 3. Pega abajo el Project URL y la llave anon/publishable de ESE proyecto.
 class SharedCatalogConfig {
-  static const String supabaseUrl = 'PON_AQUI_LA_URL_DEL_CATALOGO_COMPARTIDO';
-  static const String supabaseAnonKey = 'PON_AQUI_LA_LLAVE_DEL_CATALOGO_COMPARTIDO';
+  static const String supabaseUrl = 'https://vurlpvyfgxcagziuyhcp.supabase.co/rest/v1/';
+  static const String supabaseAnonKey = 'sb_publishable_deNzblZVuORMDABNo7WtjQ_HFXiluv3';
 
   static bool get isConfigured =>
       supabaseUrl != 'PON_AQUI_LA_URL_DEL_CATALOGO_COMPARTIDO' &&
