@@ -66,14 +66,26 @@ class _ProductListScreenState extends State<ProductListScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Buscar producto',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onChanged: (value) => setState(() => _search = value),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Buscar producto',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (value) => setState(() => _search = value),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () => _openForm(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Nuevo'),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -103,10 +115,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
       ),
     );
   }

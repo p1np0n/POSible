@@ -12,12 +12,9 @@ class DiscountsScreen extends StatefulWidget {
 
 class _DiscountsScreenState extends State<DiscountsScreen> {
   final DiscountRepository _repository = DiscountRepository();
-  final _nameController = TextEditingController();
-  final _valueController = TextEditingController();
-  String _type = 'percentage';
   List<Discount> _discounts = [];
   bool _loading = true;
-  bool _saving = false;
+  String _search = '';
 
   @override
   void initState() {
@@ -34,15 +31,17 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
     });
   }
 
+  List<Discount> get _filtered => _discounts
+      .where((d) => _search.isEmpty || d.name.toLowerCase().contains(_search.toLowerCase()))
+      .toList();
+
   Future<void> _add() async {
-    final name = _nameController.text.trim();
-    final value = double.tryParse(_valueController.text);
-    if (name.isEmpty || value == null) return;
-    setState(() => _saving = true);
-    await _repository.create(Discount(id: '', name: name, type: _type, value: value, active: true));
-    _nameController.clear();
-    _valueController.clear();
-    setState(() => _saving = false);
+    final result = await showDialog<Discount>(
+      context: context,
+      builder: (_) => const _DiscountDialog(),
+    );
+    if (result == null) return;
+    await _repository.create(result);
     _load();
   }
 
@@ -60,24 +59,107 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
   }
 
   @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar descuento',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (value) => setState(() => _search = value),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _add,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nuevo'),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _filtered.isEmpty
+                    ? const Center(child: Text('No hay descuentos todavía'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final discount = _filtered[index];
+                          final valueLabel = discount.isPercentage
+                              ? '${discount.value.toStringAsFixed(0)}%'
+                              : '\$${discount.value.toStringAsFixed(2)}';
+                          return Card(
+                            child: ListTile(
+                              title: Text(discount.name),
+                              subtitle: Text(valueLabel),
+                              leading: Switch(value: discount.active, onChanged: (_) => _toggleActive(discount)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _delete(discount),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscountDialog extends StatefulWidget {
+  const _DiscountDialog();
+
+  @override
+  State<_DiscountDialog> createState() => _DiscountDialogState();
+}
+
+class _DiscountDialogState extends State<_DiscountDialog> {
+  final _nameController = TextEditingController();
+  final _valueController = TextEditingController();
+  String _type = 'percentage';
+
+  @override
   void dispose() {
     _nameController.dispose();
     _valueController.dispose();
     super.dispose();
   }
 
+  void _confirm() {
+    final name = _nameController.text.trim();
+    final value = double.tryParse(_valueController.text);
+    if (name.isEmpty || value == null) return;
+    Navigator.of(context).pop(Discount(id: '', name: name, type: _type, value: value, active: true));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+    return AlertDialog(
+      title: const Text('Nuevo descuento'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _nameController,
+            autofocus: true,
             decoration: const InputDecoration(labelText: 'Nombre (ej. Promo verano)', border: OutlineInputBorder()),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -102,38 +184,14 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                icon: _saving
-                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.add),
-                onPressed: _saving ? null : _add,
-              ),
             ],
           ),
-          const SizedBox(height: 16),
-          if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-          else if (_discounts.isEmpty)
-            const Text('No hay descuentos todavía')
-          else
-            ..._discounts.map((discount) {
-              final valueLabel =
-                  discount.isPercentage ? '${discount.value.toStringAsFixed(0)}%' : '\$${discount.value.toStringAsFixed(2)}';
-              return Card(
-                child: ListTile(
-                  title: Text(discount.name),
-                  subtitle: Text(valueLabel),
-                  leading: Switch(value: discount.active, onChanged: (_) => _toggleActive(discount)),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _delete(discount),
-                  ),
-                ),
-              );
-            }),
         ],
       ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+        FilledButton(onPressed: _confirm, child: const Text('Agregar')),
+      ],
     );
   }
 }

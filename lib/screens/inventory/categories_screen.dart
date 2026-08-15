@@ -12,9 +12,9 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   final CategoryRepository _repository = CategoryRepository();
-  final _newCategoryController = TextEditingController();
   List<Category> _categories = [];
   bool _loading = true;
+  String _search = '';
 
   @override
   void initState() {
@@ -31,11 +31,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     });
   }
 
+  List<Category> get _filtered => _categories
+      .where((c) => _search.isEmpty || c.name.toLowerCase().contains(_search.toLowerCase()))
+      .toList();
+
   Future<void> _add() async {
-    final name = _newCategoryController.text.trim();
-    if (name.isEmpty) return;
-    _newCategoryController.clear();
-    await _repository.create(name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _CategoryNameDialog(),
+    );
+    if (name == null || name.trim().isEmpty) return;
+    await _repository.create(name.trim());
     _load();
   }
 
@@ -45,48 +51,93 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar categoría',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (value) => setState(() => _search = value),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _add,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nuevo'),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _filtered.isEmpty
+                    ? const Center(child: Text('No hay categorías todavía'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final category = _filtered[index];
+                          return Card(
+                            child: ListTile(
+                              title: Text(category.name),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _delete(category),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryNameDialog extends StatefulWidget {
+  const _CategoryNameDialog();
+
+  @override
+  State<_CategoryNameDialog> createState() => _CategoryNameDialogState();
+}
+
+class _CategoryNameDialogState extends State<_CategoryNameDialog> {
+  final _controller = TextEditingController();
+
+  @override
   void dispose() {
-    _newCategoryController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _newCategoryController,
-                  decoration: const InputDecoration(labelText: 'Nueva categoría', border: OutlineInputBorder()),
-                  onSubmitted: (_) => _add(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(icon: const Icon(Icons.add), onPressed: _add),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-          else if (_categories.isEmpty)
-            const Text('No hay categorías todavía')
-          else
-            ..._categories.map((category) => Card(
-                  child: ListTile(
-                    title: Text(category.name),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _delete(category),
-                    ),
-                  ),
-                )),
-        ],
+    return AlertDialog(
+      title: const Text('Nueva categoría'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+        onSubmitted: (value) => Navigator.of(context).pop(value),
       ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+        FilledButton(onPressed: () => Navigator.of(context).pop(_controller.text), child: const Text('Agregar')),
+      ],
     );
   }
 }
