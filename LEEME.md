@@ -116,7 +116,13 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
   de turnos con quién lo hizo y cuánto se vendió en cada uno. Cambiar de
-  cajero es rápido gracias al login con PIN (ver más arriba).
+  cajero es rápido gracias al login con PIN (ver más arriba). Con "Ver
+  detalle de caja" (turno abierto) o tocando un turno del historial, ves
+  el desglose completo de tesorería: fondo de caja anterior, cobros en
+  efectivo, depositado, pagos/salidas y el efectivo teórico que debería
+  haber en la caja, más el resumen de ventas por método de pago. Desde ahí
+  también puedes registrar un depósito o un retiro de efectivo durante el
+  turno (ej. sacar dinero para un pago).
 - **Artículos** (solo en el panel web — ver más abajo): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
@@ -173,8 +179,14 @@ implica crear un proyecto de Supabase aparte (público, no el de tu negocio):
 Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
 adicional (usa tu catálogo propio y Open Food Facts).
 
-## En camino (ya lo pediste, va después de esta versión)
-- Cierre de turno con detalle de tesorería (cobros, reembolsos, depositado, retiros)
+## Detalles y limitaciones conocidas
+
+### Sobre "reembolsos" en el detalle de caja
+El desglose de tesorería incluye una línea de "Reembolsos" (como en
+Loyverse) pero siempre muestra $0, porque POSible todavía no tiene función
+para devolver o anular una venta ya cobrada — solo puedes anular el
+carrito ANTES de cobrar. Está en la lista de "Próximas mejoras" si la
+necesitas.
 
 ### Sobre "Acciones de ticket"
 De las 4 que pediste (anular, dividir el pago, mover a otra caja, asignar
@@ -188,6 +200,7 @@ Loyverse). Para agregarla de verdad, antes habría que construir "Múltiples
 sucursales/cajas" (ver más abajo) — dime si quieres que prioricemos eso.
 
 ## Próximas mejoras posibles (dime cuáles te sirven y las agregamos)
+- Reembolsar o anular una venta ya cobrada
 - Impresión de recibo por Bluetooth (impresora térmica portátil)
 - Pantalla secundaria para clientes
 - Permisos distintos por empleado (ej. que un cajero no vea Reportes)

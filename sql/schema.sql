@@ -68,6 +68,20 @@ create table if not exists cash_sessions (
 );
 alter table cash_sessions add column if not exists user_email text;
 
+-- Movimientos manuales de efectivo durante un turno (ej. depositar un
+-- fondo extra en la caja, o sacar dinero para un pago/salida), para poder
+-- calcular el "efectivo teórico en caja" al cerrar el turno.
+create table if not exists cash_movements (
+  id uuid primary key default gen_random_uuid(),
+  cash_session_id uuid not null references cash_sessions(id) on delete cascade,
+  type text not null check (type in ('deposit', 'withdrawal')),
+  amount numeric(12,2) not null,
+  note text,
+  created_at timestamptz not null default now(),
+  user_id uuid references auth.users(id),
+  user_email text
+);
+
 create table if not exists discounts (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -262,6 +276,7 @@ alter table modifiers enable row level security;
 alter table store_settings enable row level security;
 alter table product_catalog enable row level security;
 alter table open_tickets enable row level security;
+alter table cash_movements enable row level security;
 
 drop policy if exists "auth full access" on categories;
 drop policy if exists "auth full access" on products;
@@ -283,6 +298,7 @@ drop policy if exists "solo aprobados" on modifiers;
 drop policy if exists "solo aprobados" on store_settings;
 drop policy if exists "solo aprobados" on product_catalog;
 drop policy if exists "solo aprobados" on open_tickets;
+drop policy if exists "solo aprobados" on cash_movements;
 
 create policy "solo aprobados" on categories for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on products for all using (public.is_approved()) with check (public.is_approved());
@@ -295,6 +311,7 @@ create policy "solo aprobados" on modifiers for all using (public.is_approved())
 create policy "solo aprobados" on store_settings for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on product_catalog for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on open_tickets for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on cash_movements for all using (public.is_approved()) with check (public.is_approved());
 
 drop policy if exists "product photos public read" on storage.objects;
 create policy "product photos public read" on storage.objects
