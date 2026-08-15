@@ -57,6 +57,21 @@ estas dos opciones así en tu proyecto de Supabase:
 También te recomiendo mantener este repositorio de GitHub como **Privado**
 (Settings → General → Danger Zone → Change visibility).
 
+### Login rápido con PIN (cambio de cajero)
+La primera vez que un correo inicia sesión en un celular/computador, la app
+recuerda ESE correo en ESE dispositivo (nunca la contraseña). La próxima
+vez que alguien cierre sesión ahí (Configuración → "Cerrar sesión / Cambiar
+de cajero"), en vez del formulario de correo y contraseña aparece una
+lista de "¿quién eres?" — tocas tu nombre y escribes tu PIN en un teclado
+numérico, más rápido que escribir todo de nuevo.
+
+Por dentro, el PIN sigue siendo tu contraseña normal de Supabase — para
+que funcione bien, cuando crees tu contraseña (Paso 3, o cuando un
+empleado se registra) **usa 6 dígitos numéricos** (ej. `481920`) en vez de
+una contraseña con letras. Si alguien usa una contraseña con letras, no
+pasa nada grave: solo no le va a servir el teclado numérico, y puede
+tocar "Usar otra cuenta" para entrar con el formulario normal.
+
 ## Paso 4: Ver cómo compila sola la app
 
 1. Arriba en el repo, click en la pestaña **Actions**.
@@ -100,7 +115,8 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
-  de turnos con quién lo hizo y cuánto se vendió en cada uno.
+  de turnos con quién lo hizo y cuánto se vendió en cada uno. Cambiar de
+  cajero es rápido gracias al login con PIN (ver más arriba).
 - **Artículos** (solo en el panel web — ver más abajo): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
@@ -158,7 +174,6 @@ Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
 adicional (usa tu catálogo propio y Open Food Facts).
 
 ## En camino (ya lo pediste, va después de esta versión)
-- Login rápido con PIN para cambiar de cajero
 - Cierre de turno con detalle de tesorería (cobros, reembolsos, depositado, retiros)
 
 ### Sobre "Acciones de ticket"

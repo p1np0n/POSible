@@ -9,6 +9,7 @@ import 'providers/cart_provider.dart';
 import 'providers/cash_session_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/pending_approval_screen.dart';
+import 'screens/auth/pin_login_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/profile_repository.dart';
 
@@ -87,7 +88,8 @@ class _AuthGateState extends State<AuthGate> {
         if (session == null) {
           _profileFuture = null;
           _profileForUserId = null;
-          return const LoginScreen();
+          final knownEmails = context.watch<AppPreferencesProvider>().knownEmails;
+          return knownEmails.isEmpty ? const LoginScreen() : const PinLoginScreen();
         }
 
         if (_profileForUserId != session.user.id) {

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../providers/app_preferences_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,14 +29,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       final auth = Supabase.instance.client.auth;
+      final email = _emailController.text.trim();
       if (_isSignUp) {
-        await auth.signUp(email: _emailController.text.trim(), password: _passwordController.text);
+        await auth.signUp(email: email, password: _passwordController.text);
       } else {
-        await auth.signInWithPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+        await auth.signInWithPassword(email: email, password: _passwordController.text);
       }
+      if (mounted) await context.read<AppPreferencesProvider>().rememberEmail(email);
+      // Si esta pantalla se abrió desde "Usar otra cuenta" en el acceso con
+      // PIN, la cerramos para que se vea la app ya con la nueva sesión.
+      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
     } on AuthException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
@@ -82,7 +87,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña',
+                      helperText: 'Usa 6 dígitos numéricos para poder entrar rápido con PIN después',
+                      border: OutlineInputBorder(),
+                    ),
                     validator: (value) =>
                         (value == null || value.length < 6) ? 'Mínimo 6 caracteres' : null,
                   ),
