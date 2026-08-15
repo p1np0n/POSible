@@ -67,10 +67,28 @@ numérico, más rápido que escribir todo de nuevo.
 
 Por dentro, el PIN sigue siendo tu contraseña normal de Supabase — para
 que funcione bien, cuando crees tu contraseña (Paso 3, o cuando un
-empleado se registra) **usa 6 dígitos numéricos** (ej. `481920`) en vez de
+empleado se registra) **usa 4 dígitos numéricos** (ej. `4819`) en vez de
 una contraseña con letras. Si alguien usa una contraseña con letras, no
 pasa nada grave: solo no le va a servir el teclado numérico, y puede
 tocar "Usar otra cuenta" para entrar con el formulario normal.
+
+⚠️ **Paso extra en Supabase para permitir contraseñas de 4 dígitos**: por
+defecto, Supabase exige contraseñas de mínimo 6 caracteres, así que crear
+una cuenta con una contraseña de 4 dígitos fallaría. Para permitirlo:
+1. Ve a **Authentication** → **Policies** (o **Settings**, según la
+   versión del panel) → busca **"Minimum password length"**.
+2. Cámbialo de `6` a `4` y guarda.
+Si no encuentras esta opción o prefieres no tocarla, no pasa nada: solo
+usa contraseñas de 6 dígitos en vez de 4 (igual funciona el PIN, solo que
+escribes 2 números más).
+
+### Bloqueo automático (pedir el PIN de nuevo)
+En **Configuración → Seguridad → "Bloqueo automático"** eliges cuánto
+tiempo puede estar la app en segundo plano (minimizada o con la pantalla
+apagada) antes de pedir el PIN otra vez al volver a abrirla — 5, 15, 30
+minutos, 1 hora, o "Nunca". No cierra la sesión: solo bloquea la pantalla
+hasta que la misma persona escriba su PIN de nuevo (o toque "No soy yo /
+Cerrar sesión" si le pasó el celular a otra persona).
 
 ## Paso 4: Ver cómo compila sola la app
 

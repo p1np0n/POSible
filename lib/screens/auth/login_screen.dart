@@ -89,11 +89,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     decoration: const InputDecoration(
                       labelText: 'Contraseña',
-                      helperText: 'Usa 6 dígitos numéricos para poder entrar rápido con PIN después',
+                      helperText: 'Usa 4 dígitos numéricos para poder entrar rápido con PIN después',
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) =>
-                        (value == null || value.length < 6) ? 'Mínimo 6 caracteres' : null,
+                        (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
                   ),
                   const SizedBox(height: 16),
                   if (_errorMessage != null)

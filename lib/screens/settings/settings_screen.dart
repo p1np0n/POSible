@@ -112,6 +112,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),
+              Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Bloqueo automático'),
+                subtitle: const Text('Pedir el PIN de nuevo si la app estuvo en segundo plano este tiempo'),
+                trailing: DropdownButton<int>(
+                  value: prefs.autoLockMinutes,
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Nunca')),
+                    DropdownMenuItem(value: 5, child: Text('5 min')),
+                    DropdownMenuItem(value: 15, child: Text('15 min')),
+                    DropdownMenuItem(value: 30, child: Text('30 min')),
+                    DropdownMenuItem(value: 60, child: Text('1 hora')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) prefs.setAutoLockMinutes(value);
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
               Text('Cuenta', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(email, style: const TextStyle(color: Colors.grey)),

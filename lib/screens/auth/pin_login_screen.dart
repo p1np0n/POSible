@@ -3,9 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
+import '../../widgets/pin_pad.dart';
 import 'login_screen.dart';
-
-const int _pinLength = 6;
 
 /// Acceso rápido para cambiar de cajero: elegir quién eres (de los correos
 /// que ya iniciaron sesión en este dispositivo) y escribir tu PIN, en vez
@@ -13,7 +12,7 @@ const int _pinLength = 6;
 ///
 /// Por dentro sigue siendo un inicio de sesión normal de Supabase — el
 /// "PIN" es la contraseña de la cuenta. Para que funcione, la contraseña
-/// del empleado debe ser numérica de 6 dígitos (ver LEEME.md).
+/// del empleado debe ser numérica de 4 dígitos (ver LEEME.md).
 class PinLoginScreen extends StatefulWidget {
   const PinLoginScreen({super.key});
 
@@ -48,12 +47,12 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
   }
 
   Future<void> _appendDigit(String digit) async {
-    if (_loading || _pin.length >= _pinLength) return;
+    if (_loading || _pin.length >= pinLength) return;
     setState(() {
       _pin += digit;
       _errorMessage = null;
     });
-    if (_pin.length == _pinLength) {
+    if (_pin.length == pinLength) {
       await _submit();
     }
   }
@@ -67,6 +66,7 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     setState(() => _loading = true);
     try {
       await Supabase.instance.client.auth.signInWithPassword(email: _selectedEmail, password: _pin);
+      if (mounted) await context.read<AppPreferencesProvider>().markActiveNow();
     } on AuthException catch (e) {
       setState(() {
         _errorMessage = e.message;
@@ -152,70 +152,19 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
         const SizedBox(height: 4),
         const Text('Introduce tu PIN', style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_pinLength, (i) {
-            final filled = i < _pin.length;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              width: 14,
-              height: 14,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: filled ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                border: Border.all(color: Theme.of(context).colorScheme.primary),
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 12),
-        if (_loading) const CircularProgressIndicator(),
+        if (_loading) const Padding(padding: EdgeInsets.only(bottom: 12), child: CircularProgressIndicator()),
         if (_errorMessage != null)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Text(_errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
           ),
-        const SizedBox(height: 16),
-        _buildKeypad(),
-      ],
-    );
-  }
-
-  Widget _buildKeypad() {
-    Widget key(String label, {VoidCallback? onTap, Widget? child}) {
-      return Expanded(
-        child: AspectRatio(
-          aspectRatio: 1.4,
-          child: TextButton(
-            onPressed: _loading ? null : onTap,
-            child: child ?? Text(label, style: const TextStyle(fontSize: 22)),
-          ),
+        PinPad(
+          length: pinLength,
+          filledCount: _pin.length,
+          loading: _loading,
+          onDigit: _appendDigit,
+          onBackspace: _backspace,
         ),
-      );
-    }
-
-    return Column(
-      children: [
-        Row(children: [
-          key('1', onTap: () => _appendDigit('1')),
-          key('2', onTap: () => _appendDigit('2')),
-          key('3', onTap: () => _appendDigit('3')),
-        ]),
-        Row(children: [
-          key('4', onTap: () => _appendDigit('4')),
-          key('5', onTap: () => _appendDigit('5')),
-          key('6', onTap: () => _appendDigit('6')),
-        ]),
-        Row(children: [
-          key('7', onTap: () => _appendDigit('7')),
-          key('8', onTap: () => _appendDigit('8')),
-          key('9', onTap: () => _appendDigit('9')),
-        ]),
-        Row(children: [
-          key('', onTap: null),
-          key('0', onTap: () => _appendDigit('0')),
-          key('Despejar', onTap: _backspace, child: const Icon(Icons.backspace_outlined)),
-        ]),
       ],
     );
   }
