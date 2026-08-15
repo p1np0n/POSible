@@ -88,9 +88,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 
 ## Qué incluye esta versión
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
-  impuestos, pago en efectivo, tarjeta u otro método, y "artículo rápido"
+  impuestos, pago en efectivo, tarjeta u otro método, "artículo rápido"
   (agregar algo con nombre y precio libres sin que esté en tu inventario,
-  ej. algo pesado en el momento o un cargo especial).
+  ej. algo pesado en el momento o un cargo especial), y "tickets abiertos"
+  (dejar una venta en espera con el botón de recibo junto al buscador, para
+  atender a otro cliente y retomarla después desde el mismo ícono).
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
@@ -152,7 +154,6 @@ Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
 adicional (usa tu catálogo propio y Open Food Facts).
 
 ## En camino (ya lo pediste, va después de esta versión)
-- Tickets abiertos: dejar una venta en pausa y atender a otro cliente
 - Acciones de ticket: anular, dividir el pago, mover a otra caja, asignar a un cliente
 - Login rápido con PIN para cambiar de cajero
 - Cierre de turno con detalle de tesorería (cobros, reembolsos, depositado, retiros)

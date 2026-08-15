@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../models/customer.dart';
 import '../../models/discount.dart';
+import '../../models/open_ticket.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../services/customer_repository.dart';
+import '../../services/open_ticket_repository.dart';
 import '../../services/sales_repository.dart';
 import '../../services/settings_repository.dart';
 import '../../widgets/currency_text.dart';
@@ -14,7 +16,10 @@ import '../customers/customer_picker_dialog.dart';
 import 'discount_picker_dialog.dart';
 
 class CartSheet extends StatefulWidget {
-  const CartSheet({super.key});
+  final Customer? initialCustomer;
+  final Discount? initialDiscount;
+
+  const CartSheet({super.key, this.initialCustomer, this.initialDiscount});
 
   @override
   State<CartSheet> createState() => _CartSheetState();
@@ -23,15 +28,19 @@ class CartSheet extends StatefulWidget {
 class _CartSheetState extends State<CartSheet> {
   final SalesRepository _salesRepository = SalesRepository();
   final SettingsRepository _settingsRepository = SettingsRepository();
+  final OpenTicketRepository _openTicketRepository = OpenTicketRepository();
   Customer? _selectedCustomer;
   Discount? _selectedDiscount;
   String _paymentMethod = 'cash';
   double _taxRatePercent = 0;
   bool _processing = false;
+  bool _holding = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedCustomer = widget.initialCustomer;
+    _selectedDiscount = widget.initialDiscount;
     _loadSettings();
   }
 
@@ -107,6 +116,43 @@ class _CartSheetState extends State<CartSheet> {
       }
     } finally {
       if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  Future<void> _holdTicket() async {
+    final cart = context.read<CartProvider>();
+    final cashSession = context.read<CashSessionProvider>();
+    if (cart.items.isEmpty || cashSession.current == null) return;
+
+    setState(() => _holding = true);
+    try {
+      final items = cart.items
+          .map((item) => OpenTicketItem(
+                productId: item.product.isQuickItem ? null : item.product.id,
+                productName: item.product.name,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+                modifierIds: item.modifiers.map((m) => m.id).toList(),
+              ))
+          .toList();
+      await _openTicketRepository.create(
+        cashSessionId: cashSession.current!.id,
+        customerId: _selectedCustomer?.id,
+        discountId: _selectedDiscount?.id,
+        label: _selectedCustomer?.name,
+        items: items,
+      );
+      cart.clear();
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ticket guardado en espera')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar el ticket: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _holding = false);
     }
   }
 
@@ -222,12 +268,30 @@ class _CartSheetState extends State<CartSheet> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: (_processing || cart.items.isEmpty) ? null : _checkout,
-                      child: _processing
-                          ? const SizedBox(
-                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Cobrar'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: (_holding || _processing || cart.items.isEmpty) ? null : _holdTicket,
+                            icon: _holding
+                                ? const SizedBox(
+                                    height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.pause_circle_outline),
+                            label: const Text('Dejar en espera'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            onPressed: (_processing || _holding || cart.items.isEmpty) ? null : _checkout,
+                            child: _processing
+                                ? const SizedBox(
+                                    height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text('Cobrar'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

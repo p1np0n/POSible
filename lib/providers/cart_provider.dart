@@ -54,4 +54,13 @@ class CartProvider extends ChangeNotifier {
     _items.clear();
     notifyListeners();
   }
+
+  /// Reemplaza el carrito actual por estas líneas (ej. al retomar un ticket
+  /// que se había dejado en espera).
+  void loadItems(List<CartItem> items) {
+    _items
+      ..clear()
+      ..addAll(items);
+    notifyListeners();
+  }
 }

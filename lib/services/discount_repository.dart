@@ -14,6 +14,11 @@ class DiscountRepository {
     return (data as List).map((e) => Discount.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  Future<Discount?> getById(String id) async {
+    final data = await _client.from('discounts').select().eq('id', id).maybeSingle();
+    return data == null ? null : Discount.fromMap(data);
+  }
+
   Future<Discount> create(Discount discount) async {
     final data = await _client.from('discounts').insert(discount.toMap()).select().single();
     return Discount.fromMap(data);

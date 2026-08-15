@@ -134,6 +134,21 @@ create table if not exists sale_items (
 );
 alter table sale_items add column if not exists modifiers_summary text;
 
+-- Tickets abiertos: una venta que el cajero deja "en espera" (ej. para
+-- atender a otro cliente) y retoma más tarde. Se borra apenas se retoma o
+-- se cobra; no es el registro final de la venta (eso sigue siendo "sales").
+create table if not exists open_tickets (
+  id uuid primary key default gen_random_uuid(),
+  cash_session_id uuid references cash_sessions(id) on delete cascade,
+  customer_id uuid references customers(id),
+  discount_id uuid references discounts(id),
+  label text,
+  items_json jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  user_id uuid references auth.users(id),
+  user_email text
+);
+
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)
 create or replace function adjust_product_stock(p_id uuid, p_delta numeric)
@@ -230,6 +245,7 @@ alter table discounts enable row level security;
 alter table modifiers enable row level security;
 alter table store_settings enable row level security;
 alter table product_catalog enable row level security;
+alter table open_tickets enable row level security;
 
 drop policy if exists "auth full access" on categories;
 drop policy if exists "auth full access" on products;
@@ -250,6 +266,7 @@ drop policy if exists "solo aprobados" on discounts;
 drop policy if exists "solo aprobados" on modifiers;
 drop policy if exists "solo aprobados" on store_settings;
 drop policy if exists "solo aprobados" on product_catalog;
+drop policy if exists "solo aprobados" on open_tickets;
 
 create policy "solo aprobados" on categories for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on products for all using (public.is_approved()) with check (public.is_approved());
@@ -261,6 +278,7 @@ create policy "solo aprobados" on discounts for all using (public.is_approved())
 create policy "solo aprobados" on modifiers for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on store_settings for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo aprobados" on product_catalog for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo aprobados" on open_tickets for all using (public.is_approved()) with check (public.is_approved());
 
 drop policy if exists "product photos public read" on storage.objects;
 create policy "product photos public read" on storage.objects
