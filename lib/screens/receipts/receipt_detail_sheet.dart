@@ -20,7 +20,7 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
   List<SaleItem> _items = [];
   bool _loading = true;
 
-  static const _paymentLabels = {'cash': 'Efectivo', 'card': 'Tarjeta', 'other': 'Otro'};
+  static const _paymentLabels = {'cash': 'Efectivo', 'card': 'Tarjeta', 'other': 'Otro', 'mixed': 'Pago dividido'};
 
   @override
   void initState() {
@@ -103,6 +103,11 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
               ),
               const SizedBox(height: 8),
               Text('Pago: ${_paymentLabels[sale.paymentMethod] ?? sale.paymentMethod}'),
+              if (sale.isSplitPayment) ...[
+                if (sale.cashAmount > 0) Text('  · Efectivo: \$${sale.cashAmount.toStringAsFixed(2)}'),
+                if (sale.cardAmount > 0) Text('  · Tarjeta: \$${sale.cardAmount.toStringAsFixed(2)}'),
+                if (sale.otherAmount > 0) Text('  · Otro: \$${sale.otherAmount.toStringAsFixed(2)}'),
+              ],
             ],
           );
         },

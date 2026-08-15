@@ -12,11 +12,22 @@ class SalesRepository {
     String? discountId,
     double discountAmount = 0,
     double taxAmount = 0,
-    required String paymentMethod,
+    double cashAmount = 0,
+    double cardAmount = 0,
+    double otherAmount = 0,
     required int loyaltyPointsEarned,
   }) async {
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
     final total = subtotal - discountAmount + taxAmount;
+
+    final methodsUsed = [cashAmount, cardAmount, otherAmount].where((amount) => amount > 0).length;
+    final paymentMethod = methodsUsed > 1
+        ? 'mixed'
+        : cardAmount > 0
+            ? 'card'
+            : otherAmount > 0
+                ? 'other'
+                : 'cash';
 
     final saleData = await _client.from('sales').insert({
       'cash_session_id': cashSessionId,
@@ -27,6 +38,9 @@ class SalesRepository {
       'subtotal': subtotal,
       'total': total,
       'payment_method': paymentMethod,
+      'cash_amount': cashAmount,
+      'card_amount': cardAmount,
+      'other_amount': otherAmount,
       'loyalty_points_earned': loyaltyPointsEarned,
       'user_id': _client.auth.currentUser?.id,
     }).select().single();

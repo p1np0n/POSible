@@ -35,6 +35,10 @@ class _CartSheetState extends State<CartSheet> {
   double _taxRatePercent = 0;
   bool _processing = false;
   bool _holding = false;
+  bool _splitPayment = false;
+  final _cashAmountController = TextEditingController();
+  final _cardAmountController = TextEditingController();
+  final _otherAmountController = TextEditingController();
 
   @override
   void initState() {
@@ -42,6 +46,14 @@ class _CartSheetState extends State<CartSheet> {
     _selectedCustomer = widget.initialCustomer;
     _selectedDiscount = widget.initialDiscount;
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _cashAmountController.dispose();
+    _cardAmountController.dispose();
+    _otherAmountController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -58,6 +70,23 @@ class _CartSheetState extends State<CartSheet> {
   double get _taxableAmount => _subtotal - _discountAmount;
   double get _taxAmount => _taxableAmount * _taxRatePercent / 100;
   double get _total => _taxableAmount + _taxAmount;
+
+  double get _splitCash => double.tryParse(_cashAmountController.text) ?? 0;
+  double get _splitCard => double.tryParse(_cardAmountController.text) ?? 0;
+  double get _splitOther => double.tryParse(_otherAmountController.text) ?? 0;
+  double get _splitSum => _splitCash + _splitCard + _splitOther;
+  bool get _splitValid => (_splitSum - _total).abs() < 0.01;
+
+  void _toggleSplitPayment(bool value) {
+    setState(() {
+      _splitPayment = value;
+      if (value) {
+        _cashAmountController.text = _total.toStringAsFixed(2);
+        _cardAmountController.text = '0';
+        _otherAmountController.text = '0';
+      }
+    });
+  }
 
   Future<void> _pickCustomer() async {
     final customer = await showDialog<Customer>(
@@ -81,6 +110,7 @@ class _CartSheetState extends State<CartSheet> {
     final cart = context.read<CartProvider>();
     final cashSession = context.read<CashSessionProvider>();
     if (cart.items.isEmpty || cashSession.current == null) return;
+    if (_splitPayment && !_splitValid) return;
 
     setState(() => _processing = true);
     try {
@@ -93,7 +123,9 @@ class _CartSheetState extends State<CartSheet> {
         discountId: _selectedDiscount?.id,
         discountAmount: _discountAmount,
         taxAmount: _taxAmount,
-        paymentMethod: _paymentMethod,
+        cashAmount: _splitPayment ? _splitCash : (_paymentMethod == 'cash' ? total : 0),
+        cardAmount: _splitPayment ? _splitCard : (_paymentMethod == 'card' ? total : 0),
+        otherAmount: _splitPayment ? _splitOther : (_paymentMethod == 'other' ? total : 0),
         loyaltyPointsEarned: _selectedCustomer != null ? pointsEarned : 0,
       );
 
@@ -156,6 +188,23 @@ class _CartSheetState extends State<CartSheet> {
     }
   }
 
+  Future<void> _voidCart() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Anular venta'),
+        content: const Text('¿Seguro que quieres anular esta venta? Se pierden todos los productos del carrito.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Anular')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    context.read<CartProvider>().clear();
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
@@ -172,7 +221,18 @@ class _CartSheetState extends State<CartSheet> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
+                    if (cart.items.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: (_processing || _holding) ? null : _voidCart,
+                        icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                        label: const Text('Anular venta', style: TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
               ),
               Expanded(
                 child: ListView.builder(
@@ -223,15 +283,61 @@ class _CartSheetState extends State<CartSheet> {
                       trailing: TextButton(onPressed: _pickDiscount, child: const Text('Elegir')),
                     ),
                     const SizedBox(height: 8),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'cash', label: Text('Efectivo'), icon: Icon(Icons.payments)),
-                        ButtonSegment(value: 'card', label: Text('Tarjeta'), icon: Icon(Icons.credit_card)),
-                        ButtonSegment(value: 'other', label: Text('Otro'), icon: Icon(Icons.more_horiz)),
-                      ],
-                      selected: {_paymentMethod},
-                      onSelectionChanged: (value) => setState(() => _paymentMethod = value.first),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Dividir pago'),
+                      subtitle: const Text('Ej. una parte en efectivo y otra con tarjeta'),
+                      value: _splitPayment,
+                      onChanged: _toggleSplitPayment,
                     ),
+                    if (_splitPayment) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _cashAmountController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(labelText: 'Efectivo', border: OutlineInputBorder(), isDense: true),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _cardAmountController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(labelText: 'Tarjeta', border: OutlineInputBorder(), isDense: true),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _otherAmountController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(labelText: 'Otro', border: OutlineInputBorder(), isDense: true),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _splitValid
+                            ? 'Cuadra con el total ✓'
+                            : 'Suma: \$${_splitSum.toStringAsFixed(2)} — falta \$${(_total - _splitSum).toStringAsFixed(2)}',
+                        style: TextStyle(color: _splitValid ? Colors.green : Colors.red, fontSize: 12),
+                      ),
+                    ] else
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'cash', label: Text('Efectivo'), icon: Icon(Icons.payments)),
+                          ButtonSegment(value: 'card', label: Text('Tarjeta'), icon: Icon(Icons.credit_card)),
+                          ButtonSegment(value: 'other', label: Text('Otro'), icon: Icon(Icons.more_horiz)),
+                        ],
+                        selected: {_paymentMethod},
+                        onSelectionChanged: (value) => setState(() => _paymentMethod = value.first),
+                      ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -284,7 +390,9 @@ class _CartSheetState extends State<CartSheet> {
                         Expanded(
                           flex: 2,
                           child: FilledButton(
-                            onPressed: (_processing || _holding || cart.items.isEmpty) ? null : _checkout,
+                            onPressed: (_processing || _holding || cart.items.isEmpty || (_splitPayment && !_splitValid))
+                                ? null
+                                : _checkout,
                             child: _processing
                                 ? const SizedBox(
                                     height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
