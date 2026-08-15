@@ -119,7 +119,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               OutlinedButton.icon(
                 onPressed: () => Supabase.instance.client.auth.signOut(),
                 icon: const Icon(Icons.logout),
-                label: const Text('Cerrar sesión'),
+                label: const Text('Cerrar sesión / Cambiar de cajero'),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'Si tu correo ya inició sesión antes en este dispositivo, al cerrar sesión '
+                  'aparece el acceso rápido con PIN para el próximo cajero.',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
               ),
             ],
           );
