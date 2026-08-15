@@ -88,11 +88,15 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 
 ## Qué incluye esta versión
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
-  impuestos, pago en efectivo, tarjeta u otro método, "artículo rápido"
-  (agregar algo con nombre y precio libres sin que esté en tu inventario,
-  ej. algo pesado en el momento o un cargo especial), y "tickets abiertos"
-  (dejar una venta en espera con el botón de recibo junto al buscador, para
-  atender a otro cliente y retomarla después desde el mismo ícono).
+  impuestos, pago en efectivo/tarjeta/otro o **dividido entre varios**
+  (ej. mitad efectivo, mitad tarjeta), "artículo rápido" (agregar algo con
+  nombre y precio libres sin que esté en tu inventario, ej. algo pesado en
+  el momento o un cargo especial), "tickets abiertos" (dejar una venta en
+  espera con el botón de recibo junto al buscador, para atender a otro
+  cliente y retomarla después desde el mismo ícono, incluyendo el cliente
+  y descuento que tenías elegidos), "anular venta" (botón rojo arriba del
+  carrito para descartar todo sin cobrar) y asignar la venta a un cliente
+  (botón "Elegir" junto a "Sin cliente").
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
@@ -154,15 +158,25 @@ Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
 adicional (usa tu catálogo propio y Open Food Facts).
 
 ## En camino (ya lo pediste, va después de esta versión)
-- Acciones de ticket: anular, dividir el pago, mover a otra caja, asignar a un cliente
 - Login rápido con PIN para cambiar de cajero
 - Cierre de turno con detalle de tesorería (cobros, reembolsos, depositado, retiros)
+
+### Sobre "Acciones de ticket"
+De las 4 que pediste (anular, dividir el pago, mover a otra caja, asignar
+a un cliente), ya quedaron 3: **anular** venta, **dividir el pago** y
+**asignar a un cliente** (esta última ya existía como "Elegir" cliente en
+el carrito). La que falta, **mover un ticket a otra caja**, no se puede
+hacer todavía porque POSible no maneja varias cajas/cajeros trabajando al
+mismo tiempo dentro de una misma tienda (cada quien tiene su propio turno,
+pero no hay el concepto de "caja 1", "caja 2" como en tus capturas de
+Loyverse). Para agregarla de verdad, antes habría que construir "Múltiples
+sucursales/cajas" (ver más abajo) — dime si quieres que prioricemos eso.
 
 ## Próximas mejoras posibles (dime cuáles te sirven y las agregamos)
 - Impresión de recibo por Bluetooth (impresora térmica portátil)
 - Pantalla secundaria para clientes
 - Permisos distintos por empleado (ej. que un cajero no vea Reportes)
-- Múltiples sucursales
+- Múltiples sucursales/cajas (necesario para "mover ticket a otra caja")
 - Canje de puntos de lealtad (no solo acumularlos)
 - Gráficos en los reportes
 - Modo sin internet con sincronización automática al recuperar señal

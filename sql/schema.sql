@@ -122,6 +122,22 @@ alter table sales alter column receipt_number set not null;
 alter table sales alter column receipt_number set default nextval('sales_receipt_seq');
 create unique index if not exists sales_receipt_number_idx on sales(receipt_number);
 
+-- Pago dividido: permite cobrar una venta repartida entre efectivo, tarjeta
+-- y otro método (ej. mitad efectivo, mitad tarjeta). "payment_method" pasa
+-- a valer 'mixed' cuando se usó más de un método.
+alter table sales add column if not exists cash_amount numeric(12,2) not null default 0;
+alter table sales add column if not exists card_amount numeric(12,2) not null default 0;
+alter table sales add column if not exists other_amount numeric(12,2) not null default 0;
+update sales set cash_amount = total
+  where payment_method = 'cash' and cash_amount = 0 and card_amount = 0 and other_amount = 0;
+update sales set card_amount = total
+  where payment_method = 'card' and cash_amount = 0 and card_amount = 0 and other_amount = 0;
+update sales set other_amount = total
+  where payment_method = 'other' and cash_amount = 0 and card_amount = 0 and other_amount = 0;
+alter table sales drop constraint if exists sales_payment_method_check;
+alter table sales add constraint sales_payment_method_check
+  check (payment_method in ('cash', 'card', 'other', 'mixed'));
+
 create table if not exists sale_items (
   id uuid primary key default gen_random_uuid(),
   sale_id uuid not null references sales(id) on delete cascade,

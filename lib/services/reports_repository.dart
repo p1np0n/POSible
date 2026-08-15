@@ -30,7 +30,7 @@ class ReportsRepository {
   Future<SalesSummary> getSummary({required DateTime from, required DateTime to}) async {
     final sales = await _client
         .from('sales')
-        .select('id, total, payment_method')
+        .select('id, total, cash_amount, card_amount, other_amount')
         .gte('created_at', from.toIso8601String())
         .lte('created_at', to.toIso8601String());
 
@@ -42,8 +42,15 @@ class ReportsRepository {
     for (final sale in salesList) {
       final total = (sale['total'] as num).toDouble();
       totalSales += total;
-      final method = sale['payment_method'] as String;
-      byPaymentMethod[method] = (byPaymentMethod[method] ?? 0) + total;
+      // Se reparte por método real pagado (cash_amount/card_amount/other_amount)
+      // en vez de "payment_method", así una venta con pago dividido cuenta en
+      // cada método por la parte que le corresponde.
+      final cash = (sale['cash_amount'] as num?)?.toDouble() ?? 0;
+      final card = (sale['card_amount'] as num?)?.toDouble() ?? 0;
+      final other = (sale['other_amount'] as num?)?.toDouble() ?? 0;
+      if (cash > 0) byPaymentMethod['cash'] = (byPaymentMethod['cash'] ?? 0) + cash;
+      if (card > 0) byPaymentMethod['card'] = (byPaymentMethod['card'] ?? 0) + card;
+      if (other > 0) byPaymentMethod['other'] = (byPaymentMethod['other'] ?? 0) + other;
     }
 
     final productTotals = <String, TopProduct>{};
