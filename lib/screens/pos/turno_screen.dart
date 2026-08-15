@@ -9,6 +9,7 @@ import '../../services/receipts_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
 import 'cash_session_sheet.dart';
+import 'turno_detail_sheet.dart';
 
 class TurnoScreen extends StatefulWidget {
   const TurnoScreen({super.key});
@@ -59,6 +60,14 @@ class _TurnoScreenState extends State<TurnoScreen> {
     ).then((_) => _load());
   }
 
+  void _openTurnoDetail(CashSession session) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => TurnoDetailSheet(session: session),
+    ).then((_) => _load());
+  }
+
   @override
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
@@ -89,9 +98,24 @@ class _TurnoScreenState extends State<TurnoScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _openCashSessionSheet,
-                    child: Text(cashSession.isOpen ? 'Cerrar caja' : 'Abrir caja'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _openCashSessionSheet,
+                          child: Text(cashSession.isOpen ? 'Cerrar caja' : 'Abrir caja'),
+                        ),
+                      ),
+                      if (cashSession.isOpen && cashSession.current != null) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _openTurnoDetail(cashSession.current!),
+                            child: const Text('Ver detalle de caja'),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -119,6 +143,7 @@ class _TurnoScreenState extends State<TurnoScreen> {
                     '${session.closedAt != null ? 'Cierre: ${formatTimeEs(session.closedAt!.toLocal())}' : 'Turno abierto'}',
                   ),
                   isThreeLine: true,
+                  onTap: () => _openTurnoDetail(session),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,

@@ -11,6 +11,12 @@ class ReceiptsRepository {
     return (data as List).map((e) => Sale.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  Future<List<Sale>> getForSession(String cashSessionId) async {
+    final data =
+        await _client.from('sales').select().eq('cash_session_id', cashSessionId).order('created_at');
+    return (data as List).map((e) => Sale.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   Future<List<SaleItem>> getItems(String saleId) async {
     final data = await _client.from('sale_items').select().eq('sale_id', saleId);
     return (data as List).map((e) => SaleItem.fromMap(e as Map<String, dynamic>)).toList();
