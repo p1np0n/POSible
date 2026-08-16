@@ -25,6 +25,8 @@ create table if not exists products (
   created_at timestamptz not null default now()
 );
 alter table products add column if not exists image_url text;
+-- Umbral de inventario bajo: si es null, ese producto no muestra alerta.
+alter table products add column if not exists low_stock_threshold numeric(12,2);
 
 -- Catálogo propio: productos ya buscados (por internet o ingresados a mano),
 -- para no tener que volver a buscarlos la próxima vez que agregues el mismo

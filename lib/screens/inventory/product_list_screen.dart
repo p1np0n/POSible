@@ -12,6 +12,8 @@ import 'product_form_screen.dart';
 
 enum _SortMode { name, stockAsc, stockDesc }
 
+enum _StockFilter { all, lowStock, outOfStock }
+
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
 
@@ -28,6 +30,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   String _search = '';
   String? _selectedCategoryId;
   _SortMode _sortMode = _SortMode.name;
+  _StockFilter _stockFilter = _StockFilter.all;
   bool _loading = true;
 
   @override
@@ -69,7 +72,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
           p.name.toLowerCase().contains(search) ||
           (p.barcode?.toLowerCase().contains(search) ?? false) ||
           (p.sku?.toLowerCase().contains(search) ?? false);
-      return matchesCategory && matchesSearch;
+      final matchesStock = switch (_stockFilter) {
+        _StockFilter.all => true,
+        _StockFilter.lowStock => p.isLowStock,
+        _StockFilter.outOfStock => p.trackStock && p.stockQuantity <= 0,
+      };
+      return matchesCategory && matchesSearch && matchesStock;
     }).toList();
 
     switch (_sortMode) {
@@ -101,6 +109,59 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _searchController.text = code;
       setState(() => _search = code);
     }
+  }
+
+  Future<void> _quickEditPriceCost(Product product) async {
+    final priceController = TextEditingController(text: product.price.toStringAsFixed(2));
+    final costController = TextEditingController(text: product.cost?.toStringAsFixed(2) ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(product.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: priceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Precio de venta', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: costController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Costo (opcional)', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    final newPrice = double.tryParse(priceController.text);
+    if (newPrice == null) return;
+    final newCost = costController.text.isEmpty ? null : double.tryParse(costController.text);
+    await _productRepository.update(
+      product.id,
+      Product(
+        id: product.id,
+        name: product.name,
+        categoryId: product.categoryId,
+        price: newPrice,
+        cost: newCost,
+        sku: product.sku,
+        barcode: product.barcode,
+        imageUrl: product.imageUrl,
+        stockQuantity: product.stockQuantity,
+        trackStock: product.trackStock,
+        active: product.active,
+        lowStockThreshold: product.lowStockThreshold,
+      ),
+    );
+    _loadData();
   }
 
   @override
@@ -156,19 +217,44 @@ class _ProductListScreenState extends State<ProductListScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: DropdownButtonFormField<String?>(
-                value: _selectedCategoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Categoría',
-                  prefixIcon: Icon(Icons.category_outlined),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
-                  ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String?>(
+                      value: _selectedCategoryId,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoría',
+                        prefixIcon: Icon(Icons.category_outlined),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                        ..._categories
+                            .map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
+                      ],
+                      onChanged: (value) => setState(() => _selectedCategoryId = value),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<_StockFilter>(
+                      value: _stockFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'Inventario',
+                        prefixIcon: Icon(Icons.warning_amber_outlined),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: _StockFilter.all, child: Text('Todos')),
+                        DropdownMenuItem(value: _StockFilter.lowStock, child: Text('Inventario bajo')),
+                        DropdownMenuItem(value: _StockFilter.outOfStock, child: Text('Sin stock')),
+                      ],
+                      onChanged: (value) => setState(() => _stockFilter = value ?? _StockFilter.all),
+                    ),
+                  ),
                 ],
-                onChanged: (value) => setState(() => _selectedCategoryId = value),
               ),
             ),
             const SizedBox(height: 8),
@@ -181,6 +267,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           itemCount: _filtered.length,
                           itemBuilder: (context, index) {
                             final product = _filtered[index];
+                            final margin = product.marginPercent;
                             return ListTile(
                               leading: CircleAvatar(
                                 backgroundImage:
@@ -188,10 +275,35 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
                               ),
                               title: Text(product.name),
-                              subtitle: Text(
-                                '${_categoryName(product.categoryId)} · Stock: ${product.trackStock ? product.stockQuantity.toStringAsFixed(0) : 'N/A'}',
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${_categoryName(product.categoryId)} · Stock: ${product.trackStock ? product.stockQuantity.toStringAsFixed(0) : 'N/A'}'
+                                    '${margin != null ? ' · Margen: ${margin.toStringAsFixed(0)}%' : ''}',
+                                  ),
+                                  if (product.isLowStock)
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        'Inventario bajo',
+                                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              trailing: CurrencyText(product.price, bold: true),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CurrencyText(product.price, bold: true),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, size: 20),
+                                    tooltip: 'Editar precio/costo rápido',
+                                    onPressed: () => _quickEditPriceCost(product),
+                                  ),
+                                ],
+                              ),
                               onTap: () => _openForm(product),
                             );
                           },

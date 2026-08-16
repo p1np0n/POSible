@@ -207,6 +207,16 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Configuración**: tasa de impuesto, modo oscuro, vista en lista, cerrar
   sesión.
 
+### Inventario bajo y margen (en Lista de artículos)
+Al editar un producto puedes poner un número en "Alertar cuando el stock
+llegue a" (opcional). Si el stock del producto baja a ese número o menos,
+en Lista de artículos aparece la etiqueta naranja "Inventario bajo" y
+puedes filtrar por "Inventario" (Todos / Inventario bajo / Sin stock) igual
+que por categoría. Si le pones costo al producto, la lista también muestra
+el margen (%) calculado automáticamente. El ícono de lápiz en cada fila
+abre un cuadro rápido para cambiar solo precio y costo sin entrar al
+formulario completo.
+
 ### APK vs panel web: no son exactamente lo mismo
 El **APK** (celular) se queda con lo esencial para atender en el mostrador:
 Ventas, Recibos, Turno, Reportes, Clientes y Configuración. El **panel

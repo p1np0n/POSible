@@ -36,6 +36,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _skuController;
   late final TextEditingController _barcodeController;
   late final TextEditingController _stockController;
+  late final TextEditingController _lowStockController;
   bool _trackStock = true;
   String? _categoryId;
   String? _imageUrl;
@@ -44,6 +45,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _uploadingPhoto = false;
 
   bool get _isEditing => widget.product != null;
+
+  String? get _marginText {
+    final price = double.tryParse(_priceController.text);
+    final cost = double.tryParse(_costController.text);
+    if (price == null || cost == null || price == 0 || cost == 0) return null;
+    final margin = ((price - cost) / price) * 100;
+    return 'Margen: ${margin.toStringAsFixed(1)}%';
+  }
 
   @override
   void initState() {
@@ -57,6 +66,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _barcodeController = TextEditingController(text: product?.barcode ?? '');
     _stockController =
         TextEditingController(text: product != null ? product.stockQuantity.toStringAsFixed(0) : '0');
+    _lowStockController = TextEditingController(
+        text: product?.lowStockThreshold != null ? product!.lowStockThreshold!.toStringAsFixed(0) : '');
     _trackStock = product?.trackStock ?? true;
     _categoryId = product?.categoryId;
     _imageUrl = product?.imageUrl;
@@ -70,6 +81,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _skuController.dispose();
     _barcodeController.dispose();
     _stockController.dispose();
+    _lowStockController.dispose();
     super.dispose();
   }
 
@@ -90,6 +102,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       stockQuantity: double.tryParse(_stockController.text) ?? 0,
       trackStock: _trackStock,
       active: true,
+      lowStockThreshold:
+          _trackStock && _lowStockController.text.isNotEmpty ? double.tryParse(_lowStockController.text) : null,
     );
 
     try {
@@ -260,6 +274,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     decoration:
                         const InputDecoration(labelText: 'Precio de venta', border: OutlineInputBorder()),
                     validator: (value) => (double.tryParse(value ?? '') == null) ? 'Precio inválido' : null,
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -269,10 +284,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration:
                         const InputDecoration(labelText: 'Costo (opcional)', border: OutlineInputBorder()),
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
               ],
             ),
+            if (_marginText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(_marginText!, style: Theme.of(context).textTheme.bodySmall),
+              ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _skuController,
@@ -315,12 +336,23 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               onChanged: (value) => setState(() => _trackStock = value),
               contentPadding: EdgeInsets.zero,
             ),
-            if (_trackStock)
+            if (_trackStock) ...[
               TextFormField(
                 controller: _stockController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Existencias', border: OutlineInputBorder()),
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _lowStockController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Alertar cuando el stock llegue a (opcional)',
+                  helperText: 'Déjalo vacío si no quieres alerta de inventario bajo para este producto',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _save,

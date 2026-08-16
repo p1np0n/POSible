@@ -10,6 +10,7 @@ class Product {
   final double stockQuantity;
   final bool trackStock;
   final bool active;
+  final double? lowStockThreshold;
 
   Product({
     required this.id,
@@ -23,7 +24,18 @@ class Product {
     required this.stockQuantity,
     required this.trackStock,
     required this.active,
+    this.lowStockThreshold,
   });
+
+  /// true si el producto controla inventario, tiene un umbral configurado y
+  /// las existencias están en o por debajo de ese umbral.
+  bool get isLowStock =>
+      trackStock && lowStockThreshold != null && stockQuantity <= lowStockThreshold!;
+
+  double? get marginPercent {
+    if (cost == null || cost == 0 || price == 0) return null;
+    return ((price - cost!) / price) * 100;
+  }
 
   static const _quickItemIdPrefix = 'quick-';
 
@@ -52,6 +64,7 @@ class Product {
         stockQuantity: (map['stock_quantity'] as num).toDouble(),
         trackStock: map['track_stock'] as bool,
         active: map['active'] as bool,
+        lowStockThreshold: (map['low_stock_threshold'] as num?)?.toDouble(),
       );
 
   Map<String, dynamic> toMap() => {
@@ -65,5 +78,6 @@ class Product {
         'stock_quantity': stockQuantity,
         'track_stock': trackStock,
         'active': active,
+        'low_stock_threshold': lowStockThreshold,
       };
 }
