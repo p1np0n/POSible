@@ -125,14 +125,18 @@ sigue funcionando normal. Como alternativa, siempre puedes seguir creando
 usuarios y cambiando contraseñas manualmente desde **Authentication →
 Users** en el panel de Supabase, sin necesidad de esta función.
 
-## Paso 4: Ver cómo compila sola la app
+## Paso 4: Compilar el APK cuando lo necesites
+
+El panel web (`https://<tu-usuario>.github.io/<tu-repo>/`) sí se actualiza
+solo con cada cambio. El **APK** ya no — para ahorrar minutos de compilación
+mientras seguimos mejorando la app seguido, el APK se genera solo cuando tú
+lo pides, no en cada cambio.
 
 1. Arriba en el repo, click en la pestaña **Actions**.
-2. Como acabas de hacer un commit, ya debería estar corriendo "Build APK"
-   (ícono amarillo = en progreso, verde = listo, rojo = falló).
-3. Si no ves nada corriendo, entra al workflow "Build APK" y dale
-   **Run workflow**.
-4. Espera 3-5 minutos.
+2. En la lista de la izquierda, click en **"Build APK"**.
+3. Click en **Run workflow** (botón a la derecha) → **Run workflow** de nuevo
+   para confirmar.
+4. Espera 3-5 minutos (ícono amarillo = en progreso, verde = listo).
 
 ## Paso 5: Descargar el .apk
 
