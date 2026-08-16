@@ -284,29 +284,21 @@ class _PosScreenState extends State<PosScreen> {
               ],
             ),
           ),
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: const Text('Todas'),
-                    selected: _selectedCategoryId == null,
-                    onSelected: (_) => setState(() => _selectedCategoryId = null),
-                  ),
-                ),
-                ..._categories.map((category) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(category.name),
-                        selected: _selectedCategoryId == category.id,
-                        onSelected: (_) => setState(() => _selectedCategoryId = category.id),
-                      ),
-                    )),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonFormField<String?>(
+              value: _selectedCategoryId,
+              decoration: const InputDecoration(
+                labelText: 'Categoría',
+                prefixIcon: Icon(Icons.category_outlined),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
               ],
+              onChanged: (value) => setState(() => _selectedCategoryId = value),
             ),
           ),
           const SizedBox(height: 8),
