@@ -106,11 +106,35 @@ class _CartSheetState extends State<CartSheet> {
     }
   }
 
+  Future<bool> _confirmNegativeStock(CartProvider cart) async {
+    final shortItems = cart.items.where((item) =>
+        item.product.trackStock && item.quantity > item.product.stockQuantity);
+    if (shortItems.isEmpty) return true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Stock insuficiente'),
+        content: Text(
+          'Estos productos no tienen suficiente inventario y quedarían en negativo:\n\n'
+          '${shortItems.map((item) => '• ${item.product.name} (stock: ${item.product.stockQuantity.toStringAsFixed(0)}, vendes: ${item.quantity.toStringAsFixed(0)})').join('\n')}'
+          '\n\n¿Quieres continuar con la venta de todas formas?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Vender igual')),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
   Future<void> _checkout() async {
     final cart = context.read<CartProvider>();
     final cashSession = context.read<CashSessionProvider>();
     if (cart.items.isEmpty || cashSession.current == null) return;
     if (_splitPayment && !_splitValid) return;
+    if (!await _confirmNegativeStock(cart)) return;
 
     setState(() => _processing = true);
     try {
