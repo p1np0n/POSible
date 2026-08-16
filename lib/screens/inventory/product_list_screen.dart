@@ -32,6 +32,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   _SortMode _sortMode = _SortMode.name;
   _StockFilter _stockFilter = _StockFilter.all;
   bool _loading = true;
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void initState() {
@@ -164,11 +166,125 @@ class _ProductListScreenState extends State<ProductListScreen> {
     _loadData();
   }
 
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _bulkDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar productos'),
+        content: Text('¿Seguro que quieres eliminar ${_selectedIds.length} producto(s)?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    for (final id in _selectedIds) {
+      await _productRepository.delete(id);
+    }
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    _loadData();
+  }
+
+  Future<void> _bulkChangeCategory() async {
+    String? newCategoryId;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Cambiar categoría (${_selectedIds.length} producto(s))'),
+          content: DropdownButtonFormField<String?>(
+            value: newCategoryId,
+            decoration: const InputDecoration(labelText: 'Nueva categoría', border: OutlineInputBorder()),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Sin categoría')),
+              ..._categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+            ],
+            onChanged: (value) => setDialogState(() => newCategoryId = value),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Aplicar')),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    final selected = _products.where((p) => _selectedIds.contains(p.id));
+    for (final product in selected) {
+      await _productRepository.update(
+        product.id,
+        Product(
+          id: product.id,
+          name: product.name,
+          categoryId: newCategoryId,
+          price: product.price,
+          cost: product.cost,
+          sku: product.sku,
+          barcode: product.barcode,
+          imageUrl: product.imageUrl,
+          stockQuantity: product.stockQuantity,
+          trackStock: product.trackStock,
+          active: product.active,
+          lowStockThreshold: product.lowStockThreshold,
+        ),
+      );
+    }
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    _loadData();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cameraEnabled = context.watch<AppPreferencesProvider>().cameraScanEnabled;
 
     return Scaffold(
+      bottomNavigationBar: (_selectionMode && _selectedIds.isNotEmpty)
+          ? BottomAppBar(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Text('${_selectedIds.length} seleccionado(s)'),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _bulkChangeCategory,
+                      icon: const Icon(Icons.category_outlined),
+                      label: const Text('Categoría'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _bulkDelete,
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: Column(
@@ -205,6 +321,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       PopupMenuItem(value: _SortMode.stockAsc, child: Text('Stock: menor a mayor')),
                       PopupMenuItem(value: _SortMode.stockDesc, child: Text('Stock: mayor a menor')),
                     ],
+                  ),
+                  IconButton(
+                    icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
+                    tooltip: _selectionMode ? 'Cancelar selección' : 'Seleccionar varios',
+                    onPressed: _toggleSelectionMode,
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
@@ -268,12 +389,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           itemBuilder: (context, index) {
                             final product = _filtered[index];
                             final margin = product.marginPercent;
+                            final selected = _selectedIds.contains(product.id);
                             return ListTile(
-                              leading: CircleAvatar(
-                                backgroundImage:
-                                    product.imageUrl != null ? NetworkImage(product.imageUrl!) : null,
-                                child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
-                              ),
+                              leading: _selectionMode
+                                  ? Checkbox(
+                                      value: selected,
+                                      onChanged: (_) => _toggleSelected(product.id),
+                                    )
+                                  : CircleAvatar(
+                                      backgroundImage:
+                                          product.imageUrl != null ? NetworkImage(product.imageUrl!) : null,
+                                      child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
+                                    ),
+                              selected: selected,
                               title: Text(product.name),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,18 +421,28 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                     ),
                                 ],
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CurrencyText(product.price, bold: true),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 20),
-                                    tooltip: 'Editar precio/costo rápido',
-                                    onPressed: () => _quickEditPriceCost(product),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => _openForm(product),
+                              trailing: _selectionMode
+                                  ? null
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CurrencyText(product.price, bold: true),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_outlined, size: 20),
+                                          tooltip: 'Editar precio/costo rápido',
+                                          onPressed: () => _quickEditPriceCost(product),
+                                        ),
+                                      ],
+                                    ),
+                              onTap: _selectionMode ? () => _toggleSelected(product.id) : () => _openForm(product),
+                              onLongPress: () {
+                                if (!_selectionMode) {
+                                  setState(() {
+                                    _selectionMode = true;
+                                    _selectedIds.add(product.id);
+                                  });
+                                }
+                              },
                             );
                           },
                         ),
