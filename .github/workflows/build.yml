@@ -1,9 +1,7 @@
 name: Build APK
 
 on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch: {}   # permite apretar "Run workflow" manualmente
+  workflow_dispatch: {}   # solo se compila a pedido, no en cada push
 
 jobs:
   build:
