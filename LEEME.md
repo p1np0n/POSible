@@ -125,6 +125,35 @@ sigue funcionando normal. Como alternativa, siempre puedes seguir creando
 usuarios y cambiando contraseñas manualmente desde **Authentication →
 Users** en el panel de Supabase, sin necesidad de esta función.
 
+### Alerta de inventario bajo por correo (opcional)
+En **Configuración** (panel web) puedes poner un correo para que te avise
+cuando algún producto llegue al umbral de "inventario bajo" que le pusiste
+en Lista de artículos. Como con los empleados, esto necesita otra función
+de servidor y una cuenta gratis en [Resend](https://resend.com) (el
+servicio que realmente envía el correo):
+
+1. Crea una cuenta gratis en resend.com y copia tu **API key** (empieza
+   con `re_`).
+2. En tu proyecto de Supabase, ve a **Edge Functions** → **Create a new
+   function**, ponle el nombre exacto **`notify-low-stock`**, pega TODO
+   el contenido de `supabase/functions/notify-low-stock/index.ts` de este
+   repositorio y dale **Deploy**.
+3. Dentro de esa función, busca **Manage secrets** (o **Project Settings
+   → Edge Functions → Secrets**) y agrega el secreto `RESEND_API_KEY` con
+   la clave que copiaste.
+4. En **Configuración** (panel web), escribe el correo donde quieres
+   recibir la alerta y dale **Guardar**. Puedes probar de inmediato con el
+   botón **"Enviar prueba ahora"**.
+5. Nota de Resend: mientras no verifiques un dominio propio, solo puedes
+   recibir en el correo con el que te registraste ahí — es una limitación
+   de su plan gratuito, no de POSible.
+6. Opcional — para que se revise solo todos los días sin que tengas que
+   entrar tú: en Supabase ve a **Database → Cron Jobs → Create a new cron
+   job**, tipo **HTTP Request**, con la URL de la función
+   `notify-low-stock`, el header `Authorization: Bearer <tu service_role
+   key>` (lo encuentras en Project Settings → API), y el horario que
+   prefieras.
+
 ## Paso 4: Compilar el APK cuando lo necesites
 
 El panel web (`https://<tu-usuario>.github.io/<tu-repo>/`) sí se actualiza
