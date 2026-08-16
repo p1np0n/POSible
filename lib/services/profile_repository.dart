@@ -28,4 +28,41 @@ class ProfileRepository {
   Future<void> remove(String id) async {
     await _client.from('profiles').delete().eq('id', id);
   }
+
+  /// Crea un empleado con correo y PIN desde el panel web, ya aprobado.
+  /// Llama a la Edge Function "manage-employee" (ver LEEME.md para
+  /// activarla). Devuelve un mensaje de error, o null si funcionó.
+  Future<String?> createEmployee({required String email, required String password}) async {
+    try {
+      final res = await _client.functions.invoke('manage-employee', body: {
+        'action': 'create',
+        'email': email,
+        'password': password,
+      });
+      return _errorFromResponse(res);
+    } catch (e) {
+      return 'No se pudo conectar con la función "manage-employee". ¿Ya la creaste en Supabase? ($e)';
+    }
+  }
+
+  /// Restablece el PIN (contraseña) de un empleado ya existente.
+  Future<String?> resetPin({required String userId, required String newPin}) async {
+    try {
+      final res = await _client.functions.invoke('manage-employee', body: {
+        'action': 'reset_password',
+        'user_id': userId,
+        'password': newPin,
+      });
+      return _errorFromResponse(res);
+    } catch (e) {
+      return 'No se pudo conectar con la función "manage-employee". ¿Ya la creaste en Supabase? ($e)';
+    }
+  }
+
+  String? _errorFromResponse(FunctionResponse res) {
+    if (res.status == 200) return null;
+    final data = res.data;
+    if (data is Map && data['error'] != null) return data['error'] as String;
+    return 'Error inesperado (código ${res.status})';
+  }
 }

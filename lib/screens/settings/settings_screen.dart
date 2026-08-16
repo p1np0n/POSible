@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -109,28 +110,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: prefs.cameraScanEnabled,
                 onChanged: prefs.setCameraScanEnabled,
               ),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Bloqueo automático'),
-                subtitle: const Text('Pedir el PIN de nuevo si la app estuvo en segundo plano este tiempo'),
-                trailing: DropdownButton<int>(
-                  value: prefs.autoLockMinutes,
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Nunca')),
-                    DropdownMenuItem(value: 5, child: Text('5 min')),
-                    DropdownMenuItem(value: 15, child: Text('15 min')),
-                    DropdownMenuItem(value: 30, child: Text('30 min')),
-                    DropdownMenuItem(value: 60, child: Text('1 hora')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) prefs.setAutoLockMinutes(value);
-                  },
+              if (!kIsWeb) ...[
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Bloqueo automático'),
+                  subtitle: const Text('Pedir el PIN de nuevo si la app estuvo en segundo plano este tiempo'),
+                  trailing: DropdownButton<int>(
+                    value: prefs.autoLockMinutes,
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('Nunca')),
+                      DropdownMenuItem(value: 5, child: Text('5 min')),
+                      DropdownMenuItem(value: 15, child: Text('15 min')),
+                      DropdownMenuItem(value: 30, child: Text('30 min')),
+                      DropdownMenuItem(value: 60, child: Text('1 hora')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) prefs.setAutoLockMinutes(value);
+                    },
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),
@@ -141,16 +144,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               OutlinedButton.icon(
                 onPressed: () => Supabase.instance.client.auth.signOut(),
                 icon: const Icon(Icons.logout),
-                label: const Text('Cerrar sesión / Cambiar de cajero'),
+                label: Text(kIsWeb ? 'Cerrar sesión' : 'Cerrar sesión / Cambiar de cajero'),
               ),
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'Si tu correo ya inició sesión antes en este dispositivo, al cerrar sesión '
-                  'aparece el acceso rápido con PIN para el próximo cajero.',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+              if (!kIsWeb)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Si tu correo ya inició sesión antes en este dispositivo, al cerrar sesión '
+                    'aparece el acceso rápido con PIN para el próximo cajero.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
                 ),
-              ),
             ],
           );
   }

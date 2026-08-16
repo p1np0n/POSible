@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -35,7 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await auth.signInWithPassword(email: email, password: _passwordController.text);
       }
-      if (mounted) await context.read<AppPreferencesProvider>().rememberEmail(email);
+      // El login rápido con PIN es solo para el APK; en web no hace falta
+      // recordar el correo en este dispositivo.
+      if (!kIsWeb && mounted) await context.read<AppPreferencesProvider>().rememberEmail(email);
       // Si esta pantalla se abrió desde "Usar otra cuenta" en el acceso con
       // PIN, la cerramos para que se vea la app ya con la nueva sesión.
       if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -87,10 +90,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Contraseña',
-                      helperText: 'Usa 4 dígitos numéricos para poder entrar rápido con PIN después',
-                      border: OutlineInputBorder(),
+                      helperText: kIsWeb
+                          ? null
+                          : 'Usa 4 dígitos numéricos para poder entrar rápido con PIN después',
+                      border: const OutlineInputBorder(),
                     ),
                     validator: (value) =>
                         (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
