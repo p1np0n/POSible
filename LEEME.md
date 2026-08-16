@@ -57,8 +57,13 @@ estas dos opciones así en tu proyecto de Supabase:
 También te recomiendo mantener este repositorio de GitHub como **Privado**
 (Settings → General → Danger Zone → Change visibility).
 
-### Login rápido con PIN (cambio de cajero)
-La primera vez que un correo inicia sesión en un celular/computador, la app
+### Login rápido con PIN (cambio de cajero) — solo en el APK
+Esta función es solo para el celular (Android); en el panel web siempre se
+usa el formulario de correo y contraseña completo, sin PIN ni bloqueo
+automático (tiene sentido: el celular pasa de mano en mano entre cajeros,
+la computadora normalmente no).
+
+La primera vez que un correo inicia sesión en un celular, la app
 recuerda ESE correo en ESE dispositivo (nunca la contraseña). La próxima
 vez que alguien cierre sesión ahí (Configuración → "Cerrar sesión / Cambiar
 de cajero"), en vez del formulario de correo y contraseña aparece una
@@ -82,13 +87,43 @@ Si no encuentras esta opción o prefieres no tocarla, no pasa nada: solo
 usa contraseñas de 6 dígitos en vez de 4 (igual funciona el PIN, solo que
 escribes 2 números más).
 
-### Bloqueo automático (pedir el PIN de nuevo)
-En **Configuración → Seguridad → "Bloqueo automático"** eliges cuánto
+### Bloqueo automático (pedir el PIN de nuevo) — solo en el APK
+En **Configuración → Seguridad → "Bloqueo automático"** (solo aparece en el
+celular) eliges cuánto
 tiempo puede estar la app en segundo plano (minimizada o con la pantalla
 apagada) antes de pedir el PIN otra vez al volver a abrirla — 5, 15, 30
 minutos, 1 hora, o "Nunca". No cierra la sesión: solo bloquea la pantalla
 hasta que la misma persona escriba su PIN de nuevo (o toque "No soy yo /
 Cerrar sesión" si le pasó el celular a otra persona).
+
+### Gestionar empleados desde el panel web (crear, borrar, restablecer PIN)
+En **Configuración → Empleados** (panel web) puedes:
+- **Aprobar/rechazar** cuentas que un empleado creó solo desde el login.
+- **Nuevo empleado**: crear una cuenta directamente tú, con correo y PIN —
+  queda aprobada de inmediato, sin que el empleado tenga que registrarse.
+- **Restablecer PIN** (ícono de llave junto a cada empleado): le pones un
+  PIN nuevo en cualquier momento, por ejemplo si lo olvidó.
+- **Quitar**: le saca el acceso (como ya funcionaba antes).
+
+Estas dos primeras funciones (crear empleado y restablecer PIN) requieren
+un paso extra, porque son acciones "de administrador" que, por seguridad,
+la app no puede hacer directamente — necesitan pasar por una función que
+corre en el servidor de Supabase (nunca en tu celular/computador ni en el
+código de la app). Se activa así, **una sola vez, sin instalar nada**:
+
+1. En tu proyecto de Supabase (el de tu negocio), ve a **Edge Functions**
+   en el menú de la izquierda.
+2. Dale a **Create a new function** (o "Deploy a new function").
+3. Ponle el nombre exacto **`manage-employee`** y créala.
+4. Abre el archivo `supabase/functions/manage-employee/index.ts` de este
+   repositorio, copia TODO su contenido, pégalo reemplazando el código de
+   ejemplo que trae la función, y dale **Deploy**.
+
+Mientras no hagas esto, "Nuevo empleado" y "Restablecer PIN" van a mostrar
+un mensaje de error explicando que falta este paso — el resto de la app
+sigue funcionando normal. Como alternativa, siempre puedes seguir creando
+usuarios y cambiando contraseñas manualmente desde **Authentication →
+Users** en el panel de Supabase, sin necesidad de esta función.
 
 ## Paso 4: Ver cómo compila sola la app
 
@@ -153,7 +188,10 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
   acumulados por compra (1 punto por cada unidad de moneda gastada).
 - **Empleados** (solo en el panel web): cualquiera crea su cuenta desde la
-  app, pero no ve nada hasta que la apruebas desde Empleados.
+  app, pero no ve nada hasta que la apruebas desde Empleados. También
+  puedes crear empleados tú mismo con correo y PIN, y restablecer el PIN
+  de cualquiera, directamente desde ahí (requiere activar una función en
+  Supabase la primera vez — ver más arriba).
 - **Inventario** (solo en el panel web): administra el catálogo de
   productos COMPARTIDO entre TODAS las tiendas que usan POSible (no solo
   la tuya) — buscar, agregar, editar y borrar cualquier producto. Solo

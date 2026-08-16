@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -89,8 +90,10 @@ class _AuthGateState extends State<AuthGate> {
         if (session == null) {
           _profileFuture = null;
           _profileForUserId = null;
+          // El login rápido con PIN es solo para el APK (Android) — en el
+          // panel web siempre se usa correo y contraseña completos.
           final knownEmails = context.watch<AppPreferencesProvider>().knownEmails;
-          return knownEmails.isEmpty ? const LoginScreen() : const PinLoginScreen();
+          return (kIsWeb || knownEmails.isEmpty) ? const LoginScreen() : const PinLoginScreen();
         }
 
         if (_profileForUserId != session.user.id) {
@@ -105,7 +108,9 @@ class _AuthGateState extends State<AuthGate> {
             }
             final profile = profileSnapshot.data;
             if (profile != null && profile.approved) {
-              return const LockGate(child: HomeShell());
+              // El bloqueo automático (pedir PIN de nuevo) también es solo
+              // para Android, ya que depende del login con PIN.
+              return kIsWeb ? const HomeShell() : const LockGate(child: HomeShell());
             }
             return PendingApprovalScreen(
               onRetry: () => setState(() => _loadProfile(session.user.id)),
