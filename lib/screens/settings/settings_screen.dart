@@ -16,8 +16,11 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final SettingsRepository _repository = SettingsRepository();
   final _taxRateController = TextEditingController();
+  final _notifyEmailController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
+  bool _savingNotifyEmail = false;
+  bool _sendingTest = false;
 
   @override
   void initState() {
@@ -29,10 +32,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final settings = await _repository.getSettings();
       _taxRateController.text = settings.taxRatePercent.toStringAsFixed(2);
+      _notifyEmailController.text = settings.lowStockNotifyEmail ?? '';
     } catch (_) {
       _taxRateController.text = '0';
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _saveNotifyEmail() async {
+    setState(() => _savingNotifyEmail = true);
+    try {
+      final email = _notifyEmailController.text.trim();
+      await _repository.updateLowStockNotifyEmail(email.isEmpty ? null : email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Correo de alertas actualizado')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingNotifyEmail = false);
+    }
+  }
+
+  Future<void> _sendTestEmail() async {
+    setState(() => _sendingTest = true);
+    final message = await _repository.sendLowStockTestEmail();
+    if (mounted) {
+      setState(() => _sendingTest = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> _save() async {
@@ -56,6 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _taxRateController.dispose();
+    _notifyEmailController.dispose();
     super.dispose();
   }
 
@@ -86,6 +117,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: _saving
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Guardar'),
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('Alertas de inventario bajo', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _notifyEmailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Correo para avisos de inventario bajo (opcional)',
+                  helperText:
+                      'Requiere activar la función "notify-low-stock" en Supabase — ver LEEME.md',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _savingNotifyEmail ? null : _saveNotifyEmail,
+                      child: _savingNotifyEmail
+                          ? const SizedBox(
+                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Guardar'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _sendingTest ? null : _sendTestEmail,
+                      child: _sendingTest
+                          ? const SizedBox(
+                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Enviar prueba ahora'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
               const Divider(),

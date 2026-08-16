@@ -108,6 +108,9 @@ create table if not exists store_settings (
   updated_at timestamptz not null default now()
 );
 insert into store_settings (id) values (1) on conflict (id) do nothing;
+-- Correo al que se envía la alerta de inventario bajo (ver Edge Function
+-- "notify-low-stock"). Si es null, la alerta por correo está desactivada.
+alter table store_settings add column if not exists low_stock_notify_email text;
 
 create sequence if not exists sales_receipt_seq start 1;
 
