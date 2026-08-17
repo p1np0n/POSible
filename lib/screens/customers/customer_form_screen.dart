@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/customer.dart';
 import '../../services/customer_repository.dart';
+import '../../utils/currency_format_cl.dart';
 
 class CustomerFormScreen extends StatefulWidget {
   final Customer? customer;
@@ -115,7 +116,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.stars_outlined),
                 title: Text('${widget.customer!.loyaltyPoints} puntos de lealtad'),
-                subtitle: Text('Total gastado: \$${widget.customer!.totalSpent.toStringAsFixed(2)}'),
+                subtitle: Text('Total gastado: ${formatCurrencyCl(widget.customer!.totalSpent)}'),
               ),
             ],
             const SizedBox(height: 24),

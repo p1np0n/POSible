@@ -4,35 +4,20 @@ import 'package:http/http.dart' as http;
 
 import '../models/catalog_entry.dart';
 import 'product_catalog_repository.dart';
-import 'shared_catalog_repository.dart';
 
 /// Busca información de un producto por su código de barras, en este orden:
-/// 1. Tu propio catálogo (rápido, ya guardado antes).
-/// 2. El catálogo compartido entre negocios que usan POSible (si está
-///    configurado).
-/// 3. Open Food Facts (base de datos pública y gratuita de productos).
+/// 1. El catálogo global (compartido entre todas tus tiendas, ya guardado
+///    antes por ti o por otra de tus tiendas).
+/// 2. Open Food Facts (base de datos pública y gratuita de productos).
 ///
-/// Lo que encuentra lo guarda en tu catálogo propio (y, si corresponde, lo
-/// aporta también al catálogo compartido) para la próxima vez.
+/// Lo que encuentra en Open Food Facts lo guarda en el catálogo global para
+/// la próxima vez.
 class ProductLookupService {
   final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
-  final SharedCatalogRepository _sharedCatalogRepository = SharedCatalogRepository();
 
   Future<CatalogEntry?> lookup(String barcode) async {
     final cached = await _catalogRepository.findByBarcode(barcode);
     if (cached != null) return cached;
-
-    final shared = await _sharedCatalogRepository.findByBarcode(barcode);
-    if (shared != null) {
-      await _catalogRepository.upsert(
-        barcode: shared.barcode,
-        name: shared.name,
-        brand: shared.brand,
-        imageUrl: shared.imageUrl,
-        source: 'shared',
-      );
-      return shared;
-    }
 
     final fromInternet = await _lookupOpenFoodFacts(barcode);
     if (fromInternet != null) {
@@ -42,12 +27,6 @@ class ProductLookupService {
         brand: fromInternet.brand,
         imageUrl: fromInternet.imageUrl,
         source: 'openfoodfacts',
-      );
-      await _sharedCatalogRepository.contribute(
-        barcode: fromInternet.barcode,
-        name: fromInternet.name,
-        brand: fromInternet.brand,
-        imageUrl: fromInternet.imageUrl,
       );
       return fromInternet;
     }

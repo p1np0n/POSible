@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/customer.dart';
 import '../../services/customer_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import 'customer_form_screen.dart';
 
 class CustomerListScreen extends StatefulWidget {
@@ -85,7 +86,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                             return ListTile(
                               title: Text(customer.name),
                               subtitle: Text(
-                                  '${customer.loyaltyPoints} puntos · Gastado: \$${customer.totalSpent.toStringAsFixed(2)}'),
+                                  '${customer.loyaltyPoints} puntos · Gastado: ${formatCurrencyCl(customer.totalSpent)}'),
                               onTap: () => _openForm(customer),
                             );
                           },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/modifier.dart';
 import '../../models/product.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
 
 /// Hoja para elegir modificadores (ej. "Extra queso") antes de agregar un
@@ -43,8 +44,8 @@ class _ModifierPickerSheetState extends State<ModifierPickerSheet> {
                     title: Text(modifier.name),
                     subtitle: Text(
                       modifier.priceAdjustment >= 0
-                          ? '+\$${modifier.priceAdjustment.toStringAsFixed(2)}'
-                          : '-\$${modifier.priceAdjustment.abs().toStringAsFixed(2)}',
+                          ? '+${formatCurrencyCl(modifier.priceAdjustment)}'
+                          : '-${formatCurrencyCl(modifier.priceAdjustment.abs())}',
                     ),
                     value: _selectedIds.contains(modifier.id),
                     onChanged: (checked) {

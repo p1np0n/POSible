@@ -178,7 +178,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ProductFormScreen(product: product, categories: _categories)),
     );
-    if (changed == true) _resetAndLoad();
+    if (changed == true) {
+      final categories = await _categoryRepository.getAll();
+      if (mounted) setState(() => _categories = categories);
+      _resetAndLoad();
+    }
   }
 
   Future<void> _scanBarcode() async {
@@ -193,8 +197,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Future<void> _quickEditPriceCost(Product product) async {
-    final priceController = TextEditingController(text: product.price.toStringAsFixed(2));
-    final costController = TextEditingController(text: product.cost?.toStringAsFixed(2) ?? '');
+    final priceController = TextEditingController(text: product.price.round().toString());
+    final costController = TextEditingController(text: product.cost?.round().toString() ?? '');
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
