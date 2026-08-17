@@ -227,8 +227,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       return;
     }
     _nameDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final results = await _catalogRepository.search(value.trim());
-      if (mounted && _nameFocusNode.hasFocus) setState(() => _nameSuggestions = results);
+      try {
+        final results = await _catalogRepository.search(value.trim());
+        if (mounted) setState(() => _nameSuggestions = results);
+      } catch (_) {
+        // Búsqueda de mejor esfuerzo: si falla, no se muestran sugerencias,
+        // pero se puede seguir escribiendo el producto a mano igual.
+      }
     });
   }
 
@@ -237,6 +242,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   /// tener que volver a escribirlos — el precio queda editable, por si a tu
   /// tienda le corresponde uno distinto.
   void _applyCatalogSuggestion(CatalogEntry entry) {
+    if (!mounted) return;
     setState(() {
       _nameController.text = entry.name;
       if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
@@ -248,6 +254,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _nameSuggestions = [];
     });
     _nameFocusNode.unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Datos cargados del catálogo global: ${entry.name}')),
+    );
   }
 
   Future<void> _addCategoryInline() async {
@@ -603,12 +612,18 @@ class _CatalogSearchDialogState extends State<_CatalogSearchDialog> {
 
   Future<void> _search(String query) async {
     setState(() => _loading = true);
-    final results = await _repository.search(query);
-    if (!mounted) return;
-    setState(() {
-      _results = results;
-      _loading = false;
-    });
+    try {
+      final results = await _repository.search(query);
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo buscar: $e')));
+    }
   }
 
   @override
