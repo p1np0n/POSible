@@ -246,8 +246,9 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   Busca o escanea el producto, elige "Entrada" o "Salida" y la cantidad —
   queda un historial con quién, cuándo y por qué (motivo opcional). Si
   escaneas un código que no existe, te ofrece crear el producto ahí mismo.
-  El botón **"Importar factura (foto)"** le toma una foto a una factura o
-  boleta, lee el texto (OCR) y trata de reconocer artículos y cantidades —
+  El botón **"Importar factura (foto)"** le toma una foto (o elige un
+  archivo PDF) a una factura o boleta, lee el texto (OCR) y trata de
+  reconocer artículos y cantidades —
   es aproximado (depende de qué tan clara sea la foto y el formato de la
   factura), así que siempre te deja revisar y corregir cada línea antes de
   confirmar: para cada una eliges si suma stock a un producto que ya
