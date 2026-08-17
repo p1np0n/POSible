@@ -39,16 +39,20 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _barcodeController;
   late final TextEditingController _stockController;
   late final TextEditingController _lowStockController;
+  late final TextEditingController _pluController;
   late List<Category> _categories;
   bool _trackStock = true;
   String? _categoryId;
   String? _imageUrl;
   double? _suggestedPrice;
+  String _pricingType = 'fixed';
   bool _saving = false;
   bool _looking = false;
   bool _uploadingPhoto = false;
 
   bool get _isEditing => widget.product != null;
+  bool get _isVariablePrice => _pricingType == 'variable';
+  bool get _isSoldByWeight => _pricingType == 'weight';
 
   String? get _marginText {
     final price = double.tryParse(_priceController.text);
@@ -73,9 +77,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         TextEditingController(text: product != null ? product.stockQuantity.toStringAsFixed(0) : '0');
     _lowStockController = TextEditingController(
         text: product?.lowStockThreshold != null ? product!.lowStockThreshold!.toStringAsFixed(0) : '');
+    _pluController = TextEditingController(text: product?.plu ?? '');
     _trackStock = product?.trackStock ?? true;
     _categoryId = product?.categoryId;
     _imageUrl = product?.imageUrl;
+    _pricingType = product?.pricingType ?? 'fixed';
   }
 
   @override
@@ -87,6 +93,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _barcodeController.dispose();
     _stockController.dispose();
     _lowStockController.dispose();
+    _pluController.dispose();
     super.dispose();
   }
 
@@ -95,7 +102,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     setState(() => _saving = true);
     final barcode = _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim();
     final name = _nameController.text.trim();
-    final price = double.parse(_priceController.text);
+    final price = double.tryParse(_priceController.text) ?? 0;
+    final plu = _pluController.text.trim();
     final product = Product(
       id: widget.product?.id ?? '',
       name: name,
@@ -110,6 +118,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       active: true,
       lowStockThreshold:
           _trackStock && _lowStockController.text.isNotEmpty ? double.tryParse(_lowStockController.text) : null,
+      pricingType: _pricingType,
+      plu: _isSoldByWeight && plu.isNotEmpty ? plu : null,
     );
 
     try {
@@ -126,7 +136,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         barcode: barcode,
         name: name,
         imageUrl: _imageUrl,
-        suggestedPrice: price,
+        suggestedPrice: price > 0 ? price : null,
         source: 'store',
       );
       if (mounted) Navigator.of(context).pop(true);
@@ -340,15 +350,48 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _pricingType,
+              decoration: const InputDecoration(labelText: 'Tipo de precio', border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'fixed', child: Text('Fijo')),
+                DropdownMenuItem(value: 'variable', child: Text('Variable (se pregunta al vender)')),
+                DropdownMenuItem(value: 'weight', child: Text('Por peso (código de balanza)')),
+              ],
+              onChanged: (value) => setState(() => _pricingType = value ?? 'fixed'),
+            ),
+            if (_isSoldByWeight) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _pluController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Código PLU (5 dígitos, el que trae la balanza)',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                    (_isSoldByWeight && (value == null || value.trim().isEmpty)) ? 'Requerido' : null,
+              ),
+            ],
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     controller: _priceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration:
-                        const InputDecoration(labelText: 'Precio de venta', border: OutlineInputBorder()),
-                    validator: (value) => (double.tryParse(value ?? '') == null) ? 'Precio inválido' : null,
+                    decoration: InputDecoration(
+                      labelText: _isSoldByWeight
+                          ? 'Precio por kilo'
+                          : _isVariablePrice
+                              ? 'Precio de referencia (opcional)'
+                              : 'Precio de venta',
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (_isVariablePrice && (value == null || value.trim().isEmpty)) return null;
+                      return (double.tryParse(value ?? '') == null) ? 'Precio inválido' : null;
+                    },
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -364,6 +407,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 ),
               ],
             ),
+            if (_isVariablePrice)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'En Ventas se te preguntará el precio cada vez que agregues este artículo al carrito.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             if (_marginText != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),

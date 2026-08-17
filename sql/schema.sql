@@ -49,6 +49,20 @@ alter table products add column if not exists image_url text;
 alter table products add column if not exists low_stock_threshold numeric(12,2);
 alter table products add column if not exists store_id uuid references stores(id);
 
+-- Tipo de precio: 'fixed' (normal), 'variable' (se pregunta el precio al
+-- venderlo, ej. un servicio o un artículo sin precio fijo) o 'weight' (se
+-- vende por peso: "price" es el precio por kilo, y se agrega al carrito
+-- escaneando un código de balanza que trae el peso — ver "plu").
+alter table products add column if not exists pricing_type text not null default 'fixed';
+alter table products drop constraint if exists products_pricing_type_check;
+alter table products add constraint products_pricing_type_check
+  check (pricing_type in ('fixed', 'variable', 'weight'));
+-- Código interno corto (ej. "00123") que identifica al producto dentro de
+-- un código de barras de balanza (pricing_type = 'weight').
+alter table products add column if not exists plu text;
+drop index if exists products_plu_store_idx;
+create unique index products_plu_store_idx on products(store_id, plu) where plu is not null;
+
 -- Catálogo global: UN SOLO catálogo compartido entre TODAS tus tiendas
 -- (no un proyecto aparte). Se alimenta solo con lo que cada tienda agrega a
 -- su propio inventario (con o sin código de barras), para sugerir nombre,

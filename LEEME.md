@@ -276,6 +276,20 @@ el margen (%) calculado automáticamente. El ícono de lápiz en cada fila
 abre un cuadro rápido para cambiar solo precio y costo sin entrar al
 formulario completo.
 
+### Tipo de precio: fijo, variable o por peso
+Al crear o editar un producto puedes elegir "Tipo de precio":
+- **Fijo** (el normal): el precio del catálogo es el que se cobra.
+- **Variable**: no tiene un precio fijo — en Ventas, cada vez que lo
+  agregas al carrito, te pregunta el precio antes de agregarlo (sirve para
+  servicios o artículos sin precio estándar).
+- **Por peso**: se vende por kilo (el "Precio" es el precio por kilo) y se
+  agrega al carrito escaneando un código de balanza — un código de barras
+  de 13 dígitos que empieza en "2" y trae el peso pesado. Para esto tienes
+  que ponerle al producto el mismo "Código PLU" (5 dígitos) que configuraste
+  en tu balanza. Al escanearlo (o leerlo con un lector de código de barras),
+  la app calcula solo la cantidad en kilos y el precio, sin buscarlo como
+  texto.
+
 ### APK vs panel web: no son exactamente lo mismo
 El **APK** (celular) se queda con lo esencial para atender en el mostrador:
 Ventas, Recibos, Turno, Reportes, Clientes y Configuración. El **panel

@@ -85,18 +85,96 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _addToCart(Product product) async {
+    var effective = product;
+    if (product.isVariablePrice) {
+      final price = await _askVariablePrice(product);
+      if (price == null || !mounted) return;
+      effective = product.copyWith(price: price);
+    }
     if (_modifiers.isEmpty) {
-      context.read<CartProvider>().addProduct(product);
+      context.read<CartProvider>().addProduct(effective);
       return;
     }
     final selected = await showModalBottomSheet<List<Modifier>>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => ModifierPickerSheet(product: product, modifiers: _modifiers),
+      builder: (_) => ModifierPickerSheet(product: effective, modifiers: _modifiers),
     );
     if (selected != null && mounted) {
-      context.read<CartProvider>().addProduct(product, modifiers: selected);
+      context.read<CartProvider>().addProduct(effective, modifiers: selected);
     }
+  }
+
+  /// Pide el precio de un artículo de precio variable antes de agregarlo al
+  /// carrito (ej. un servicio o algo sin precio fijo en el catálogo).
+  Future<double?> _askVariablePrice(Product product) async {
+    final controller = TextEditingController(
+      text: product.price > 0 ? product.price.round().toString() : '',
+    );
+    return showDialog<double>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(product.name),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final price = double.tryParse(controller.text);
+              if (price == null || price <= 0) return;
+              Navigator.of(context).pop(price);
+            },
+            child: const Text('Agregar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Códigos de balanza (peso variable): 13 dígitos que empiezan con "2".
+  /// Dígitos 2-6: código PLU del producto. Dígitos 7-11: peso en gramos. El
+  /// último dígito es de control (no se valida). Devuelve null si "code" no
+  /// tiene esa forma (no es un código de balanza).
+  ({String plu, double weightKg})? _decodeWeightBarcode(String code) {
+    if (code.length != 13 || !code.startsWith('2') || int.tryParse(code) == null) return null;
+    final plu = code.substring(1, 6);
+    final grams = int.tryParse(code.substring(6, 11));
+    if (grams == null) return null;
+    return (plu: plu, weightKg: grams / 1000);
+  }
+
+  /// Si "code" es un código de balanza, busca el producto por PLU y lo
+  /// agrega al carrito con el peso escaneado. Devuelve true si "code" se
+  /// reconoció como código de balanza (se haya encontrado el producto o
+  /// no), para que quien llama no lo trate además como una búsqueda normal.
+  Future<bool> _tryAddWeightBarcode(String code) async {
+    final decoded = _decodeWeightBarcode(code);
+    if (decoded == null) return false;
+    Product? product;
+    for (final p in _products) {
+      if (p.isSoldByWeight && p.plu == decoded.plu) {
+        product = p;
+        break;
+      }
+    }
+    if (!mounted) return true;
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No hay ningún producto por peso con el código ${decoded.plu}')),
+      );
+      return true;
+    }
+    if (!context.read<CashSessionProvider>().isOpen) return true;
+    context.read<CartProvider>().addVariableItem(product, quantity: decoded.weightKg);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Agregado: ${product.name} (${decoded.weightKg.toStringAsFixed(3)} kg)')),
+    );
+    return true;
   }
 
   List<Product> get _filteredProducts {
@@ -124,8 +202,11 @@ class _PosScreenState extends State<PosScreen> {
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
     if (code != null && mounted) {
-      _searchController.text = code;
-      setState(() => _search = code);
+      final handled = await _tryAddWeightBarcode(code);
+      if (!handled && mounted) {
+        _searchController.text = code;
+        setState(() => _search = code);
+      }
     }
   }
 
@@ -189,8 +270,21 @@ class _PosScreenState extends State<PosScreen> {
           }
         }
       }
-      final product = found ?? Product.quickItem(name: entry.productName, price: entry.unitPrice);
-      final modifiers = _modifiers.where((m) => entry.modifierIds.contains(m.id)).toList();
+      Product product;
+      List<Modifier> modifiers;
+      if (found == null) {
+        product = Product.quickItem(name: entry.productName, price: entry.unitPrice);
+        modifiers = const [];
+      } else if (found.isVariablePrice) {
+        // El precio se definió al venderlo (no hay un "precio actual" del
+        // catálogo que tenga sentido usar), así que se conserva el que
+        // había cuando se dejó el ticket en espera.
+        product = found.copyWith(price: entry.unitPrice);
+        modifiers = const [];
+      } else {
+        product = found;
+        modifiers = _modifiers.where((m) => entry.modifierIds.contains(m.id)).toList();
+      }
       return CartItem(product: product, quantity: entry.quantity, modifiers: modifiers);
     }).toList();
 
@@ -238,6 +332,13 @@ class _PosScreenState extends State<PosScreen> {
                       isDense: true,
                     ),
                     onChanged: (value) => setState(() => _search = value),
+                    onSubmitted: (value) async {
+                      final handled = await _tryAddWeightBarcode(value);
+                      if (handled && mounted) {
+                        _searchController.clear();
+                        setState(() => _search = '');
+                      }
+                    },
                   ),
                 ),
                 IconButton(
@@ -333,6 +434,19 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
+  Widget _priceLabel(Product product, {bool bold = false}) {
+    if (product.isVariablePrice) {
+      return Text('Precio variable', style: TextStyle(fontStyle: FontStyle.italic, fontSize: bold ? 14 : 12));
+    }
+    if (product.isSoldByWeight) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [CurrencyText(product.price, bold: bold), const Text(' /kg', style: TextStyle(fontSize: 12))],
+      );
+    }
+    return CurrencyText(product.price, bold: bold);
+  }
+
   Widget _buildGrid(CashSessionProvider cashSession) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -375,7 +489,7 @@ class _PosScreenState extends State<PosScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CurrencyText(product.price),
+                      _priceLabel(product),
                       if (outOfStock)
                         const Text('Agotado', style: TextStyle(color: Colors.red, fontSize: 12))
                       else if (product.trackStock)
@@ -409,7 +523,7 @@ class _PosScreenState extends State<PosScreen> {
               : product.trackStock
                   ? Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}')
                   : null,
-          trailing: CurrencyText(product.price, bold: true),
+          trailing: _priceLabel(product, bold: true),
           enabled: !outOfStock && cashSession.isOpen,
           onTap: () => _addToCart(product),
         );
