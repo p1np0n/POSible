@@ -20,7 +20,12 @@ class ProductFormScreen extends StatefulWidget {
   final Product? product;
   final List<Category> categories;
 
-  const ProductFormScreen({super.key, this.product, required this.categories});
+  /// Código de barras con el que abrir el formulario ya lleno (ej. al crear
+  /// un producto nuevo desde un código escaneado en Inventario que no se
+  /// encontró). Solo aplica si [product] es null.
+  final String? initialBarcode;
+
+  const ProductFormScreen({super.key, this.product, required this.categories, this.initialBarcode});
 
   @override
   State<ProductFormScreen> createState() => _ProductFormScreenState();
@@ -77,7 +82,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _costController =
         TextEditingController(text: product?.cost != null ? product!.cost!.round().toString() : '');
     _skuController = TextEditingController(text: product?.sku ?? '');
-    _barcodeController = TextEditingController(text: product?.barcode ?? '');
+    _barcodeController = TextEditingController(text: product?.barcode ?? widget.initialBarcode ?? '');
     _stockController =
         TextEditingController(text: product != null ? product.stockQuantity.toStringAsFixed(0) : '0');
     _lowStockController = TextEditingController(
@@ -90,6 +95,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _nameFocusNode.addListener(() {
       if (!_nameFocusNode.hasFocus && mounted) setState(() => _nameSuggestions = []);
     });
+    if (product == null && widget.initialBarcode != null && widget.initialBarcode!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _lookupBarcode());
+    }
   }
 
   @override

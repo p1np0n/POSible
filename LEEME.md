@@ -241,6 +241,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   haber en la caja, más el resumen de ventas por método de pago. Desde ahí
   también puedes registrar un depósito o un retiro de efectivo durante el
   turno (ej. sacar dinero para un pago).
+- **Inventario**: entradas y salidas de stock aparte de las ventas (ej.
+  recibir mercadería de un proveedor, o descontar por pérdida o rotura).
+  Busca o escanea el producto, elige "Entrada" o "Salida" y la cantidad —
+  queda un historial con quién, cuándo y por qué (motivo opcional). Si
+  escaneas un código que no existe, te ofrece crear el producto ahí mismo.
 - **Artículos** (solo en el panel web — ver más abajo): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
@@ -295,7 +300,7 @@ Al crear o editar un producto puedes elegir "Tipo de precio":
 
 ### APK vs panel web: no son exactamente lo mismo
 El **APK** (celular) se queda con lo esencial para atender en el mostrador:
-Ventas, Recibos, Turno, Reportes, Clientes y Configuración. El **panel
+Ventas, Recibos, Turno, Inventario, Reportes, Clientes y Configuración. El **panel
 web** además tiene todo lo de administración (back office): Artículos con
 su submenú (Lista de artículos, Categorías, Modificadores, Descuentos) y
 Empleados. Así el celular queda simple y rápido para vender, y la

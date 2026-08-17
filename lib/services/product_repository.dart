@@ -56,6 +56,13 @@ class ProductRepository {
     return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  Future<Product?> findByBarcode(String barcode) async {
+    final data =
+        await _client.from('products').select().eq('barcode', barcode).eq('active', true).maybeSingle();
+    if (data == null) return null;
+    return Product.fromMap(data);
+  }
+
   Future<Product> create(Product product) async {
     final data = await _client
         .from('products')
