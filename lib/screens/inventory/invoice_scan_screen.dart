@@ -120,11 +120,13 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
     final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
-      withData: true,
+      allowMultiple: false,
     );
     if (files.isEmpty) return;
-    final bytes = files.first.bytes;
-    if (bytes == null) {
+    Uint8List bytes;
+    try {
+      bytes = await files.first.readAsBytes();
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('No se pudo leer el archivo elegido')));
