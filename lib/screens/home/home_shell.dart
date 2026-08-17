@@ -13,6 +13,7 @@ import '../inventory/discounts_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../inventory/modifiers_screen.dart';
 import '../inventory/product_list_screen.dart';
+import '../inventory/stock_movements_screen.dart';
 import '../pos/pos_screen.dart';
 import '../pos/turno_screen.dart';
 import '../receipts/receipts_screen.dart';
@@ -64,6 +65,7 @@ class _HomeShellState extends State<HomeShell> {
       const ReceiptsScreen(),
       const TurnoScreen(),
       const TimeClockScreen(),
+      const StockMovementsScreen(),
       if (store.showReports) const ReportsScreen(),
       if (store.showCustomers) const CustomerListScreen(),
       const SettingsScreen(),
@@ -83,6 +85,7 @@ class _HomeShellState extends State<HomeShell> {
       'Recibos',
       'Turno',
       'Reloj',
+      'Inventario',
       if (store.showReports) 'Reportes',
       if (store.showCustomers) 'Clientes',
       'Configuración',
@@ -102,7 +105,7 @@ class _HomeShellState extends State<HomeShell> {
     // Mismo orden en que se armaron screens/titles arriba, para calcular en
     // qué posición quedó cada pantalla según lo que esta tienda tiene
     // activado.
-    var next = 4;
+    var next = 5;
     final reportsIndex = store.showReports ? next++ : -1;
     final customersIndex = store.showCustomers ? next++ : -1;
     final settingsIndex = next++;
@@ -157,6 +160,13 @@ class _HomeShellState extends State<HomeShell> {
             subtitle: const Text('Marcar entrada y salida', style: TextStyle(fontSize: 11)),
             selected: index == 3,
             onTap: () => _selectIndex(3, closeDrawer: closeDrawer),
+          ),
+          ListTile(
+            leading: const Icon(Icons.move_to_inbox_outlined),
+            title: const Text('Inventario'),
+            subtitle: const Text('Entradas y salidas de stock', style: TextStyle(fontSize: 11)),
+            selected: index == 4,
+            onTap: () => _selectIndex(4, closeDrawer: closeDrawer),
           ),
           if (kIsWeb)
             ExpansionTile(

@@ -272,6 +272,28 @@ create table if not exists time_clock_entries (
   created_at timestamptz not null default now()
 );
 
+-- Inventario: historial de entradas y salidas de stock (ej. recibir
+-- mercadería, ajustar por pérdida/rotura), aparte de lo que ya descuenta
+-- una venta. "product_name" queda guardado por si el producto se borra
+-- después, para no perder el historial.
+create table if not exists stock_movements (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id),
+  product_id uuid references products(id) on delete set null,
+  product_name text not null,
+  type text not null check (type in ('in', 'out')),
+  quantity numeric(12,2) not null,
+  note text,
+  created_at timestamptz not null default now(),
+  user_id uuid references auth.users(id),
+  user_email text
+);
+alter table stock_movements enable row level security;
+drop policy if exists "solo mi tienda" on stock_movements;
+create policy "solo mi tienda" on stock_movements for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)
 create or replace function adjust_product_stock(p_id uuid, p_delta numeric)
