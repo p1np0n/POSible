@@ -72,7 +72,10 @@ el enlace **"¿Vas a abrir una tienda nueva? Créala aquí"** pide nombre de la
 tienda, correo y contraseña del dueño. La tienda queda activa de inmediato,
 pero **empieza limitada**: tiene Ventas, Recibos, Turno, Lista de artículos,
 Categorías, Modificadores, Descuentos, Inventario y Configuración — pero
-**no** Reportes, Clientes ni Empleados, hasta que tú se los actives.
+**no** Reportes, Clientes ni Empleados, hasta que tú se los actives. Las
+categorías (a diferencia de modificadores y descuentos) se comparten entre
+todas tus tiendas — igual que el catálogo global — para que una tienda
+nueva no empiece sin ninguna para organizar sus artículos.
 
 **Cómo le activas funciones a una tienda**: entra a **Tiendas** en el menú
 (solo la ves tú, como administrador principal) y prende los interruptores
