@@ -172,6 +172,11 @@ insert into store_settings (id) values (1) on conflict (id) do nothing;
 -- Correo al que se envía la alerta de inventario bajo (ver Edge Function
 -- "notify-low-stock"). Si es null, la alerta por correo está desactivada.
 alter table store_settings add column if not exists low_stock_notify_email text;
+-- Clave de OCR.space para leer facturas por foto (ver Inventario). Si es
+-- null, se usa la clave de prueba pública "helloworld" (con límites
+-- estrictos y compartida entre todo el mundo) — para uso real conviene
+-- una propia, gratis en ocr.space.
+alter table store_settings add column if not exists ocr_api_key text;
 alter table store_settings add column if not exists store_id uuid references stores(id);
 alter table store_settings drop constraint if exists store_settings_store_id_key;
 alter table store_settings add constraint store_settings_store_id_key unique (store_id);

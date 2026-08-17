@@ -10,6 +10,7 @@ import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../scan/barcode_scanner_screen.dart';
+import 'invoice_scan_screen.dart';
 import 'product_form_screen.dart';
 
 /// Entradas y salidas de inventario, aparte de lo que ya descuenta una
@@ -85,6 +86,20 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
     } else {
       _offerCreateProduct(code);
     }
+  }
+
+  Future<void> _importInvoice() async {
+    final result = await Navigator.of(context).push<Map<String, int>>(
+      MaterialPageRoute(builder: (_) => InvoiceScanScreen(products: _products)),
+    );
+    if (result == null || !mounted) return;
+    _load();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+        '${result['updated']} producto(s) actualizados, ${result['created']} creados. '
+        'Revisa el precio de los nuevos en Lista de artículos.',
+      ),
+    ));
   }
 
   Future<void> _offerCreateProduct(String barcode) async {
@@ -244,6 +259,12 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                 ),
               ],
             ],
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _importInvoice,
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: const Text('Importar factura (foto)'),
           ),
           if (_search.trim().isNotEmpty)
             Card(

@@ -30,6 +30,14 @@ class SettingsRepository {
     }, onConflict: 'store_id');
   }
 
+  Future<void> updateOcrApiKey(String? apiKey) async {
+    await _client.from('store_settings').upsert({
+      'store_id': CurrentStore.id,
+      'ocr_api_key': apiKey,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'store_id');
+  }
+
   /// Llama a la Edge Function "notify-low-stock" (ver LEEME.md para
   /// activarla) para revisar el inventario y enviar la alerta por correo
   /// ahora mismo. Devuelve un mensaje para mostrarle al usuario.
