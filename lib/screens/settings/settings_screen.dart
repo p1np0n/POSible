@@ -19,11 +19,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _taxRateController = TextEditingController();
   final _notifyEmailController = TextEditingController();
   final _ocrApiKeyController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
   bool _savingNotifyEmail = false;
   bool _sendingTest = false;
   bool _savingOcrApiKey = false;
+  bool _changingPassword = false;
 
   @override
   void initState() {
@@ -77,6 +80,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _changePassword() async {
+    final newPassword = _newPasswordController.text;
+    if (newPassword.length < 4) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('La contraseña debe tener al menos 4 caracteres')));
+      return;
+    }
+    if (newPassword != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Las contraseñas no coinciden')));
+      return;
+    }
+    setState(() => _changingPassword = true);
+    try {
+      await Supabase.instance.client.auth.updateUser(UserAttributes(password: newPassword));
+      if (mounted) {
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña actualizada')));
+      }
+    } on AuthException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _changingPassword = false);
+    }
+  }
+
   Future<void> _sendTestEmail() async {
     setState(() => _sendingTest = true);
     final message = await _repository.sendLowStockTestEmail();
@@ -109,6 +141,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _taxRateController.dispose();
     _notifyEmailController.dispose();
     _ocrApiKeyController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -247,6 +281,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ],
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('Cambiar contraseña', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Repite la contraseña', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _changingPassword ? null : _changePassword,
+                child: _changingPassword
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Actualizar contraseña'),
+              ),
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),

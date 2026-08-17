@@ -6,6 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/app_preferences_provider.dart';
 import 'create_store_screen.dart';
 
+// URL del panel publicado en GitHub Pages — se usa como destino del enlace
+// de recuperación de contraseña cuando la app corre como APK (ahí no hay
+// forma de saber la URL "actual" como en la web).
+const _webAppUrl = 'https://p1np0n.github.io/POSible/';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -54,6 +59,50 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _errorMessage = 'Error de conexión. Revisa tu configuración de Supabase.');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final controller = TextEditingController(text: _emailController.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recuperar contraseña'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'Correo', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Enviar enlace'),
+          ),
+        ],
+      ),
+    );
+    if (email == null || email.isEmpty || !mounted) return;
+    setState(() {
+      _errorMessage = null;
+      _infoMessage = null;
+    });
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: kIsWeb ? Uri.base.origin + Uri.base.path : _webAppUrl,
+      );
+      if (mounted) {
+        setState(() {
+          _infoMessage =
+              'Si ese correo tiene una cuenta, te enviamos un enlace para elegir una contraseña nueva. Revisa también spam.';
+        });
+      }
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _errorMessage = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = 'No se pudo enviar el correo. Intenta de nuevo.');
     }
   }
 
@@ -139,6 +188,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : Text(_isSignUp ? 'Crear cuenta' : 'Iniciar sesión'),
                   ),
+                  if (!_isSignUp)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _loading ? null : _forgotPassword,
+                        child: const Text('¿Olvidaste tu contraseña?'),
+                      ),
+                    ),
                   TextButton(
                     onPressed: _loading
                         ? null
