@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +35,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final PhotoUploadService _photoService = PhotoUploadService();
 
   late final TextEditingController _nameController;
+  final _nameFocusNode = FocusNode();
+  Timer? _nameDebounce;
+  List<CatalogEntry> _nameSuggestions = [];
   late final TextEditingController _priceController;
   late final TextEditingController _costController;
   late final TextEditingController _skuController;
@@ -82,10 +87,15 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _categoryId = product?.categoryId;
     _imageUrl = product?.imageUrl;
     _pricingType = product?.pricingType ?? 'fixed';
+    _nameFocusNode.addListener(() {
+      if (!_nameFocusNode.hasFocus && mounted) setState(() => _nameSuggestions = []);
+    });
   }
 
   @override
   void dispose() {
+    _nameDebounce?.cancel();
+    _nameFocusNode.dispose();
     _nameController.dispose();
     _priceController.dispose();
     _costController.dispose();
@@ -131,14 +141,24 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       // Aportamos este producto al catálogo global (compartido entre todas
       // tus tiendas), con o sin código de barras, para que las demás tiendas
       // puedan encontrarlo al buscar y usarlo como base (nombre, foto y
-      // precio sugerido) al crear el suyo.
-      await _catalogRepository.upsert(
-        barcode: barcode,
-        name: name,
-        imageUrl: _imageUrl,
-        suggestedPrice: price > 0 ? price : null,
-        source: 'store',
-      );
+      // precio sugerido) al crear el suyo. Es "a modo de mejor esfuerzo": si
+      // falla, tu producto igual queda guardado en tu inventario, no se
+      // debe bloquear ni mostrar como si la venta hubiera fallado.
+      try {
+        await _catalogRepository.upsert(
+          barcode: barcode,
+          name: name,
+          imageUrl: _imageUrl,
+          suggestedPrice: price > 0 ? price : null,
+          source: 'store',
+        );
+      } catch (catalogError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Guardado, pero no se pudo sumar al catálogo global: $catalogError')),
+          );
+        }
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -188,12 +208,34 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       builder: (_) => const _CatalogSearchDialog(),
     );
     if (entry == null) return;
+    _applyCatalogSuggestion(entry);
+  }
+
+  /// Mientras escribes el nombre de un producto NUEVO, busca en vivo en el
+  /// catálogo global (con un pequeño retraso para no buscar en cada letra)
+  /// y muestra los resultados debajo del campo, para que no haga falta
+  /// encontrar el ícono de búsqueda.
+  void _onNameChanged(String value) {
+    _nameDebounce?.cancel();
+    if (_isEditing || value.trim().length < 2) {
+      if (_nameSuggestions.isNotEmpty) setState(() => _nameSuggestions = []);
+      return;
+    }
+    _nameDebounce = Timer(const Duration(milliseconds: 400), () async {
+      final results = await _catalogRepository.search(value.trim());
+      if (mounted && _nameFocusNode.hasFocus) setState(() => _nameSuggestions = results);
+    });
+  }
+
+  void _applyCatalogSuggestion(CatalogEntry entry) {
     setState(() {
       _nameController.text = entry.name;
       if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
       if (entry.barcode != null && entry.barcode!.isNotEmpty) _barcodeController.text = entry.barcode!;
       _suggestedPrice = entry.suggestedPrice;
+      _nameSuggestions = [];
     });
+    _nameFocusNode.unfocus();
   }
 
   Future<void> _addCategoryInline() async {
@@ -316,8 +358,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _nameController,
+              focusNode: _nameFocusNode,
               decoration: InputDecoration(
                 labelText: 'Nombre',
+                helperText: _isEditing ? null : 'Escribe para ver sugerencias del catálogo global',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.travel_explore),
@@ -326,7 +370,31 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 ),
               ),
               validator: (value) => (value == null || value.isEmpty) ? 'Requerido' : null,
+              onChanged: _onNameChanged,
             ),
+            if (_nameSuggestions.isNotEmpty)
+              Card(
+                margin: const EdgeInsets.only(top: 4),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _nameSuggestions.map((entry) {
+                    return ListTile(
+                      dense: true,
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundImage: entry.imageUrl != null ? NetworkImage(entry.imageUrl!) : null,
+                        child: entry.imageUrl == null ? const Icon(Icons.inventory_2, size: 16) : null,
+                      ),
+                      title: Text(entry.name),
+                      subtitle: Text(entry.suggestedPrice != null
+                          ? 'Sugerido: ${formatCurrencyCl(entry.suggestedPrice!)}'
+                          : (entry.barcode ?? 'Del catálogo global')),
+                      onTap: () => _applyCatalogSuggestion(entry),
+                    );
+                  }).toList(),
+                ),
+              ),
             const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
