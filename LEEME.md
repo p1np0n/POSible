@@ -156,9 +156,17 @@ En **Configuración → Empleados** (panel web) puedes:
   PIN nuevo en cualquier momento, por ejemplo si lo olvidó.
 - **Quitar**: le saca el acceso (como ya funcionaba antes).
 
-Estas dos primeras funciones (crear empleado y restablecer PIN) requieren
-un paso extra, porque son acciones "de administrador" que, por seguridad,
-la app no puede hacer directamente — necesitan pasar por una función que
+Como administrador principal, en **Tiendas** también puedes **restablecer
+la contraseña del administrador de cada tienda** (botón "Restablecer
+contraseña del administrador" en la tarjeta de cada tienda) — útil si el
+dueño de una tienda distinta a la tuya olvidó su contraseña. Solo funciona
+para tiendas creadas después de correr `sql/schema.sql` con este cambio (o
+para tiendas más antiguas, una vez que lo corras, se completa solo con el
+correo del administrador que ya tenían guardado).
+
+Estas funciones (crear empleado, restablecer PIN/contraseña) requieren un
+paso extra, porque son acciones "de administrador" que, por seguridad, la
+app no puede hacer directamente — necesitan pasar por una función que
 corre en el servidor de Supabase (nunca en tu celular/computador ni en el
 código de la app). Se activa así, **una sola vez, sin instalar nada**:
 
@@ -170,11 +178,19 @@ código de la app). Se activa así, **una sola vez, sin instalar nada**:
    repositorio, copia TODO su contenido, pégalo reemplazando el código de
    ejemplo que trae la función, y dale **Deploy**.
 
-Mientras no hagas esto, "Nuevo empleado" y "Restablecer PIN" van a mostrar
-un mensaje de error explicando que falta este paso — el resto de la app
-sigue funcionando normal. Como alternativa, siempre puedes seguir creando
-usuarios y cambiando contraseñas manualmente desde **Authentication →
-Users** en el panel de Supabase, sin necesidad de esta función.
+⚠️ **Si ya la habías activado antes**: esta versión le agregó a
+`manage-employee` el permiso para que el administrador principal
+restablezca contraseñas de otras tiendas (antes solo dejaba dentro de tu
+propia tienda). Tienes que **volver a pegar el contenido actualizado del
+archivo y darle Deploy de nuevo** — si no, "Restablecer contraseña del
+administrador" en Tiendas va a fallar con un error de permiso.
+
+Mientras no actives (o actualices) esta función, esas opciones van a
+mostrar un mensaje de error explicando que falta este paso — el resto de
+la app sigue funcionando normal. Como alternativa, siempre puedes seguir
+creando usuarios y cambiando contraseñas manualmente desde
+**Authentication → Users** en el panel de Supabase, sin necesidad de esta
+función.
 
 ### Alerta de inventario bajo por correo (opcional)
 En **Configuración** (panel web) puedes poner un correo para que te avise

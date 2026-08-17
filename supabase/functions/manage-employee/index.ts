@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await callerClient
       .from("profiles")
-      .select("approved, store_id")
+      .select("approved, store_id, is_super_admin")
       .eq("id", userData.user.id)
       .maybeSingle();
 
@@ -87,6 +87,21 @@ Deno.serve(async (req) => {
       const userId = body.user_id;
       const password = body.password ?? "";
       if (!userId || !password) return json({ error: "Falta el usuario o el PIN nuevo" }, 400);
+
+      // Solo el administrador principal puede restablecer la contraseña de
+      // alguien de OTRA tienda (por ejemplo, la del dueño de esa tienda,
+      // desde la pantalla "Tiendas"). Cualquier otro usuario aprobado solo
+      // puede restablecer contraseñas dentro de su propia tienda.
+      if (!profile.is_super_admin) {
+        const { data: targetProfile } = await adminClient
+          .from("profiles")
+          .select("store_id")
+          .eq("id", userId)
+          .maybeSingle();
+        if (!targetProfile || targetProfile.store_id !== profile.store_id) {
+          return json({ error: "No tienes permiso para restablecer la contraseña de ese usuario" }, 403);
+        }
+      }
 
       const { error } = await adminClient.auth.admin.updateUserById(userId, { password });
       if (error) return json({ error: error.message }, 400);
