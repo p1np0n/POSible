@@ -117,13 +117,13 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
   }
 
   Future<void> _pickPdf() async {
-    final result = await FilePicker.platform.pickFiles(
+    final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
       withData: true,
     );
-    if (result == null || result.files.isEmpty) return;
-    final bytes = result.files.first.bytes;
+    if (files.isEmpty) return;
+    final bytes = files.first.bytes;
     if (bytes == null) {
       if (mounted) {
         ScaffoldMessenger.of(context)
