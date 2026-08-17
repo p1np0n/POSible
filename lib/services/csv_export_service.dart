@@ -39,7 +39,7 @@ class CsvExportService {
           ]),
     ];
 
-    final csvString = ListToCsvConverter().convert(rows);
+    final csvString = csv.encode(rows);
     final bytes = utf8.encode(csvString);
 
     await SharePlus.instance.share(
