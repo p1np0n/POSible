@@ -18,10 +18,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final SettingsRepository _repository = SettingsRepository();
   final _taxRateController = TextEditingController();
   final _notifyEmailController = TextEditingController();
+  final _ocrApiKeyController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
   bool _savingNotifyEmail = false;
   bool _sendingTest = false;
+  bool _savingOcrApiKey = false;
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final settings = await _repository.getSettings();
       _taxRateController.text = settings.taxRatePercent.toStringAsFixed(2);
       _notifyEmailController.text = settings.lowStockNotifyEmail ?? '';
+      _ocrApiKeyController.text = settings.ocrApiKey ?? '';
     } catch (_) {
       _taxRateController.text = '0';
     }
@@ -54,6 +57,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _savingNotifyEmail = false);
+    }
+  }
+
+  Future<void> _saveOcrApiKey() async {
+    setState(() => _savingOcrApiKey = true);
+    try {
+      final key = _ocrApiKeyController.text.trim();
+      await _repository.updateOcrApiKey(key.isEmpty ? null : key);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clave de OCR actualizada')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingOcrApiKey = false);
     }
   }
 
@@ -88,6 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _taxRateController.dispose();
     _notifyEmailController.dispose();
+    _ocrApiKeyController.dispose();
     super.dispose();
   }
 
@@ -157,6 +178,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('Escanear facturas (Inventario)', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _ocrApiKeyController,
+                decoration: const InputDecoration(
+                  labelText: 'Clave de OCR.space (opcional)',
+                  helperText: 'Sin esto, usa una clave de prueba compartida y limitada. '
+                      'Consigue la tuya gratis en ocr.space/ocrapi',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _savingOcrApiKey ? null : _saveOcrApiKey,
+                child: _savingOcrApiKey
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Guardar'),
               ),
               const SizedBox(height: 32),
               const Divider(),
