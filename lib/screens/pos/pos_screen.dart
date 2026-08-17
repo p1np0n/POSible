@@ -20,11 +20,16 @@ import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
 import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
-import 'cart_sheet.dart';
+import 'cart_panel.dart';
 import 'cash_session_sheet.dart';
 import 'modifier_picker_sheet.dart';
 import 'open_tickets_sheet.dart';
 import 'quick_item_dialog.dart';
+
+/// A partir de este ancho, Ventas se divide lado a lado (productos +
+/// carrito); antes de eso queda apilado (productos arriba, carrito abajo),
+/// pero el carrito SIEMPRE está visible en pantalla, nunca hay que abrirlo.
+const double _splitLayoutBreakpoint = 900;
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -114,17 +119,6 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  void _openCart() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const CartSheet(),
-    ).then((_) {
-      _loadData();
-      _refreshOpenTicketCount();
-    });
-  }
-
   Future<void> _scanBarcode() async {
     final code = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
@@ -200,9 +194,6 @@ class _PosScreenState extends State<PosScreen> {
       return CartItem(product: product, quantity: entry.quantity, modifiers: modifiers);
     }).toList();
 
-    cart.loadItems(items);
-    await _openTicketRepository.delete(ticket.id);
-
     Customer? customer;
     if (ticket.customerId != null) {
       customer = await CustomerRepository().getById(ticket.customerId!);
@@ -212,24 +203,17 @@ class _PosScreenState extends State<PosScreen> {
       discount = await DiscountRepository().getById(ticket.discountId!);
     }
 
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => CartSheet(initialCustomer: customer, initialDiscount: discount),
-    ).then((_) {
-      _loadData();
-      _refreshOpenTicketCount();
-    });
+    cart.loadItems(items, customer: customer, discount: discount);
+    await _openTicketRepository.delete(ticket.id);
+    _refreshOpenTicketCount();
   }
 
   @override
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
-    final cart = context.watch<CartProvider>();
     final prefs = context.watch<AppPreferencesProvider>();
 
-    return RefreshIndicator(
+    final productsPanel = RefreshIndicator(
       onRefresh: _loadData,
       child: Column(
         children: [
@@ -311,25 +295,41 @@ class _PosScreenState extends State<PosScreen> {
                         ? _buildList(cashSession)
                         : _buildGrid(cashSession),
           ),
-          if (cart.items.isNotEmpty)
-            Material(
-              elevation: 8,
-              child: InkWell(
-                onTap: _openCart,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('${cart.itemCount} artículo(s) en el carrito'),
-                      CurrencyText(cart.total, bold: true),
-                    ],
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
+    );
+
+    final cartPanel = CartPanel(
+      onSaleCompleted: () {
+        _loadData();
+        _refreshOpenTicketCount();
+      },
+      onTicketHeld: () {
+        _loadData();
+        _refreshOpenTicketCount();
+      },
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSplitWide = constraints.maxWidth >= _splitLayoutBreakpoint;
+        if (isSplitWide) {
+          return Row(
+            children: [
+              Expanded(flex: 3, child: productsPanel),
+              const VerticalDivider(width: 1),
+              SizedBox(width: 400, child: cartPanel),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            Expanded(child: productsPanel),
+            const Divider(height: 1),
+            SizedBox(height: constraints.maxHeight * 0.42, child: cartPanel),
+          ],
+        );
+      },
     );
   }
 
