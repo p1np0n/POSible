@@ -441,10 +441,10 @@ create policy "super admin actualiza tiendas" on stores
   for update using (public.is_super_admin()) with check (public.is_super_admin());
 
 -- Seguridad: solo usuarios aprobados, y solo de su propia tienda, pueden
--- leer/escribir los datos del negocio. "product_catalog" es la excepción:
--- se deja compartido entre todas las tiendas a propósito (solo guarda
--- nombre/foto por código de barras, nada sensible, y ayuda a identificar
--- productos más rápido sin importar qué tienda los cargó primero).
+-- leer/escribir los datos del negocio. "product_catalog" y "categories"
+-- son la excepción: se dejan compartidas entre todas las tiendas a
+-- propósito (nada sensible, y evita que una tienda nueva empiece sin
+-- categorías o sin poder aprovechar lo que ya cargó otra tienda).
 alter table categories enable row level security;
 alter table products enable row level security;
 alter table customers enable row level security;
@@ -481,6 +481,7 @@ drop policy if exists "solo aprobados" on product_catalog;
 drop policy if exists "solo aprobados" on open_tickets;
 drop policy if exists "solo aprobados" on cash_movements;
 drop policy if exists "solo mi tienda" on categories;
+drop policy if exists "solo aprobados" on categories;
 drop policy if exists "solo mi tienda" on products;
 drop policy if exists "solo mi tienda" on customers;
 drop policy if exists "solo mi tienda" on cash_sessions;
@@ -492,9 +493,10 @@ drop policy if exists "solo mi tienda" on store_settings;
 drop policy if exists "solo mi tienda" on open_tickets;
 drop policy if exists "solo mi tienda" on cash_movements;
 
-create policy "solo mi tienda" on categories for all
-  using (public.is_approved() and store_id is not distinct from public.current_store_id())
-  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+-- Las categorías, a diferencia de products/customers/etc., se comparten
+-- entre todas tus tiendas (igual que el catálogo global): una tienda nueva
+-- no debería empezar sin ninguna categoría para organizar sus artículos.
+create policy "solo aprobados" on categories for all using (public.is_approved()) with check (public.is_approved());
 create policy "solo mi tienda" on products for all
   using (public.is_approved() and store_id is not distinct from public.current_store_id())
   with check (public.is_approved() and store_id is not distinct from public.current_store_id());

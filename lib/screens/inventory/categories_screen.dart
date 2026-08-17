@@ -70,6 +70,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       onRefresh: _load,
       child: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Text(
+              'Las categorías se comparten entre todas tus tiendas.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
