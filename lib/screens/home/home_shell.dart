@@ -73,7 +73,7 @@ class _HomeShellState extends State<HomeShell> {
         const ModifiersScreen(),
         const DiscountsScreen(),
         if (store.showEmployees) const EmployeesScreen(),
-        const InventoryScreen(),
+        if (store.isSuperAdmin) const InventoryScreen(),
         if (store.isSuperAdmin) const StoresScreen(),
       ],
     ];
@@ -92,7 +92,7 @@ class _HomeShellState extends State<HomeShell> {
         'Modificadores',
         'Descuentos',
         if (store.showEmployees) 'Empleados',
-        'Inventario',
+        if (store.isSuperAdmin) 'Catálogo global',
         if (store.isSuperAdmin) 'Tiendas',
       ],
     ];
@@ -111,7 +111,7 @@ class _HomeShellState extends State<HomeShell> {
     final modifiersIndex = kIsWeb ? next++ : -1;
     final discountsIndex = kIsWeb ? next++ : -1;
     final employeesIndex = (kIsWeb && store.showEmployees) ? next++ : -1;
-    final inventoryIndex = kIsWeb ? next++ : -1;
+    final inventoryIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
     final storesIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
 
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
@@ -191,11 +191,11 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ],
             ),
-          if (kIsWeb)
+          if (kIsWeb && store.isSuperAdmin)
             ListTile(
               leading: const Icon(Icons.public),
-              title: const Text('Inventario'),
-              subtitle: const Text('Catálogo de todas las tiendas', style: TextStyle(fontSize: 11)),
+              title: const Text('Catálogo global'),
+              subtitle: const Text('Compartido entre todos los negocios que usan POSible', style: TextStyle(fontSize: 11)),
               selected: index == inventoryIndex,
               onTap: () => _selectIndex(inventoryIndex, closeDrawer: closeDrawer),
             ),
