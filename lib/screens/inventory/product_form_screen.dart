@@ -191,6 +191,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         if (_nameController.text.trim().isEmpty) _nameController.text = entry.name;
         if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
         _suggestedPrice = entry.suggestedPrice;
+        if (entry.suggestedPrice != null &&
+            entry.suggestedPrice! > 0 &&
+            _priceController.text.trim().isEmpty) {
+          _priceController.text = entry.suggestedPrice!.round().toString();
+        }
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -227,12 +232,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     });
   }
 
+  /// Al elegir un resultado del catálogo global, carga todos los datos que
+  /// tiene guardados (nombre, foto, código de barras y precio) para no
+  /// tener que volver a escribirlos — el precio queda editable, por si a tu
+  /// tienda le corresponde uno distinto.
   void _applyCatalogSuggestion(CatalogEntry entry) {
     setState(() {
       _nameController.text = entry.name;
       if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
       if (entry.barcode != null && entry.barcode!.isNotEmpty) _barcodeController.text = entry.barcode!;
       _suggestedPrice = entry.suggestedPrice;
+      if (entry.suggestedPrice != null && entry.suggestedPrice! > 0) {
+        _priceController.text = entry.suggestedPrice!.round().toString();
+      }
       _nameSuggestions = [];
     });
     _nameFocusNode.unfocus();
@@ -259,12 +271,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       ),
     );
     if (name == null || name.isEmpty) return;
-    final category = await _categoryRepository.create(name);
-    if (!mounted) return;
-    setState(() {
-      _categories = [..._categories, category];
-      _categoryId = category.id;
-    });
+    try {
+      final category = await _categoryRepository.create(name);
+      if (!mounted) return;
+      setState(() {
+        _categories = [..._categories, category];
+        _categoryId = category.id;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('No se pudo crear la categoría: $e')));
+      }
+    }
   }
 
   Future<void> _choosePhotoSource() async {
@@ -491,20 +510,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             if (_suggestedPrice != null && _suggestedPrice! > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Precio sugerido (de otra tienda): ${formatCurrencyCl(_suggestedPrice!)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () =>
-                          setState(() => _priceController.text = _suggestedPrice!.round().toString()),
-                      child: const Text('Usar'),
-                    ),
-                  ],
+                child: Text(
+                  'Precio de ${formatCurrencyCl(_suggestedPrice!)} tomado del catálogo global — puedes cambiarlo.',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
             const SizedBox(height: 12),

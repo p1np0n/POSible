@@ -41,13 +41,27 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       builder: (_) => const _CategoryNameDialog(),
     );
     if (name == null || name.trim().isEmpty) return;
-    await _repository.create(name.trim());
-    _load();
+    try {
+      await _repository.create(name.trim());
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('No se pudo crear la categoría: $e')));
+      }
+    }
   }
 
   Future<void> _delete(Category category) async {
-    await _repository.delete(category.id);
-    _load();
+    try {
+      await _repository.delete(category.id);
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('No se pudo eliminar la categoría: $e')));
+      }
+    }
   }
 
   @override
