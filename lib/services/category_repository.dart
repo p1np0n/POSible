@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/category.dart';
 
 class CategoryRepository {
@@ -11,7 +12,9 @@ class CategoryRepository {
   }
 
   Future<Category> create(String name) async {
-    final data = await _client.from('categories').insert({'name': name}).select().single();
+    final data = await _client
+        .from('categories')
+        .insert({'name': name, 'store_id': CurrentStore.id}).select().single();
     return Category.fromMap(data);
   }
 

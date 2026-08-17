@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../providers/store_provider.dart';
 
 class PendingApprovalScreen extends StatelessWidget {
   final VoidCallback onRetry;
@@ -38,7 +41,10 @@ class PendingApprovalScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => Supabase.instance.client.auth.signOut(),
+                onPressed: () {
+                  context.read<StoreProvider>().reset();
+                  Supabase.instance.client.auth.signOut();
+                },
                 icon: const Icon(Icons.logout),
                 label: const Text('Cerrar sesión'),
               ),

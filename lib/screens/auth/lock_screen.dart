@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
+import '../../providers/store_provider.dart';
 import '../../widgets/pin_pad.dart';
 
 /// Pantalla de bloqueo que aparece cuando la app estuvo en segundo plano
@@ -103,6 +104,7 @@ class _LockScreenState extends State<LockScreen> {
                   onPressed: _loading
                       ? null
                       : () async {
+                          context.read<StoreProvider>().reset();
                           await Supabase.instance.client.auth.signOut();
                         },
                   icon: const Icon(Icons.logout),

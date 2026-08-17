@@ -1,27 +1,33 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/store_settings.dart';
 
 class SettingsRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<StoreSettings> getSettings() async {
-    final data = await _client.from('store_settings').select().eq('id', 1).single();
+    final storeId = CurrentStore.id;
+    if (storeId == null) return StoreSettings(taxRatePercent: 0);
+    final data = await _client.from('store_settings').select().eq('store_id', storeId).maybeSingle();
+    if (data == null) return StoreSettings(taxRatePercent: 0);
     return StoreSettings.fromMap(data);
   }
 
   Future<void> updateTaxRate(double taxRatePercent) async {
-    await _client.from('store_settings').update({
+    await _client.from('store_settings').upsert({
+      'store_id': CurrentStore.id,
       'tax_rate_percent': taxRatePercent,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', 1);
+    }, onConflict: 'store_id');
   }
 
   Future<void> updateLowStockNotifyEmail(String? email) async {
-    await _client.from('store_settings').update({
+    await _client.from('store_settings').upsert({
+      'store_id': CurrentStore.id,
       'low_stock_notify_email': email,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', 1);
+    }, onConflict: 'store_id');
   }
 
   /// Llama a la Edge Function "notify-low-stock" (ver LEEME.md para

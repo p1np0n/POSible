@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await callerClient
       .from("profiles")
-      .select("approved")
+      .select("approved, store_id")
       .eq("id", userData.user.id)
       .maybeSingle();
 
@@ -76,7 +76,10 @@ Deno.serve(async (req) => {
       });
       if (error) return json({ error: error.message }, 400);
 
-      await adminClient.from("profiles").upsert({ id: data.user!.id, email, approved: true });
+      // El empleado nuevo queda en la misma tienda que quien lo creó.
+      await adminClient
+        .from("profiles")
+        .upsert({ id: data.user!.id, email, approved: true, store_id: profile.store_id });
       return json({ ok: true });
     }
 

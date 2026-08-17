@@ -57,6 +57,35 @@ estas dos opciones así en tu proyecto de Supabase:
 También te recomiendo mantener este repositorio de GitHub como **Privado**
 (Settings → General → Danger Zone → Change visibility).
 
+### Multi-tienda: varias tiendas compartiendo la misma app
+POSible ahora soporta varias tiendas usando la misma app y la misma base de
+datos, cada una viendo **solo sus propios datos** (productos, ventas,
+clientes, etc. — nunca los de otra tienda). Tú (`ivan.rojas2@gmail.com`)
+eres el **administrador principal**: tu cuenta ve y administra todas las
+tiendas, y tu tienda actual pasó a llamarse automáticamente "Tienda 1" con
+todas las funciones activas al correr `sql/schema.sql` con este cambio (no
+se pierde ni se mueve ningún dato, solo se le puso una etiqueta de tienda a
+lo que ya tenías).
+
+**Cómo se registra una tienda nueva**: en la pantalla de inicio de sesión,
+el enlace **"¿Vas a abrir una tienda nueva? Créala aquí"** pide nombre de la
+tienda, correo y contraseña del dueño. La tienda queda activa de inmediato,
+pero **empieza limitada**: tiene Ventas, Recibos, Turno, Lista de artículos,
+Categorías, Modificadores, Descuentos, Inventario y Configuración — pero
+**no** Reportes, Clientes ni Empleados, hasta que tú se los actives.
+
+**Cómo le activas funciones a una tienda**: entra a **Tiendas** en el menú
+(solo la ves tú, como administrador principal) y prende los interruptores
+de Reportes / Clientes / Empleados para la tienda que quieras.
+
+**Cómo un empleado se une a una tienda que ya existe**: usa el botón
+"¿Eres empleado nuevo? Crea tu cuenta" de siempre, pero ahora pide además
+un **"Código de tienda"** — es el código corto que cada tienda tiene (lo
+puedes ver, como administrador, en la pantalla Tiendas). La cuenta nueva
+queda pendiente de aprobación del dueño de esa tienda, igual que antes —
+con la diferencia de que esa función de aprobar empleados (Empleados) tiene
+que estar activada para esa tienda.
+
 ### Login rápido con PIN (cambio de cajero) — solo en el APK
 Esta función es solo para el celular (Android); en el panel web siempre se
 usa el formulario de correo y contraseña completo, sin PIN ni bloqueo

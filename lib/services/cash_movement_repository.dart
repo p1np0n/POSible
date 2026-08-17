@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/cash_movement.dart';
 
 class CashMovementRepository {
@@ -27,6 +28,7 @@ class CashMovementRepository {
       'note': note,
       'user_id': _client.auth.currentUser?.id,
       'user_email': _client.auth.currentUser?.email,
+      'store_id': CurrentStore.id,
     });
   }
 }

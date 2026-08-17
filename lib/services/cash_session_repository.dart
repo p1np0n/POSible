@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/cash_session.dart';
 
 class CashSessionRepository {
@@ -30,6 +31,7 @@ class CashSessionRepository {
       'status': 'open',
       'user_id': user.id,
       'user_email': user.email,
+      'store_id': CurrentStore.id,
     }).select().single();
     return CashSession.fromMap(data);
   }
