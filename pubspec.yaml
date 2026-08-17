@@ -16,6 +16,8 @@ dependencies:
   mobile_scanner: ^5.2.3
   http: ^1.2.2
   image_picker: ^1.1.2
+  csv: ^8.0.0
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

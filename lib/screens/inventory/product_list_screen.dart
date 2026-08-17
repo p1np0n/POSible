@@ -5,6 +5,7 @@ import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../services/category_repository.dart';
+import '../../services/csv_export_service.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
 import '../scan/barcode_scanner_screen.dart';
@@ -26,6 +27,7 @@ class ProductListScreen extends StatefulWidget {
 class _ProductListScreenState extends State<ProductListScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final CsvExportService _csvExportService = CsvExportService();
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   List<Product> _products = [];
@@ -40,6 +42,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
   int _requestId = 0;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -242,6 +245,20 @@ class _ProductListScreenState extends State<ProductListScreen> {
     _resetAndLoad();
   }
 
+  Future<void> _exportCsv() async {
+    setState(() => _exporting = true);
+    try {
+      final allProducts = await _productRepository.getAll();
+      await _csvExportService.exportProducts(allProducts, _categories);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al exportar: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   void _toggleSelectionMode() {
     setState(() {
       _selectionMode = !_selectionMode;
@@ -409,6 +426,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
                     tooltip: _selectionMode ? 'Cancelar selección' : 'Seleccionar varios',
                     onPressed: _toggleSelectionMode,
+                  ),
+                  IconButton(
+                    icon: _exporting
+                        ? const SizedBox(
+                            height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.download_outlined),
+                    tooltip: 'Exportar a CSV',
+                    onPressed: _exporting ? null : _exportCsv,
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
