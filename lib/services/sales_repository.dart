@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/cart_item.dart';
 
 class SalesRepository {
@@ -43,6 +44,7 @@ class SalesRepository {
       'other_amount': otherAmount,
       'loyalty_points_earned': loyaltyPointsEarned,
       'user_id': _client.auth.currentUser?.id,
+      'store_id': CurrentStore.id,
     }).select().single();
 
     final saleId = saleData['id'] as String;
@@ -56,6 +58,7 @@ class SalesRepository {
               'quantity': item.quantity,
               'subtotal': item.subtotal,
               'modifiers_summary': item.modifiersLabel.isEmpty ? null : item.modifiersLabel,
+              'store_id': CurrentStore.id,
             })
         .toList();
 

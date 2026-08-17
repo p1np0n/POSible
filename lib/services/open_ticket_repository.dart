@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/open_ticket.dart';
 
 class OpenTicketRepository {
@@ -29,6 +30,7 @@ class OpenTicketRepository {
       'items_json': items.map((e) => e.toMap()).toList(),
       'user_id': _client.auth.currentUser?.id,
       'user_email': _client.auth.currentUser?.email,
+      'store_id': CurrentStore.id,
     });
   }
 

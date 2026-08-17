@@ -7,6 +7,7 @@ import '../../models/discount.dart';
 import '../../models/open_ticket.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
+import '../../providers/store_provider.dart';
 import '../../services/customer_repository.dart';
 import '../../services/open_ticket_repository.dart';
 import '../../services/sales_repository.dart';
@@ -294,12 +295,13 @@ class _CartSheetState extends State<CartSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(_selectedCustomer?.name ?? 'Sin cliente (opcional)'),
-                      leading: const Icon(Icons.person_outline),
-                      trailing: TextButton(onPressed: _pickCustomer, child: const Text('Elegir')),
-                    ),
+                    if (context.watch<StoreProvider>().showCustomers)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(_selectedCustomer?.name ?? 'Sin cliente (opcional)'),
+                        leading: const Icon(Icons.person_outline),
+                        trailing: TextButton(onPressed: _pickCustomer, child: const Text('Elegir')),
+                      ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(_selectedDiscount?.name ?? 'Sin descuento'),

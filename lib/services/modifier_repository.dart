@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/modifier.dart';
 
 class ModifierRepository {
@@ -15,7 +16,9 @@ class ModifierRepository {
   }
 
   Future<Modifier> create(Modifier modifier) async {
-    final data = await _client.from('modifiers').insert(modifier.toMap()).select().single();
+    final data = await _client
+        .from('modifiers')
+        .insert({...modifier.toMap(), 'store_id': CurrentStore.id}).select().single();
     return Modifier.fromMap(data);
   }
 

@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../config/app_config.dart';
+import '../../providers/store_provider.dart';
 import '../customers/customer_list_screen.dart';
 import '../employees/employees_screen.dart';
 import '../inventory/categories_screen.dart';
@@ -15,6 +17,7 @@ import '../pos/turno_screen.dart';
 import '../receipts/receipts_screen.dart';
 import '../reports/reports_screen.dart';
 import '../settings/settings_screen.dart';
+import '../stores/stores_screen.dart';
 
 /// Punto de corte para mostrar el menú lateral fijo (pantalla ancha, como un
 /// computador) en vez del menú deslizable (celular).
@@ -30,176 +33,205 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   bool _articulosExpanded = true;
-
-  // El APK (celular) se queda con lo esencial para atender en el mostrador.
-  // El panel web además tiene la administración completa (back office).
-  //
-  // Solo se muestra _screens[_index] (no IndexedStack), así cada pantalla
-  // vuelve a cargar sus datos al seleccionarla — si agregas un producto en
-  // Artículos y vuelves a Ventas, ya lo ves sin tener que refrescar a mano.
-  late final List<Widget> _screens = [
-    const PosScreen(),
-    const ReceiptsScreen(),
-    const TurnoScreen(),
-    const ReportsScreen(),
-    const CustomerListScreen(),
-    const SettingsScreen(),
-    if (kIsWeb) ...[
-      const ProductListScreen(),
-      const CategoriesScreen(),
-      const ModifiersScreen(),
-      const DiscountsScreen(),
-      const EmployeesScreen(),
-      const InventoryScreen(),
-    ],
-  ];
-
-  late final List<String> _titles = [
-    'Ventas',
-    'Recibos',
-    'Turno',
-    'Reportes',
-    'Clientes',
-    'Configuración',
-    if (kIsWeb) ...[
-      'Lista de artículos',
-      'Categorías',
-      'Modificadores',
-      'Descuentos',
-      'Empleados',
-      'Inventario',
-    ],
-  ];
-
-  static const _posIndex = 0;
-  static const _receiptsIndex = 1;
-  static const _turnoIndex = 2;
-  static const _reportsIndex = 3;
-  static const _customersIndex = 4;
-  static const _settingsIndex = 5;
-  static const _productsIndex = 6;
-  static const _categoriesIndex = 7;
-  static const _modifiersIndex = 8;
-  static const _discountsIndex = 9;
-  static const _employeesIndex = 10;
-  static const _inventoryIndex = 11;
+  bool _storeLoadRequested = false;
 
   void _selectIndex(int index, {required bool closeDrawer}) {
     if (closeDrawer) Navigator.of(context).maybePop();
     setState(() => _index = index);
   }
 
-  Widget _buildNav(BuildContext context, {required bool closeDrawer}) {
-    final email = Supabase.instance.client.auth.currentUser?.email ?? '';
-
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        DrawerHeader(
-          decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const Icon(Icons.point_of_sale, color: Colors.white, size: 32),
-              const SizedBox(height: 8),
-              Text(AppConfig.appName, style: const TextStyle(color: Colors.white, fontSize: 20)),
-              Text(email, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            ],
-          ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.point_of_sale),
-          title: const Text('Ventas'),
-          selected: _index == _posIndex,
-          onTap: () => _selectIndex(_posIndex, closeDrawer: closeDrawer),
-        ),
-        ListTile(
-          leading: const Icon(Icons.receipt_long),
-          title: const Text('Recibos'),
-          selected: _index == _receiptsIndex,
-          onTap: () => _selectIndex(_receiptsIndex, closeDrawer: closeDrawer),
-        ),
-        ListTile(
-          leading: const Icon(Icons.schedule),
-          title: const Text('Turno'),
-          selected: _index == _turnoIndex,
-          onTap: () => _selectIndex(_turnoIndex, closeDrawer: closeDrawer),
-        ),
-        if (kIsWeb)
-          ExpansionTile(
-            leading: const Icon(Icons.inventory_2),
-            title: const Text('Artículos'),
-            initiallyExpanded: _articulosExpanded,
-            onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
-            children: [
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Lista de artículos'),
-                selected: _index == _productsIndex,
-                onTap: () => _selectIndex(_productsIndex, closeDrawer: closeDrawer),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Categorías'),
-                selected: _index == _categoriesIndex,
-                onTap: () => _selectIndex(_categoriesIndex, closeDrawer: closeDrawer),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Modificadores'),
-                selected: _index == _modifiersIndex,
-                onTap: () => _selectIndex(_modifiersIndex, closeDrawer: closeDrawer),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Descuentos'),
-                selected: _index == _discountsIndex,
-                onTap: () => _selectIndex(_discountsIndex, closeDrawer: closeDrawer),
-              ),
-            ],
-          ),
-        if (kIsWeb)
-          ListTile(
-            leading: const Icon(Icons.public),
-            title: const Text('Inventario'),
-            subtitle: const Text('Catálogo de todas las tiendas', style: TextStyle(fontSize: 11)),
-            selected: _index == _inventoryIndex,
-            onTap: () => _selectIndex(_inventoryIndex, closeDrawer: closeDrawer),
-          ),
-        ListTile(
-          leading: const Icon(Icons.bar_chart),
-          title: const Text('Reportes'),
-          selected: _index == _reportsIndex,
-          onTap: () => _selectIndex(_reportsIndex, closeDrawer: closeDrawer),
-        ),
-        ListTile(
-          leading: const Icon(Icons.people),
-          title: const Text('Clientes'),
-          selected: _index == _customersIndex,
-          onTap: () => _selectIndex(_customersIndex, closeDrawer: closeDrawer),
-        ),
-        if (kIsWeb) ...[
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.badge_outlined),
-            title: const Text('Empleados'),
-            selected: _index == _employeesIndex,
-            onTap: () => _selectIndex(_employeesIndex, closeDrawer: closeDrawer),
-          ),
-        ],
-        ListTile(
-          leading: const Icon(Icons.settings),
-          title: const Text('Configuración'),
-          selected: _index == _settingsIndex,
-          onTap: () => _selectIndex(_settingsIndex, closeDrawer: closeDrawer),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final store = context.watch<StoreProvider>();
+    if (!store.loaded) {
+      if (!_storeLoadRequested) {
+        _storeLoadRequested = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => context.read<StoreProvider>().load());
+      }
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // El APK (celular) se queda con lo esencial para atender en el mostrador.
+    // El panel web además tiene la administración completa (back office).
+    // Reportes, Clientes y Empleados solo se muestran si la tienda los tiene
+    // activados (las tiendas nuevas empiezan sin esos tres).
+    //
+    // Solo se muestra _screens[index] (no IndexedStack), así cada pantalla
+    // vuelve a cargar sus datos al seleccionarla.
+    final screens = <Widget>[
+      const PosScreen(),
+      const ReceiptsScreen(),
+      const TurnoScreen(),
+      if (store.showReports) const ReportsScreen(),
+      if (store.showCustomers) const CustomerListScreen(),
+      const SettingsScreen(),
+      if (kIsWeb) ...[
+        const ProductListScreen(),
+        const CategoriesScreen(),
+        const ModifiersScreen(),
+        const DiscountsScreen(),
+        if (store.showEmployees) const EmployeesScreen(),
+        const InventoryScreen(),
+        if (store.isSuperAdmin) const StoresScreen(),
+      ],
+    ];
+
+    final titles = <String>[
+      'Ventas',
+      'Recibos',
+      'Turno',
+      if (store.showReports) 'Reportes',
+      if (store.showCustomers) 'Clientes',
+      'Configuración',
+      if (kIsWeb) ...[
+        'Lista de artículos',
+        'Categorías',
+        'Modificadores',
+        'Descuentos',
+        if (store.showEmployees) 'Empleados',
+        'Inventario',
+        if (store.isSuperAdmin) 'Tiendas',
+      ],
+    ];
+
+    final index = _index >= screens.length ? 0 : _index;
+
+    // Mismo orden en que se armaron screens/titles arriba, para calcular en
+    // qué posición quedó cada pantalla según lo que esta tienda tiene
+    // activado.
+    var next = 3;
+    final reportsIndex = store.showReports ? next++ : -1;
+    final customersIndex = store.showCustomers ? next++ : -1;
+    final settingsIndex = next++;
+    final productsIndex = kIsWeb ? next++ : -1;
+    final categoriesIndex = kIsWeb ? next++ : -1;
+    final modifiersIndex = kIsWeb ? next++ : -1;
+    final discountsIndex = kIsWeb ? next++ : -1;
+    final employeesIndex = (kIsWeb && store.showEmployees) ? next++ : -1;
+    final inventoryIndex = kIsWeb ? next++ : -1;
+    final storesIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
+
+    final email = Supabase.instance.client.auth.currentUser?.email ?? '';
+
+    Widget buildNav(BuildContext context, {required bool closeDrawer}) {
+      return ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Icon(Icons.point_of_sale, color: Colors.white, size: 32),
+                const SizedBox(height: 8),
+                Text(AppConfig.appName, style: const TextStyle(color: Colors.white, fontSize: 20)),
+                Text(store.myStore?.name ?? email, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.point_of_sale),
+            title: const Text('Ventas'),
+            selected: index == 0,
+            onTap: () => _selectIndex(0, closeDrawer: closeDrawer),
+          ),
+          ListTile(
+            leading: const Icon(Icons.receipt_long),
+            title: const Text('Recibos'),
+            selected: index == 1,
+            onTap: () => _selectIndex(1, closeDrawer: closeDrawer),
+          ),
+          ListTile(
+            leading: const Icon(Icons.schedule),
+            title: const Text('Turno'),
+            selected: index == 2,
+            onTap: () => _selectIndex(2, closeDrawer: closeDrawer),
+          ),
+          if (kIsWeb)
+            ExpansionTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Artículos'),
+              initiallyExpanded: _articulosExpanded,
+              onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Lista de artículos'),
+                  selected: index == productsIndex,
+                  onTap: () => _selectIndex(productsIndex, closeDrawer: closeDrawer),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Categorías'),
+                  selected: index == categoriesIndex,
+                  onTap: () => _selectIndex(categoriesIndex, closeDrawer: closeDrawer),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Modificadores'),
+                  selected: index == modifiersIndex,
+                  onTap: () => _selectIndex(modifiersIndex, closeDrawer: closeDrawer),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Descuentos'),
+                  selected: index == discountsIndex,
+                  onTap: () => _selectIndex(discountsIndex, closeDrawer: closeDrawer),
+                ),
+              ],
+            ),
+          if (kIsWeb)
+            ListTile(
+              leading: const Icon(Icons.public),
+              title: const Text('Inventario'),
+              subtitle: const Text('Catálogo de todas las tiendas', style: TextStyle(fontSize: 11)),
+              selected: index == inventoryIndex,
+              onTap: () => _selectIndex(inventoryIndex, closeDrawer: closeDrawer),
+            ),
+          if (store.showReports)
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Reportes'),
+              selected: index == reportsIndex,
+              onTap: () => _selectIndex(reportsIndex, closeDrawer: closeDrawer),
+            ),
+          if (store.showCustomers)
+            ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('Clientes'),
+              selected: index == customersIndex,
+              onTap: () => _selectIndex(customersIndex, closeDrawer: closeDrawer),
+            ),
+          if (kIsWeb && store.showEmployees) ...[
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('Empleados'),
+              selected: index == employeesIndex,
+              onTap: () => _selectIndex(employeesIndex, closeDrawer: closeDrawer),
+            ),
+          ],
+          if (kIsWeb && store.isSuperAdmin) ...[
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.storefront_outlined),
+              title: const Text('Tiendas'),
+              subtitle: const Text('Administrar todas las tiendas', style: TextStyle(fontSize: 11)),
+              selected: index == storesIndex,
+              onTap: () => _selectIndex(storesIndex, closeDrawer: closeDrawer),
+            ),
+          ],
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Configuración'),
+            selected: index == settingsIndex,
+            onTap: () => _selectIndex(settingsIndex, closeDrawer: closeDrawer),
+          ),
+        ],
+      );
+    }
+
     final isWide = MediaQuery.of(context).size.width >= _wideLayoutBreakpoint;
 
     if (isWide) {
@@ -208,17 +240,17 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             SizedBox(
               width: 280,
-              child: Material(elevation: 1, child: _buildNav(context, closeDrawer: false)),
+              child: Material(elevation: 1, child: buildNav(context, closeDrawer: false)),
             ),
             const VerticalDivider(width: 1),
             Expanded(
               child: Column(
                 children: [
                   AppBar(
-                    title: Text(_titles[_index]),
+                    title: Text(titles[index]),
                     automaticallyImplyLeading: false,
                   ),
-                  Expanded(child: _screens[_index]),
+                  Expanded(child: screens[index]),
                 ],
               ),
             ),
@@ -228,9 +260,9 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_index])),
-      drawer: Drawer(child: _buildNav(context, closeDrawer: true)),
-      body: _screens[_index],
+      appBar: AppBar(title: Text(titles[index])),
+      drawer: Drawer(child: buildNav(context, closeDrawer: true)),
+      body: screens[index],
     );
   }
 }

@@ -4,11 +4,31 @@
 
 create extension if not exists pgcrypto;
 
+-- ============================================================
+-- Multi-tienda: varias tiendas pueden compartir esta misma base de datos,
+-- cada una viendo solo sus propios datos. "stores" guarda cada tienda y
+-- qué funciones tiene activadas (las tiendas nuevas empiezan limitadas
+-- hasta que el administrador principal les active más). Ver más abajo,
+-- sección "MULTI-TIENDA", para el resto de las piezas (RLS, migración).
+-- ============================================================
+create table if not exists stores (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  store_code text unique,
+  owner_id uuid references auth.users(id),
+  feature_reports boolean not null default false,
+  feature_customers boolean not null default false,
+  feature_employees boolean not null default false,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists categories (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   created_at timestamptz not null default now()
 );
+alter table categories add column if not exists store_id uuid references stores(id);
 
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
@@ -27,6 +47,7 @@ create table if not exists products (
 alter table products add column if not exists image_url text;
 -- Umbral de inventario bajo: si es null, ese producto no muestra alerta.
 alter table products add column if not exists low_stock_threshold numeric(12,2);
+alter table products add column if not exists store_id uuid references stores(id);
 
 -- Catálogo propio: productos ya buscados (por internet o ingresados a mano),
 -- para no tener que volver a buscarlos la próxima vez que agregues el mismo
@@ -56,6 +77,7 @@ create table if not exists customers (
   total_spent numeric(12,2) not null default 0,
   created_at timestamptz not null default now()
 );
+alter table customers add column if not exists store_id uuid references stores(id);
 
 create table if not exists cash_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -69,6 +91,7 @@ create table if not exists cash_sessions (
   user_email text
 );
 alter table cash_sessions add column if not exists user_email text;
+alter table cash_sessions add column if not exists store_id uuid references stores(id);
 
 -- Movimientos manuales de efectivo durante un turno (ej. depositar un
 -- fondo extra en la caja, o sacar dinero para un pago/salida), para poder
@@ -83,6 +106,7 @@ create table if not exists cash_movements (
   user_id uuid references auth.users(id),
   user_email text
 );
+alter table cash_movements add column if not exists store_id uuid references stores(id);
 
 create table if not exists discounts (
   id uuid primary key default gen_random_uuid(),
@@ -92,6 +116,7 @@ create table if not exists discounts (
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+alter table discounts add column if not exists store_id uuid references stores(id);
 
 -- Opciones para personalizar un producto al venderlo (ej. "Extra queso").
 create table if not exists modifiers (
@@ -101,7 +126,11 @@ create table if not exists modifiers (
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+alter table modifiers add column if not exists store_id uuid references stores(id);
 
+-- Configuración por tienda. Antes era una sola fila fija (id=1); ahora cada
+-- tienda tiene la suya, identificada por "store_id" (la columna "id" queda
+-- por compatibilidad, ya sin uso real).
 create table if not exists store_settings (
   id integer primary key default 1 check (id = 1),
   tax_rate_percent numeric(5,2) not null default 0,
@@ -111,6 +140,17 @@ insert into store_settings (id) values (1) on conflict (id) do nothing;
 -- Correo al que se envía la alerta de inventario bajo (ver Edge Function
 -- "notify-low-stock"). Si es null, la alerta por correo está desactivada.
 alter table store_settings add column if not exists low_stock_notify_email text;
+alter table store_settings add column if not exists store_id uuid references stores(id);
+alter table store_settings drop constraint if exists store_settings_store_id_key;
+alter table store_settings add constraint store_settings_store_id_key unique (store_id);
+
+-- "id" ya no identifica nada (antes forzaba una sola fila con id=1); ahora
+-- cada tienda tiene su propia fila identificada por "store_id", así que
+-- "id" solo necesita ser único, no fijo en 1.
+alter table store_settings drop constraint if exists store_settings_id_check;
+create sequence if not exists store_settings_id_seq owned by store_settings.id;
+select setval('store_settings_id_seq', greatest((select coalesce(max(id), 0) from store_settings), 1), true);
+alter table store_settings alter column id set default nextval('store_settings_id_seq');
 
 create sequence if not exists sales_receipt_seq start 1;
 
@@ -156,6 +196,7 @@ update sales set other_amount = total
 alter table sales drop constraint if exists sales_payment_method_check;
 alter table sales add constraint sales_payment_method_check
   check (payment_method in ('cash', 'card', 'other', 'mixed'));
+alter table sales add column if not exists store_id uuid references stores(id);
 
 create table if not exists sale_items (
   id uuid primary key default gen_random_uuid(),
@@ -168,6 +209,7 @@ create table if not exists sale_items (
   modifiers_summary text
 );
 alter table sale_items add column if not exists modifiers_summary text;
+alter table sale_items add column if not exists store_id uuid references stores(id);
 
 -- Tickets abiertos: una venta que el cajero deja "en espera" (ej. para
 -- atender a otro cliente) y retoma más tarde. Se borra apenas se retoma o
@@ -183,6 +225,7 @@ create table if not exists open_tickets (
   user_id uuid references auth.users(id),
   user_email text
 );
+alter table open_tickets add column if not exists store_id uuid references stores(id);
 
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)
@@ -222,17 +265,55 @@ insert into profiles (id, email, approved)
 select id, email, true from auth.users
 on conflict (id) do nothing;
 
--- Cuando alguien crea una cuenta nueva desde la app, se le crea un perfil
--- SIN aprobar. Corre con privilegios elevados (security definer) porque el
--- usuario recién creado todavía no tiene permiso para escribir en "profiles".
+-- Multi-tienda: cada empleado pertenece a una tienda, y el administrador
+-- principal (tú) puede ver y gestionar todas las tiendas.
+alter table profiles add column if not exists store_id uuid references stores(id);
+alter table profiles add column if not exists is_super_admin boolean not null default false;
+
+-- Genera un código corto para que un empleado nuevo pueda unirse a una
+-- tienda existente ("Código de tienda" en la pantalla de registro).
+create or replace function public.generate_store_code()
+returns text
+language sql
+as $$
+  select upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6));
+$$;
+
+-- Cuando alguien crea una cuenta nueva desde la app puede pasar dos cosas,
+-- según lo que se mande en el registro (auth metadata):
+--  - mode = 'new_store': crea una tienda nueva (con funciones limitadas) y
+--    la persona queda como dueña, aprobada de inmediato.
+--  - mode = 'join_store' + store_code: se une a una tienda existente, pero
+--    SIN aprobar todavía (el dueño de esa tienda la tiene que aprobar).
+--  - sin metadata (o código inválido): perfil sin tienda, sin aprobar (caso
+--    de compatibilidad con cuentas creadas antes de este cambio).
+-- Corre con privilegios elevados (security definer) porque el usuario
+-- recién creado todavía no tiene permiso para escribir en "profiles" ni
+-- "stores".
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
+declare
+  v_mode text := new.raw_user_meta_data ->> 'mode';
+  v_store_name text := new.raw_user_meta_data ->> 'store_name';
+  v_store_code text := new.raw_user_meta_data ->> 'store_code';
+  v_store_id uuid;
+  v_approved boolean := false;
 begin
-  insert into public.profiles (id, email, approved)
-  values (new.id, new.email, false)
+  if v_mode = 'new_store' then
+    insert into public.stores (name, owner_id, store_code, feature_reports, feature_customers, feature_employees)
+    values (coalesce(nullif(trim(v_store_name), ''), 'Mi tienda'), new.id, public.generate_store_code(), false, false, false)
+    returning id into v_store_id;
+    v_approved := true;
+  elsif v_mode = 'join_store' and v_store_code is not null then
+    select id into v_store_id from public.stores where store_code = upper(trim(v_store_code)) and active = true;
+    v_approved := false;
+  end if;
+
+  insert into public.profiles (id, email, approved, store_id)
+  values (new.id, new.email, v_approved, v_store_id)
   on conflict (id) do nothing;
   return new;
 end;
@@ -258,18 +339,67 @@ as $$
   );
 $$;
 
+-- A qué tienda pertenece el usuario actual (o null si no tiene). Se usa
+-- para que cada tienda solo vea y modifique sus propios datos.
+create or replace function public.current_store_id()
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select store_id from public.profiles where id = auth.uid();
+$$;
+
+-- true si el usuario actual es el administrador principal (ve y gestiona
+-- todas las tiendas). Se marca a mano en la base de datos, nunca desde la
+-- app, para que nadie pueda dárselo a sí mismo.
+create or replace function public.is_super_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce((select is_super_admin from public.profiles where id = auth.uid()), false);
+$$;
+
+-- Los perfiles y la aprobación de empleados quedan limitados a la propia
+-- tienda: un dueño de tienda no puede ver ni aprobar empleados de otra.
 alter table profiles enable row level security;
 drop policy if exists "ver mi perfil o si estoy aprobado" on profiles;
-create policy "ver mi perfil o si estoy aprobado" on profiles
-  for select using (id = auth.uid() or public.is_approved());
+drop policy if exists "ver perfiles de mi tienda" on profiles;
+create policy "ver perfiles de mi tienda" on profiles
+  for select using (
+    id = auth.uid()
+    or (public.is_approved() and store_id is not distinct from public.current_store_id())
+  );
 drop policy if exists "aprobados pueden aprobar" on profiles;
-create policy "aprobados pueden aprobar" on profiles
-  for update using (public.is_approved()) with check (public.is_approved());
+drop policy if exists "aprobados pueden aprobar en mi tienda" on profiles;
+create policy "aprobados pueden aprobar en mi tienda" on profiles
+  for update
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 drop policy if exists "aprobados pueden quitar empleados" on profiles;
-create policy "aprobados pueden quitar empleados" on profiles
-  for delete using (public.is_approved());
+drop policy if exists "aprobados pueden quitar empleados de mi tienda" on profiles;
+create policy "aprobados pueden quitar empleados de mi tienda" on profiles
+  for delete using (public.is_approved() and store_id is not distinct from public.current_store_id());
 
--- Seguridad: solo usuarios aprobados pueden leer/escribir datos del negocio.
+-- La tabla "stores": cada tienda ve su propia fila; el administrador
+-- principal las ve y las edita todas (para activarles funciones).
+alter table stores enable row level security;
+drop policy if exists "ver mi tienda o todas si soy admin" on stores;
+create policy "ver mi tienda o todas si soy admin" on stores
+  for select using (public.is_super_admin() or id = public.current_store_id());
+drop policy if exists "super admin actualiza tiendas" on stores;
+create policy "super admin actualiza tiendas" on stores
+  for update using (public.is_super_admin()) with check (public.is_super_admin());
+
+-- Seguridad: solo usuarios aprobados, y solo de su propia tienda, pueden
+-- leer/escribir los datos del negocio. "product_catalog" es la excepción:
+-- se deja compartido entre todas las tiendas a propósito (solo guarda
+-- nombre/foto por código de barras, nada sensible, y ayuda a identificar
+-- productos más rápido sin importar qué tienda los cargó primero).
 alter table categories enable row level security;
 alter table products enable row level security;
 alter table customers enable row level security;
@@ -304,19 +434,52 @@ drop policy if exists "solo aprobados" on store_settings;
 drop policy if exists "solo aprobados" on product_catalog;
 drop policy if exists "solo aprobados" on open_tickets;
 drop policy if exists "solo aprobados" on cash_movements;
+drop policy if exists "solo mi tienda" on categories;
+drop policy if exists "solo mi tienda" on products;
+drop policy if exists "solo mi tienda" on customers;
+drop policy if exists "solo mi tienda" on cash_sessions;
+drop policy if exists "solo mi tienda" on sales;
+drop policy if exists "solo mi tienda" on sale_items;
+drop policy if exists "solo mi tienda" on discounts;
+drop policy if exists "solo mi tienda" on modifiers;
+drop policy if exists "solo mi tienda" on store_settings;
+drop policy if exists "solo mi tienda" on open_tickets;
+drop policy if exists "solo mi tienda" on cash_movements;
 
-create policy "solo aprobados" on categories for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on products for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on customers for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on cash_sessions for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on sales for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on sale_items for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on discounts for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on modifiers for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on store_settings for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo mi tienda" on categories for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on products for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on customers for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on cash_sessions for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on sales for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on sale_items for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on discounts for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on modifiers for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on store_settings for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 create policy "solo aprobados" on product_catalog for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on open_tickets for all using (public.is_approved()) with check (public.is_approved());
-create policy "solo aprobados" on cash_movements for all using (public.is_approved()) with check (public.is_approved());
+create policy "solo mi tienda" on open_tickets for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+create policy "solo mi tienda" on cash_movements for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 
 drop policy if exists "product photos public read" on storage.objects;
 create policy "product photos public read" on storage.objects
@@ -331,3 +494,41 @@ drop policy if exists "product photos auth update" on storage.objects;
 drop policy if exists "product photos aprobados update" on storage.objects;
 create policy "product photos aprobados update" on storage.objects
   for update using (bucket_id = 'product-photos' and public.is_approved());
+
+-- ============================================================
+-- MULTI-TIENDA: migración de los datos que ya tenías (de antes de que
+-- existiera este sistema de varias tiendas) a una tienda "Tienda 1", con
+-- todas las funciones activas. Solo se ejecuta la primera vez que corres
+-- este script después de este cambio (si ya existe alguna tienda, no hace
+-- nada) — es seguro volver a correr el archivo completo después.
+-- ============================================================
+do $$
+declare
+  v_store_id uuid;
+begin
+  if not exists (select 1 from stores) then
+    insert into stores (name, store_code, feature_reports, feature_customers, feature_employees)
+    values ('Tienda 1', public.generate_store_code(), true, true, true)
+    returning id into v_store_id;
+
+    update categories set store_id = v_store_id where store_id is null;
+    update products set store_id = v_store_id where store_id is null;
+    update customers set store_id = v_store_id where store_id is null;
+    update cash_sessions set store_id = v_store_id where store_id is null;
+    update cash_movements set store_id = v_store_id where store_id is null;
+    update discounts set store_id = v_store_id where store_id is null;
+    update modifiers set store_id = v_store_id where store_id is null;
+    update store_settings set store_id = v_store_id where store_id is null;
+    update sales set store_id = v_store_id where store_id is null;
+    update sale_items set store_id = v_store_id where store_id is null;
+    update open_tickets set store_id = v_store_id where store_id is null;
+    update profiles set store_id = v_store_id where store_id is null;
+
+    update stores set owner_id = (select id from profiles where email = 'ivan.rojas2@gmail.com' limit 1)
+    where id = v_store_id;
+  end if;
+end $$;
+
+-- El administrador principal de POSible: ve y gestiona todas las tiendas.
+update profiles set is_super_admin = true, approved = true
+where email = 'ivan.rojas2@gmail.com';

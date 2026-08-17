@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
+import '../../providers/store_provider.dart';
 import '../../services/settings_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -212,7 +213,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text(email, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => Supabase.instance.client.auth.signOut(),
+                onPressed: () {
+                  context.read<StoreProvider>().reset();
+                  Supabase.instance.client.auth.signOut();
+                },
                 icon: const Icon(Icons.logout),
                 label: Text(kIsWeb ? 'Cerrar sesión' : 'Cerrar sesión / Cambiar de cajero'),
               ),

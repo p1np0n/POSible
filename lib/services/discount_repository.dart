@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
 import '../models/discount.dart';
 
 class DiscountRepository {
@@ -20,7 +21,9 @@ class DiscountRepository {
   }
 
   Future<Discount> create(Discount discount) async {
-    final data = await _client.from('discounts').insert(discount.toMap()).select().single();
+    final data = await _client
+        .from('discounts')
+        .insert({...discount.toMap(), 'store_id': CurrentStore.id}).select().single();
     return Discount.fromMap(data);
   }
 
