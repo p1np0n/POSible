@@ -7,6 +7,7 @@ import '../../config/app_config.dart';
 import '../../providers/store_provider.dart';
 import '../customers/customer_list_screen.dart';
 import '../employees/employees_screen.dart';
+import '../employees/time_clock_screen.dart';
 import '../inventory/categories_screen.dart';
 import '../inventory/discounts_screen.dart';
 import '../inventory/inventory_screen.dart';
@@ -62,6 +63,7 @@ class _HomeShellState extends State<HomeShell> {
       const PosScreen(),
       const ReceiptsScreen(),
       const TurnoScreen(),
+      const TimeClockScreen(),
       if (store.showReports) const ReportsScreen(),
       if (store.showCustomers) const CustomerListScreen(),
       const SettingsScreen(),
@@ -80,6 +82,7 @@ class _HomeShellState extends State<HomeShell> {
       'Ventas',
       'Recibos',
       'Turno',
+      'Reloj',
       if (store.showReports) 'Reportes',
       if (store.showCustomers) 'Clientes',
       'Configuración',
@@ -99,7 +102,7 @@ class _HomeShellState extends State<HomeShell> {
     // Mismo orden en que se armaron screens/titles arriba, para calcular en
     // qué posición quedó cada pantalla según lo que esta tienda tiene
     // activado.
-    var next = 3;
+    var next = 4;
     final reportsIndex = store.showReports ? next++ : -1;
     final customersIndex = store.showCustomers ? next++ : -1;
     final settingsIndex = next++;
@@ -147,6 +150,13 @@ class _HomeShellState extends State<HomeShell> {
             title: const Text('Turno'),
             selected: index == 2,
             onTap: () => _selectIndex(2, closeDrawer: closeDrawer),
+          ),
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('Reloj'),
+            subtitle: const Text('Marcar entrada y salida', style: TextStyle(fontSize: 11)),
+            selected: index == 3,
+            onTap: () => _selectIndex(3, closeDrawer: closeDrawer),
           ),
           if (kIsWeb)
             ExpansionTile(
