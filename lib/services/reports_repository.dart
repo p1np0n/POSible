@@ -8,17 +8,26 @@ class TopProduct {
   TopProduct({required this.name, required this.quantity, required this.total});
 }
 
+class DailyTotal {
+  final DateTime date;
+  final double total;
+
+  DailyTotal({required this.date, required this.total});
+}
+
 class SalesSummary {
   final double totalSales;
   final int transactionCount;
   final Map<String, double> byPaymentMethod;
   final List<TopProduct> topProducts;
+  final List<DailyTotal> dailyTotals;
 
   SalesSummary({
     required this.totalSales,
     required this.transactionCount,
     required this.byPaymentMethod,
     required this.topProducts,
+    required this.dailyTotals,
   });
 
   double get averageTicket => transactionCount == 0 ? 0 : totalSales / transactionCount;
@@ -30,7 +39,7 @@ class ReportsRepository {
   Future<SalesSummary> getSummary({required DateTime from, required DateTime to}) async {
     final sales = await _client
         .from('sales')
-        .select('id, total, cash_amount, card_amount, other_amount')
+        .select('id, total, cash_amount, card_amount, other_amount, created_at')
         .gte('created_at', from.toIso8601String())
         .lte('created_at', to.toIso8601String());
 
@@ -39,6 +48,7 @@ class ReportsRepository {
 
     double totalSales = 0;
     final byPaymentMethod = <String, double>{};
+    final byDay = <DateTime, double>{};
     for (final sale in salesList) {
       final total = (sale['total'] as num).toDouble();
       totalSales += total;
@@ -51,7 +61,13 @@ class ReportsRepository {
       if (cash > 0) byPaymentMethod['cash'] = (byPaymentMethod['cash'] ?? 0) + cash;
       if (card > 0) byPaymentMethod['card'] = (byPaymentMethod['card'] ?? 0) + card;
       if (other > 0) byPaymentMethod['other'] = (byPaymentMethod['other'] ?? 0) + other;
+
+      final createdAt = DateTime.parse(sale['created_at'] as String).toLocal();
+      final day = DateTime(createdAt.year, createdAt.month, createdAt.day);
+      byDay[day] = (byDay[day] ?? 0) + total;
     }
+    final dailyTotals = byDay.entries.map((e) => DailyTotal(date: e.key, total: e.value)).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     final productTotals = <String, TopProduct>{};
     if (saleIds.isNotEmpty) {
@@ -83,6 +99,18 @@ class ReportsRepository {
       transactionCount: salesList.length,
       byPaymentMethod: byPaymentMethod,
       topProducts: topProducts.take(10).toList(),
+      dailyTotals: dailyTotals,
     );
+  }
+
+  /// Solo el total vendido en el período (para comparar contra el período
+  /// anterior de igual duración, sin traer todo el detalle).
+  Future<double> getTotalSales({required DateTime from, required DateTime to}) async {
+    final sales = await _client
+        .from('sales')
+        .select('total')
+        .gte('created_at', from.toIso8601String())
+        .lte('created_at', to.toIso8601String());
+    return (sales as List).fold<double>(0, (sum, s) => sum + (s['total'] as num).toDouble());
   }
 }
