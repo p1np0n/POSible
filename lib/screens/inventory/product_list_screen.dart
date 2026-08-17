@@ -244,6 +244,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
         trackStock: product.trackStock,
         active: product.active,
         lowStockThreshold: product.lowStockThreshold,
+        pricingType: product.pricingType,
+        plu: product.plu,
       ),
     );
     _resetAndLoad();
@@ -344,6 +346,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
           trackStock: product.trackStock,
           active: product.active,
           lowStockThreshold: product.lowStockThreshold,
+          pricingType: product.pricingType,
+          plu: product.plu,
         ),
       );
     }
@@ -534,7 +538,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 children: [
                                   Text(
                                     '${_categoryName(product.categoryId)} · Stock: ${product.trackStock ? product.stockQuantity.toStringAsFixed(0) : 'N/A'}'
-                                    '${margin != null ? ' · Margen: ${margin.toStringAsFixed(0)}%' : ''}',
+                                    '${margin != null ? ' · Margen: ${margin.toStringAsFixed(0)}%' : ''}'
+                                    '${product.isVariablePrice ? ' · Precio variable' : ''}'
+                                    '${product.isSoldByWeight ? ' · Por peso (PLU ${product.plu ?? '-'})' : ''}',
                                   ),
                                   if (product.isLowStock)
                                     const Padding(

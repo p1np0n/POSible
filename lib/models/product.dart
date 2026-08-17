@@ -12,6 +12,16 @@ class Product {
   final bool active;
   final double? lowStockThreshold;
 
+  /// 'fixed' (normal), 'variable' (se pregunta el precio al venderlo) o
+  /// 'weight' (se vende por peso: el precio es por kilo y se agrega al
+  /// carrito escaneando un código de balanza — ver [plu]).
+  final String pricingType;
+
+  /// Código interno corto (típicamente 5 dígitos) usado para identificar
+  /// este producto dentro de un código de barras de balanza. Solo aplica
+  /// cuando pricingType es 'weight'.
+  final String? plu;
+
   Product({
     required this.id,
     required this.name,
@@ -25,7 +35,12 @@ class Product {
     required this.trackStock,
     required this.active,
     this.lowStockThreshold,
+    this.pricingType = 'fixed',
+    this.plu,
   });
+
+  bool get isVariablePrice => pricingType == 'variable';
+  bool get isSoldByWeight => pricingType == 'weight';
 
   /// true si el producto controla inventario, tiene un umbral configurado y
   /// las existencias están en o por debajo de ese umbral.
@@ -52,6 +67,26 @@ class Product {
 
   bool get isQuickItem => id.startsWith(_quickItemIdPrefix);
 
+  /// Copia este producto reemplazando el precio (ej. al pedirle al cajero
+  /// el precio de un artículo de precio variable antes de agregarlo al
+  /// carrito).
+  Product copyWith({double? price}) => Product(
+        id: id,
+        name: name,
+        categoryId: categoryId,
+        price: price ?? this.price,
+        cost: cost,
+        sku: sku,
+        barcode: barcode,
+        imageUrl: imageUrl,
+        stockQuantity: stockQuantity,
+        trackStock: trackStock,
+        active: active,
+        lowStockThreshold: lowStockThreshold,
+        pricingType: pricingType,
+        plu: plu,
+      );
+
   factory Product.fromMap(Map<String, dynamic> map) => Product(
         id: map['id'] as String,
         name: map['name'] as String,
@@ -65,6 +100,8 @@ class Product {
         trackStock: map['track_stock'] as bool,
         active: map['active'] as bool,
         lowStockThreshold: (map['low_stock_threshold'] as num?)?.toDouble(),
+        pricingType: map['pricing_type'] as String? ?? 'fixed',
+        plu: map['plu'] as String?,
       );
 
   Map<String, dynamic> toMap() => {
@@ -79,5 +116,7 @@ class Product {
         'track_stock': trackStock,
         'active': active,
         'low_stock_threshold': lowStockThreshold,
+        'pricing_type': pricingType,
+        'plu': plu,
       };
 }

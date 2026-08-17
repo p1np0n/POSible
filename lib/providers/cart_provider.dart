@@ -42,6 +42,14 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Agrega SIEMPRE una línea nueva, sin combinarla con una existente del
+  /// mismo producto (ej. un artículo por peso: cada escaneo trae un peso
+  /// distinto, no tiene sentido sumarlo a una línea previa).
+  void addVariableItem(Product product, {double quantity = 1, List<Modifier> modifiers = const []}) {
+    _items.add(CartItem(product: product, quantity: quantity, modifiers: modifiers));
+    notifyListeners();
+  }
+
   void incrementItem(CartItem item) {
     final index = _items.indexOf(item);
     if (index >= 0) {
