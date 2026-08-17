@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../models/customer.dart';
 import '../../models/discount.dart';
+import '../../models/open_ticket.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../providers/store_provider.dart';
