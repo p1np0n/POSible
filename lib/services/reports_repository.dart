@@ -15,6 +15,20 @@ class DailyTotal {
   DailyTotal({required this.date, required this.total});
 }
 
+class NamedTotal {
+  final String name;
+  final double total;
+
+  NamedTotal({required this.name, required this.total});
+}
+
+class ModifierUsage {
+  final String name;
+  final double count;
+
+  ModifierUsage({required this.name, required this.count});
+}
+
 class SalesSummary {
   final double totalSales;
   final int transactionCount;
@@ -112,5 +126,110 @@ class ReportsRepository {
         .gte('created_at', from.toIso8601String())
         .lte('created_at', to.toIso8601String());
     return (sales as List).fold<double>(0, (sum, s) => sum + (s['total'] as num).toDouble());
+  }
+
+  Future<List<String>> _saleIdsInRange(DateTime from, DateTime to) async {
+    final sales = await _client
+        .from('sales')
+        .select('id')
+        .gte('created_at', from.toIso8601String())
+        .lte('created_at', to.toIso8601String());
+    return (sales as List).map((s) => s['id'] as String).toList();
+  }
+
+  Future<List<NamedTotal>> getByCategory({required DateTime from, required DateTime to}) async {
+    final saleIds = await _saleIdsInRange(from, to);
+    if (saleIds.isEmpty) return [];
+
+    final items = await _client
+        .from('sale_items')
+        .select('product_id, subtotal')
+        .inFilter('sale_id', saleIds);
+    final itemsList = (items as List).cast<Map<String, dynamic>>();
+
+    final productIds = itemsList.map((i) => i['product_id'] as String?).whereType<String>().toSet().toList();
+    final categoryIdByProduct = <String, String?>{};
+    if (productIds.isNotEmpty) {
+      final products = await _client.from('products').select('id, category_id').inFilter('id', productIds);
+      for (final p in (products as List).cast<Map<String, dynamic>>()) {
+        categoryIdByProduct[p['id'] as String] = p['category_id'] as String?;
+      }
+    }
+    final categoryIds = categoryIdByProduct.values.whereType<String>().toSet().toList();
+    final categoryNameById = <String, String>{};
+    if (categoryIds.isNotEmpty) {
+      final categories = await _client.from('categories').select('id, name').inFilter('id', categoryIds);
+      for (final c in (categories as List).cast<Map<String, dynamic>>()) {
+        categoryNameById[c['id'] as String] = c['name'] as String;
+      }
+    }
+
+    final totals = <String, double>{};
+    for (final item in itemsList) {
+      final productId = item['product_id'] as String?;
+      final categoryId = productId != null ? categoryIdByProduct[productId] : null;
+      final name = categoryId != null ? (categoryNameById[categoryId] ?? 'Sin categoría') : 'Sin categoría';
+      final subtotal = (item['subtotal'] as num).toDouble();
+      totals[name] = (totals[name] ?? 0) + subtotal;
+    }
+    return totals.entries.map((e) => NamedTotal(name: e.key, total: e.value)).toList()
+      ..sort((a, b) => b.total.compareTo(a.total));
+  }
+
+  Future<List<NamedTotal>> getByEmployee({required DateTime from, required DateTime to}) async {
+    final sales = await _client
+        .from('sales')
+        .select('user_id, total')
+        .gte('created_at', from.toIso8601String())
+        .lte('created_at', to.toIso8601String());
+    final salesList = (sales as List).cast<Map<String, dynamic>>();
+
+    final totals = <String?, double>{};
+    for (final s in salesList) {
+      final userId = s['user_id'] as String?;
+      final total = (s['total'] as num).toDouble();
+      totals[userId] = (totals[userId] ?? 0) + total;
+    }
+
+    final userIds = totals.keys.whereType<String>().toList();
+    final emailById = <String, String>{};
+    if (userIds.isNotEmpty) {
+      final profiles = await _client.from('profiles').select('id, email').inFilter('id', userIds);
+      for (final p in (profiles as List).cast<Map<String, dynamic>>()) {
+        emailById[p['id'] as String] = (p['email'] as String?) ?? 'Sin correo';
+      }
+    }
+
+    return totals.entries.map((e) {
+      final name = e.key != null ? (emailById[e.key] ?? 'Empleado eliminado') : 'Sin usuario';
+      return NamedTotal(name: name, total: e.value);
+    }).toList()
+      ..sort((a, b) => b.total.compareTo(a.total));
+  }
+
+  /// Cuántas veces se usó cada modificador (no el ingreso exacto que generó,
+  /// porque "sale_items" solo guarda el nombre del modificador en un texto,
+  /// no su precio en el momento de la venta).
+  Future<List<ModifierUsage>> getByModifier({required DateTime from, required DateTime to}) async {
+    final saleIds = await _saleIdsInRange(from, to);
+    if (saleIds.isEmpty) return [];
+
+    final items = await _client
+        .from('sale_items')
+        .select('modifiers_summary, quantity')
+        .inFilter('sale_id', saleIds)
+        .not('modifiers_summary', 'is', null);
+
+    final counts = <String, double>{};
+    for (final item in (items as List).cast<Map<String, dynamic>>()) {
+      final summary = item['modifiers_summary'] as String?;
+      if (summary == null || summary.isEmpty) continue;
+      final qty = (item['quantity'] as num).toDouble();
+      for (final name in summary.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty)) {
+        counts[name] = (counts[name] ?? 0) + qty;
+      }
+    }
+    return counts.entries.map((e) => ModifierUsage(name: e.key, count: e.value)).toList()
+      ..sort((a, b) => b.count.compareTo(a.count));
   }
 }

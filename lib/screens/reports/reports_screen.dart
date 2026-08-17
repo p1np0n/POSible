@@ -21,6 +21,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   DateTimeRange? _customRange;
   SalesSummary? _summary;
   double? _previousTotal;
+  List<NamedTotal> _byCategory = [];
+  List<NamedTotal> _byEmployee = [];
+  List<ModifierUsage> _byModifier = [];
   bool _loading = true;
 
   static const _paymentLabels = {
@@ -84,11 +87,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final results = await Future.wait([
       _repository.getSummary(from: from, to: to),
       _repository.getTotalSales(from: previousFrom, to: previousTo),
+      _repository.getByCategory(from: from, to: to),
+      _repository.getByEmployee(from: from, to: to),
+      _repository.getByModifier(from: from, to: to),
     ]);
     if (!mounted) return;
     setState(() {
       _summary = results[0] as SalesSummary;
       _previousTotal = results[1] as double;
+      _byCategory = results[2] as List<NamedTotal>;
+      _byEmployee = results[3] as List<NamedTotal>;
+      _byModifier = results[4] as List<ModifierUsage>;
       _loading = false;
     });
   }
@@ -195,6 +204,38 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     subtitle: Text('${product.quantity.toStringAsFixed(0)} unidades'),
                     trailing: CurrencyText(product.total, bold: true),
                   )),
+            const SizedBox(height: 16),
+            Text('Por categoría', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (_byCategory.isEmpty)
+              const Text('Sin ventas en este período')
+            else
+              ..._byCategory.map((c) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(c.name),
+                    trailing: CurrencyText(c.total, bold: true),
+                  )),
+            const SizedBox(height: 16),
+            Text('Por empleado', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (_byEmployee.isEmpty)
+              const Text('Sin ventas en este período')
+            else
+              ..._byEmployee.map((e) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(e.name),
+                    trailing: CurrencyText(e.total, bold: true),
+                  )),
+            if (_byModifier.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Por modificador', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ..._byModifier.map((m) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(m.name),
+                    trailing: Text('${m.count.toStringAsFixed(0)} veces'),
+                  )),
+            ],
           ],
         ],
       ),
