@@ -16,6 +16,7 @@ create table if not exists stores (
   name text not null,
   store_code text unique,
   owner_id uuid references auth.users(id),
+  owner_email text,
   feature_reports boolean not null default false,
   feature_customers boolean not null default false,
   feature_employees boolean not null default false,
@@ -341,6 +342,7 @@ on conflict (id) do nothing;
 -- principal (tú) puede ver y gestionar todas las tiendas.
 alter table profiles add column if not exists store_id uuid references stores(id);
 alter table profiles add column if not exists is_super_admin boolean not null default false;
+alter table stores add column if not exists owner_email text;
 
 -- Genera un código corto para que un empleado nuevo pueda unirse a una
 -- tienda existente ("Código de tienda" en la pantalla de registro).
@@ -375,8 +377,8 @@ declare
   v_approved boolean := false;
 begin
   if v_mode = 'new_store' then
-    insert into public.stores (name, owner_id, store_code, feature_reports, feature_customers, feature_employees)
-    values (coalesce(nullif(trim(v_store_name), ''), 'Mi tienda'), new.id, public.generate_store_code(), false, false, false)
+    insert into public.stores (name, owner_id, owner_email, store_code, feature_reports, feature_customers, feature_employees)
+    values (coalesce(nullif(trim(v_store_name), ''), 'Mi tienda'), new.id, new.email, public.generate_store_code(), false, false, false)
     returning id into v_store_id;
     v_approved := true;
   elsif v_mode = 'join_store' and v_store_code is not null then
@@ -603,7 +605,8 @@ begin
     update open_tickets set store_id = v_store_id where store_id is null;
     update profiles set store_id = v_store_id where store_id is null;
 
-    update stores set owner_id = (select id from profiles where email = 'ivan.rojas2@gmail.com' limit 1)
+    update stores set owner_id = (select id from profiles where email = 'ivan.rojas2@gmail.com' limit 1),
+      owner_email = 'ivan.rojas2@gmail.com'
     where id = v_store_id;
   end if;
 end $$;
@@ -611,6 +614,11 @@ end $$;
 -- El administrador principal de POSible: ve y gestiona todas las tiendas.
 update profiles set is_super_admin = true, approved = true
 where email = 'ivan.rojas2@gmail.com';
+
+-- Completa "owner_email" en tiendas que ya tenían "owner_id" pero se
+-- crearon antes de que existiera esta columna.
+update stores set owner_email = (select email from auth.users where id = stores.owner_id)
+where owner_email is null and owner_id is not null;
 
 -- ============================================================
 -- CATÁLOGO GLOBAL: copia, una sola vez, los productos activos de la tienda
