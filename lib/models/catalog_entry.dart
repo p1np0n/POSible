@@ -1,24 +1,30 @@
 class CatalogEntry {
-  final String barcode;
+  final String id;
+  final String? barcode;
   final String name;
   final String? brand;
   final String? imageUrl;
-  final DateTime? contributedAt;
+  final double? suggestedPrice;
+  final DateTime? updatedAt;
 
   CatalogEntry({
-    required this.barcode,
+    this.id = '',
+    this.barcode,
     required this.name,
     this.brand,
     this.imageUrl,
-    this.contributedAt,
+    this.suggestedPrice,
+    this.updatedAt,
   });
 
   factory CatalogEntry.fromMap(Map<String, dynamic> map) => CatalogEntry(
-        barcode: map['barcode'] as String,
+        id: map['id'] as String? ?? '',
+        barcode: map['barcode'] as String?,
         name: map['name'] as String,
         brand: map['brand'] as String?,
         imageUrl: map['image_url'] as String?,
-        contributedAt:
-            map['contributed_at'] != null ? DateTime.parse(map['contributed_at'] as String) : null,
+        suggestedPrice:
+            map['suggested_price'] != null ? (map['suggested_price'] as num).toDouble() : null,
+        updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at'] as String) : null,
       );
 }

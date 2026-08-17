@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/discount.dart';
 import '../../services/discount_repository.dart';
+import '../../utils/currency_format_cl.dart';
 
 class DiscountPickerDialog extends StatefulWidget {
   const DiscountPickerDialog({super.key});
@@ -54,7 +55,7 @@ class _DiscountPickerDialogState extends State<DiscountPickerDialog> {
                               final discount = _discounts[index];
                               final valueLabel = discount.isPercentage
                                   ? '${discount.value.toStringAsFixed(0)}%'
-                                  : '\$${discount.value.toStringAsFixed(2)}';
+                                  : formatCurrencyCl(discount.value);
                               return ListTile(
                                 title: Text(discount.name),
                                 subtitle: Text(valueLabel),

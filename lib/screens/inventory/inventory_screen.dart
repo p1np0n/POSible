@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../config/shared_catalog_config.dart';
 import '../../models/catalog_entry.dart';
-import '../../services/shared_catalog_repository.dart';
+import '../../services/product_catalog_repository.dart';
+import '../../utils/currency_format_cl.dart';
 
-/// Catálogo de productos COMPARTIDO entre TODAS las tiendas que usan
-/// POSible (no solo la tuya). Vive en un proyecto de Supabase separado —
-/// ver lib/config/shared_catalog_config.dart y sql/shared_catalog_schema.sql.
+/// Catálogo global de productos: UNO SOLO, compartido entre todas tus
+/// tiendas. Se alimenta automáticamente de lo que cada tienda agrega a su
+/// propio inventario (con o sin código de barras); esta pantalla, solo
+/// visible para el administrador principal, sirve para revisarlo y
+/// curarlo a mano.
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
 
@@ -15,7 +17,7 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  final SharedCatalogRepository _repository = SharedCatalogRepository();
+  final ProductCatalogRepository _repository = ProductCatalogRepository();
   final _searchController = TextEditingController();
   List<CatalogEntry> _entries = [];
   bool _loading = true;
@@ -24,7 +26,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   void initState() {
     super.initState();
-    if (SharedCatalogConfig.isConfigured) _load();
+    _load();
   }
 
   @override
@@ -51,7 +53,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (entry == null) {
       await _repository.create(result);
     } else {
-      await _repository.update(entry.barcode, result);
+      await _repository.update(entry.id, result);
     }
     _load();
   }
@@ -62,8 +64,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Eliminar producto'),
         content: Text(
-          '¿Seguro que quieres eliminar "${entry.name}" del catálogo compartido? '
-          'Esto afecta a TODAS las tiendas que usan POSible, no solo la tuya.',
+          '¿Seguro que quieres eliminar "${entry.name}" del catálogo global? '
+          'Esto afecta a todas tus tiendas, no solo a una.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
@@ -72,41 +74,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ),
     );
     if (confirmed != true) return;
-    await _repository.deleteByBarcode(entry.barcode);
+    await _repository.deleteById(entry.id);
     _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!SharedCatalogConfig.isConfigured) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off, size: 48, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text(
-                'El catálogo compartido todavía no está configurado.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Este menú maneja la base de datos de artículos compartida entre '
-                'todas las tiendas que usan POSible. Para activarla, sigue los pasos '
-                'de "Catálogo compartido" en LEEME.md (crear un proyecto de Supabase '
-                'aparte y correr sql/shared_catalog_schema.sql).',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return RefreshIndicator(
       onRefresh: _load,
       child: Column(
@@ -119,7 +92,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(
-                      labelText: 'Buscar por nombre, marca o código de barras',
+                      labelText: 'Buscar por nombre o código de barras',
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(),
                       isDense: true,
@@ -143,7 +116,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _entries.isEmpty
-                    ? const Center(child: Text('No hay productos en el catálogo compartido'))
+                    ? const Center(child: Text('No hay productos en el catálogo global todavía'))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _entries.length,
@@ -158,7 +131,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                               title: Text(entry.name),
                               subtitle: Text(
-                                [entry.brand, entry.barcode].where((s) => s != null && s.isNotEmpty).join(' · '),
+                                [
+                                  if (entry.barcode != null) entry.barcode,
+                                  if (entry.suggestedPrice != null)
+                                    'Sugerido: ${formatCurrencyCl(entry.suggestedPrice!)}',
+                                ].whereType<String>().join(' · '),
                               ),
                               onTap: () => _openForm(entry: entry),
                               trailing: IconButton(
@@ -190,6 +167,7 @@ class _CatalogEntryDialogState extends State<_CatalogEntryDialog> {
   late final TextEditingController _barcodeController;
   late final TextEditingController _nameController;
   late final TextEditingController _brandController;
+  late final TextEditingController _priceController;
   late final TextEditingController _imageUrlController;
 
   bool get _isEditing => widget.entry != null;
@@ -201,6 +179,7 @@ class _CatalogEntryDialogState extends State<_CatalogEntryDialog> {
     _barcodeController = TextEditingController(text: entry?.barcode ?? '');
     _nameController = TextEditingController(text: entry?.name ?? '');
     _brandController = TextEditingController(text: entry?.brand ?? '');
+    _priceController = TextEditingController(text: entry?.suggestedPrice?.round().toString() ?? '');
     _imageUrlController = TextEditingController(text: entry?.imageUrl ?? '');
   }
 
@@ -209,6 +188,7 @@ class _CatalogEntryDialogState extends State<_CatalogEntryDialog> {
     _barcodeController.dispose();
     _nameController.dispose();
     _brandController.dispose();
+    _priceController.dispose();
     _imageUrlController.dispose();
     super.dispose();
   }
@@ -217,10 +197,12 @@ class _CatalogEntryDialogState extends State<_CatalogEntryDialog> {
     if (!_formKey.currentState!.validate()) return;
     Navigator.of(context).pop(
       CatalogEntry(
-        barcode: _barcodeController.text.trim(),
+        id: widget.entry?.id ?? '',
+        barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
         name: _nameController.text.trim(),
         brand: _brandController.text.trim().isEmpty ? null : _brandController.text.trim(),
         imageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
+        suggestedPrice: double.tryParse(_priceController.text),
       ),
     );
   }
@@ -228,7 +210,7 @@ class _CatalogEntryDialogState extends State<_CatalogEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEditing ? 'Editar producto compartido' : 'Nuevo producto compartido'),
+      title: Text(_isEditing ? 'Editar producto del catálogo' : 'Nuevo producto del catálogo'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -236,21 +218,27 @@ class _CatalogEntryDialogState extends State<_CatalogEntryDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: _barcodeController,
-                enabled: !_isEditing,
-                decoration: const InputDecoration(labelText: 'Código de barras', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Requerido' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
+                controller: _barcodeController,
+                decoration:
+                    const InputDecoration(labelText: 'Código de barras (opcional)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _brandController,
                 decoration: const InputDecoration(labelText: 'Marca (opcional)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration:
+                    const InputDecoration(labelText: 'Precio sugerido (opcional)', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextFormField(

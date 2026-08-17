@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/discount.dart';
 import '../../services/discount_repository.dart';
+import '../../utils/currency_format_cl.dart';
 
 class DiscountsScreen extends StatefulWidget {
   const DiscountsScreen({super.key});
@@ -100,7 +101,7 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
                           final discount = _filtered[index];
                           final valueLabel = discount.isPercentage
                               ? '${discount.value.toStringAsFixed(0)}%'
-                              : '\$${discount.value.toStringAsFixed(2)}';
+                              : formatCurrencyCl(discount.value);
                           return Card(
                             child: ListTile(
                               title: Text(discount.name),

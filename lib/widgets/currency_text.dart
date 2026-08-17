@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../config/app_config.dart';
+import '../utils/currency_format_cl.dart';
 
 class CurrencyText extends StatelessWidget {
   final double amount;
@@ -11,7 +11,7 @@ class CurrencyText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = '${AppConfig.currencySymbol}${amount.toStringAsFixed(2)}';
+    final text = formatCurrencyCl(amount);
     return Text(
       text,
       style: (style ?? const TextStyle()).copyWith(

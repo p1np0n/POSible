@@ -49,10 +49,11 @@ alter table products add column if not exists image_url text;
 alter table products add column if not exists low_stock_threshold numeric(12,2);
 alter table products add column if not exists store_id uuid references stores(id);
 
--- Catálogo propio: productos ya buscados (por internet o ingresados a mano),
--- para no tener que volver a buscarlos la próxima vez que agregues el mismo
--- código de barras. Es una tabla aparte de "products" (que es tu inventario
--- para vender).
+-- Catálogo global: UN SOLO catálogo compartido entre TODAS tus tiendas
+-- (no un proyecto aparte). Se alimenta solo con lo que cada tienda agrega a
+-- su propio inventario (con o sin código de barras), para sugerir nombre,
+-- foto y precio (nunca copiado automáticamente) al crear un producto nuevo
+-- en cualquier otra tienda.
 create table if not exists product_catalog (
   barcode text primary key,
   name text not null,
@@ -61,6 +62,23 @@ create table if not exists product_catalog (
   source text not null default 'manual' check (source in ('manual', 'openfoodfacts', 'shared')),
   updated_at timestamptz not null default now()
 );
+
+-- Antes se identificaba por "barcode" (obligaba a tener código de barras
+-- para poder aportar al catálogo). Ahora se identifica por "id", así
+-- también entran productos sin código de barras, y guarda un precio
+-- sugerido.
+alter table product_catalog add column if not exists id uuid default gen_random_uuid();
+update product_catalog set id = gen_random_uuid() where id is null;
+alter table product_catalog alter column id set not null;
+alter table product_catalog drop constraint if exists product_catalog_pkey;
+alter table product_catalog add constraint product_catalog_pkey primary key (id);
+alter table product_catalog alter column barcode drop not null;
+alter table product_catalog drop constraint if exists product_catalog_barcode_key;
+alter table product_catalog add constraint product_catalog_barcode_key unique (barcode);
+alter table product_catalog add column if not exists suggested_price numeric(12,2);
+alter table product_catalog drop constraint if exists product_catalog_source_check;
+alter table product_catalog add constraint product_catalog_source_check
+  check (source in ('manual', 'openfoodfacts', 'shared', 'store', 'store_bootstrap'));
 
 -- Bucket de Storage para las fotos de productos (público para poder mostrarlas
 -- en la app sin complicaciones; solo usuarios aprobados pueden subir).
@@ -550,3 +568,26 @@ end $$;
 -- El administrador principal de POSible: ve y gestiona todas las tiendas.
 update profiles set is_super_admin = true, approved = true
 where email = 'ivan.rojas2@gmail.com';
+
+-- ============================================================
+-- CATÁLOGO GLOBAL: copia, una sola vez, los productos activos de la tienda
+-- principal (la del administrador principal) hacia el catálogo global, para
+-- que las tiendas nuevas ya encuentren artículos al buscar. De ahí en
+-- adelante el catálogo se sigue alimentando solo, con lo que cada tienda
+-- va agregando (ver product_form_screen.dart). Solo corre la primera vez.
+-- ============================================================
+do $$
+declare
+  v_main_store_id uuid;
+begin
+  if not exists (select 1 from product_catalog where source = 'store_bootstrap') then
+    select store_id into v_main_store_id from profiles where is_super_admin = true limit 1;
+    if v_main_store_id is not null then
+      insert into product_catalog (barcode, name, image_url, suggested_price, source)
+      select p.barcode, p.name, p.image_url, p.price, 'store_bootstrap'
+      from products p
+      where p.store_id = v_main_store_id and p.active = true
+      on conflict (barcode) do nothing;
+    end if;
+  end if;
+end $$;

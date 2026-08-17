@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/modifier.dart';
 import '../../services/modifier_repository.dart';
+import '../../utils/currency_format_cl.dart';
 
 class ModifiersScreen extends StatefulWidget {
   const ModifiersScreen({super.key});
@@ -115,8 +116,8 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
                               title: Text(modifier.name),
                               subtitle: Text(
                                 modifier.priceAdjustment >= 0
-                                    ? '+\$${modifier.priceAdjustment.toStringAsFixed(2)}'
-                                    : '-\$${modifier.priceAdjustment.abs().toStringAsFixed(2)}',
+                                    ? '+${formatCurrencyCl(modifier.priceAdjustment)}'
+                                    : '-${formatCurrencyCl(modifier.priceAdjustment.abs())}',
                               ),
                               leading: Switch(value: modifier.active, onChanged: (_) => _toggleActive(modifier)),
                               trailing: IconButton(

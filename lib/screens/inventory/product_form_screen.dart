@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/catalog_entry.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
+import '../../services/category_repository.dart';
 import '../../services/photo_upload_service.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
-import '../../services/shared_catalog_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../scan/barcode_scanner_screen.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -27,7 +29,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final ProductRepository _repository = ProductRepository();
   final ProductLookupService _lookupService = ProductLookupService();
   final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
-  final SharedCatalogRepository _sharedCatalogRepository = SharedCatalogRepository();
+  final CategoryRepository _categoryRepository = CategoryRepository();
   final PhotoUploadService _photoService = PhotoUploadService();
 
   late final TextEditingController _nameController;
@@ -37,9 +39,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _barcodeController;
   late final TextEditingController _stockController;
   late final TextEditingController _lowStockController;
+  late List<Category> _categories;
   bool _trackStock = true;
   String? _categoryId;
   String? _imageUrl;
+  double? _suggestedPrice;
   bool _saving = false;
   bool _looking = false;
   bool _uploadingPhoto = false;
@@ -58,10 +62,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   void initState() {
     super.initState();
     final product = widget.product;
+    _categories = List.of(widget.categories);
     _nameController = TextEditingController(text: product?.name ?? '');
-    _priceController = TextEditingController(text: product != null ? product.price.toStringAsFixed(2) : '');
+    _priceController = TextEditingController(text: product != null ? product.price.round().toString() : '');
     _costController =
-        TextEditingController(text: product?.cost != null ? product!.cost!.toStringAsFixed(2) : '');
+        TextEditingController(text: product?.cost != null ? product!.cost!.round().toString() : '');
     _skuController = TextEditingController(text: product?.sku ?? '');
     _barcodeController = TextEditingController(text: product?.barcode ?? '');
     _stockController =
@@ -90,11 +95,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     setState(() => _saving = true);
     final barcode = _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim();
     final name = _nameController.text.trim();
+    final price = double.parse(_priceController.text);
     final product = Product(
       id: widget.product?.id ?? '',
       name: name,
       categoryId: _categoryId,
-      price: double.parse(_priceController.text),
+      price: price,
       cost: _costController.text.isEmpty ? null : double.tryParse(_costController.text),
       sku: _skuController.text.trim().isEmpty ? null : _skuController.text.trim(),
       barcode: barcode,
@@ -112,14 +118,17 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       } else {
         await _repository.create(product);
       }
-      if (barcode != null) {
-        // Guardamos en el catálogo propio para no tener que buscarlo de
-        // nuevo la próxima vez que agregues un producto con este código, y
-        // lo aportamos al catálogo compartido (si está configurado) para
-        // que otros negocios que usan POSible también se beneficien.
-        await _catalogRepository.upsert(barcode: barcode, name: name, imageUrl: _imageUrl);
-        await _sharedCatalogRepository.contribute(barcode: barcode, name: name, imageUrl: _imageUrl);
-      }
+      // Aportamos este producto al catálogo global (compartido entre todas
+      // tus tiendas), con o sin código de barras, para que las demás tiendas
+      // puedan encontrarlo al buscar y usarlo como base (nombre, foto y
+      // precio sugerido) al crear el suyo.
+      await _catalogRepository.upsert(
+        barcode: barcode,
+        name: name,
+        imageUrl: _imageUrl,
+        suggestedPrice: price,
+        source: 'store',
+      );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -151,6 +160,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       if (entry != null) {
         if (_nameController.text.trim().isEmpty) _nameController.text = entry.name;
         if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
+        _suggestedPrice = entry.suggestedPrice;
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -158,6 +168,51 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ? 'Encontrado: ${entry.name}'
           : 'No se encontró información en internet para ese código. Ingrésalo tú.'),
     ));
+  }
+
+  /// Busca por nombre en el catálogo global (lo que ya cargaron tú u otras
+  /// de tus tiendas), para no volver a escribir todo desde cero.
+  Future<void> _searchCatalog() async {
+    final entry = await showDialog<CatalogEntry>(
+      context: context,
+      builder: (_) => const _CatalogSearchDialog(),
+    );
+    if (entry == null) return;
+    setState(() {
+      _nameController.text = entry.name;
+      if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
+      if (entry.barcode != null && entry.barcode!.isNotEmpty) _barcodeController.text = entry.barcode!;
+      _suggestedPrice = entry.suggestedPrice;
+    });
+  }
+
+  Future<void> _addCategoryInline() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Nueva categoría'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    final category = await _categoryRepository.create(name);
+    if (!mounted) return;
+    setState(() {
+      _categories = [..._categories, category];
+      _categoryId = category.id;
+    });
   }
 
   Future<void> _choosePhotoSource() async {
@@ -251,18 +306,38 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                labelText: 'Nombre',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.travel_explore),
+                  tooltip: 'Buscar en catálogo global',
+                  onPressed: _searchCatalog,
+                ),
+              ),
               validator: (value) => (value == null || value.isEmpty) ? 'Requerido' : null,
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String?>(
-              value: _categoryId,
-              decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Sin categoría')),
-                ...widget.categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String?>(
+                    value: _categoryId,
+                    decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Sin categoría')),
+                      ..._categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+                    ],
+                    onChanged: (value) => setState(() => _categoryId = value),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'Nueva categoría',
+                  onPressed: _addCategoryInline,
+                ),
               ],
-              onChanged: (value) => setState(() => _categoryId = value),
             ),
             const SizedBox(height: 12),
             Row(
@@ -293,6 +368,25 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(_marginText!, style: Theme.of(context).textTheme.bodySmall),
+              ),
+            if (_suggestedPrice != null && _suggestedPrice! > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Precio sugerido (de otra tienda): ${formatCurrencyCl(_suggestedPrice!)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _priceController.text = _suggestedPrice!.round().toString()),
+                      child: const Text('Usar'),
+                    ),
+                  ],
+                ),
               ),
             const SizedBox(height: 12),
             TextFormField(
@@ -363,6 +457,94 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CatalogSearchDialog extends StatefulWidget {
+  const _CatalogSearchDialog();
+
+  @override
+  State<_CatalogSearchDialog> createState() => _CatalogSearchDialogState();
+}
+
+class _CatalogSearchDialogState extends State<_CatalogSearchDialog> {
+  final ProductCatalogRepository _repository = ProductCatalogRepository();
+  final _controller = TextEditingController();
+  List<CatalogEntry> _results = [];
+  bool _loading = false;
+
+  Future<void> _search(String query) async {
+    setState(() => _loading = true);
+    final results = await _repository.search(query);
+    if (!mounted) return;
+    setState(() {
+      _results = results;
+      _loading = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buscar en catálogo global'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nombre o código de barras',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: _search,
+            ),
+            const SizedBox(height: 12),
+            if (_loading)
+              const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+            else if (_results.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('Escribe y presiona Enter para buscar'),
+              )
+            else
+              SizedBox(
+                height: 300,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _results.length,
+                  itemBuilder: (context, index) {
+                    final entry = _results[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: entry.imageUrl != null ? NetworkImage(entry.imageUrl!) : null,
+                        child: entry.imageUrl == null ? const Icon(Icons.inventory_2) : null,
+                      ),
+                      title: Text(entry.name),
+                      subtitle: Text(entry.suggestedPrice != null
+                          ? 'Sugerido: ${formatCurrencyCl(entry.suggestedPrice!)}'
+                          : entry.barcode ?? ''),
+                      onTap: () => Navigator.of(context).pop(entry),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cerrar')),
+      ],
     );
   }
 }

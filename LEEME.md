@@ -241,10 +241,13 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Artículos** (solo en el panel web — ver más abajo): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
-  (en tu catálogo, en el catálogo compartido de POSible, y en Open Food
-  Facts si no lo tienen los otros dos). Si tienes modificadores activos
-  (ej. "Extra queso"), al tocar un producto en Ventas te deja elegirlos
-  antes de agregarlo al carrito, y quedan reflejados en el recibo.
+  (en el catálogo global y en Open Food Facts si no lo tiene). Al crear un
+  producto también puedes buscarlo por nombre en el catálogo global (ícono
+  de lupa junto a "Nombre") para reutilizar lo que ya cargó otra de tus
+  tiendas — nunca copia el precio automáticamente, solo lo muestra como
+  precio sugerido. Si tienes modificadores activos (ej. "Extra queso"), al
+  tocar un producto en Ventas te deja elegirlos antes de agregarlo al
+  carrito, y quedan reflejados en el recibo.
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
@@ -254,14 +257,12 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   puedes crear empleados tú mismo con correo y PIN, y restablecer el PIN
   de cualquiera, directamente desde ahí (requiere activar una función en
   Supabase la primera vez — ver más arriba).
-- **Inventario** (solo en el panel web): administra el catálogo de
-  productos COMPARTIDO entre TODAS las tiendas que usan POSible (no solo
-  la tuya) — buscar, agregar, editar y borrar cualquier producto. Solo
-  aparece si configuraste el catálogo compartido (ver más abajo).
-  ⚠️ Como ese proyecto de Supabase es público (sin cuentas de usuario),
-  cualquiera con la app puede editar o borrar productos que cargó otra
-  tienda distinta a la tuya — se eligió así a propósito para que sea fácil
-  de mantener entre todos, pero ten en cuenta esa contraparte.
+- **Catálogo global** (solo el administrador principal, panel web): revisa
+  y cura el catálogo global — el mismo que se usa para sugerir nombre, foto
+  y precio al crear un producto nuevo en cualquiera de tus tiendas. Se
+  alimenta solo, automáticamente, con cada producto que cualquier tienda
+  agrega a su propio inventario (con o sin código de barras); desde aquí
+  puedes además agregar, editar o borrar entradas a mano.
 - **Configuración**: tasa de impuesto, modo oscuro, vista en lista, cerrar
   sesión.
 
@@ -288,24 +289,18 @@ El menú se ve distinto según el tamaño de pantalla: en el celular es un
 menú deslizable (como antes), y en una pantalla ancha (computador) se
 muestra fijo al costado, como un panel de administración normal.
 
-## Catálogo compartido entre negocios (opcional)
-Además de tu catálogo propio (que ya funciona solo), POSible puede conectarse
-a un catálogo de productos COMPARTIDO entre todos los negocios que usan la
-app — para que si otra tienda ya cargó un producto, tú no tengas que
-buscarlo de nuevo, y viceversa. Es opcional y requiere un paso tuyo, porque
-implica crear un proyecto de Supabase aparte (público, no el de tu negocio):
+## Catálogo global (entre tus tiendas)
 
-1. Crea un proyecto NUEVO en supabase.com (distinto al de tu negocio), por
-   ejemplo llamado "posible-catalogo-compartido".
-2. En su SQL Editor, corre TODO el contenido de
-   `sql/shared_catalog_schema.sql` de este repositorio.
-3. Copia el Project URL y la llave anon/publishable de ESE proyecto (nuevo)
-   y pégalas en `lib/config/shared_catalog_config.dart`, reemplazando los
-   textos `PON_AQUI_...`.
-4. Sube el cambio (commit) para que se recompile la app.
-
-Mientras no hagas esto, la app funciona igual, solo que sin esa fuente
-adicional (usa tu catálogo propio y Open Food Facts).
+Es UN SOLO catálogo, compartido entre todas tus tiendas (vive en la misma
+base de datos de tu negocio, no en un proyecto aparte) y no requiere ningún
+paso de configuración. Se alimenta solo: cada vez que cualquiera de tus
+tiendas agrega un producto (tenga o no código de barras), ese nombre, foto
+y precio quedan guardados ahí como sugerencia para las demás. Al crear un
+producto nuevo, cualquier tienda puede buscar en él por código de barras o
+por nombre (ícono de lupa junto a "Nombre") — el precio nunca se copia
+automáticamente, solo se muestra como "precio sugerido" para que cada
+tienda decida el suyo. Solo el administrador principal puede revisarlo y
+editarlo a mano completo, desde el menú "Catálogo global".
 
 ## Detalles y limitaciones conocidas
 

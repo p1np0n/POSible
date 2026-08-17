@@ -12,6 +12,7 @@ import '../../services/customer_repository.dart';
 import '../../services/open_ticket_repository.dart';
 import '../../services/sales_repository.dart';
 import '../../services/settings_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
 import '../customers/customer_picker_dialog.dart';
 import 'discount_picker_dialog.dart';
@@ -84,7 +85,7 @@ class _CartPanelState extends State<CartPanel> {
     setState(() {
       _splitPayment = value;
       if (value) {
-        _cashAmountController.text = _total.toStringAsFixed(2);
+        _cashAmountController.text = _total.round().toString();
         _cardAmountController.text = '0';
         _otherAmountController.text = '0';
       }
@@ -304,7 +305,7 @@ class _CartPanelState extends State<CartPanel> {
                         title: Text(item.product.name),
                         subtitle: item.modifiersLabel.isEmpty
                             ? CurrencyText(item.unitPrice)
-                            : Text('${item.modifiersLabel} · \$${item.unitPrice.toStringAsFixed(2)}'),
+                            : Text('${item.modifiersLabel} · ${formatCurrencyCl(item.unitPrice)}'),
                         leading: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -392,7 +393,7 @@ class _CartPanelState extends State<CartPanel> {
                   Text(
                     _splitValid
                         ? 'Cuadra con el total ✓'
-                        : 'Suma: \$${_splitSum.toStringAsFixed(2)} — falta \$${(_total - _splitSum).toStringAsFixed(2)}',
+                        : 'Suma: ${formatCurrencyCl(_splitSum)} — falta ${formatCurrencyCl(_total - _splitSum)}',
                     style: TextStyle(color: _splitValid ? Colors.green : Colors.red, fontSize: 12),
                   ),
                 ] else
@@ -417,7 +418,7 @@ class _CartPanelState extends State<CartPanel> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Descuento'),
-                        Text('-\$${_discountAmount.toStringAsFixed(2)}'),
+                        Text('-${formatCurrencyCl(_discountAmount)}'),
                       ],
                     ),
                   ),

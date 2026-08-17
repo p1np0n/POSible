@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/sale.dart';
 import '../../models/sale_item.dart';
 import '../../services/receipts_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
 
@@ -67,8 +68,8 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
                       title: Text(item.productName),
                       subtitle: Text(
                         item.modifiersSummary == null || item.modifiersSummary!.isEmpty
-                            ? '${item.quantity.toStringAsFixed(0)} x \$${item.unitPrice.toStringAsFixed(2)}'
-                            : '${item.quantity.toStringAsFixed(0)} x \$${item.unitPrice.toStringAsFixed(2)} · ${item.modifiersSummary}',
+                            ? '${item.quantity.toStringAsFixed(0)} x ${formatCurrencyCl(item.unitPrice)}'
+                            : '${item.quantity.toStringAsFixed(0)} x ${formatCurrencyCl(item.unitPrice)} · ${item.modifiersSummary}',
                       ),
                       trailing: CurrencyText(item.subtotal, bold: true),
                     )),
@@ -82,7 +83,7 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [const Text('Descuento'), Text('-\$${sale.discountAmount.toStringAsFixed(2)}')],
+                    children: [const Text('Descuento'), Text('-${formatCurrencyCl(sale.discountAmount)}')],
                   ),
                 ),
               if (sale.taxAmount > 0)
@@ -104,9 +105,9 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
               const SizedBox(height: 8),
               Text('Pago: ${_paymentLabels[sale.paymentMethod] ?? sale.paymentMethod}'),
               if (sale.isSplitPayment) ...[
-                if (sale.cashAmount > 0) Text('  · Efectivo: \$${sale.cashAmount.toStringAsFixed(2)}'),
-                if (sale.cardAmount > 0) Text('  · Tarjeta: \$${sale.cardAmount.toStringAsFixed(2)}'),
-                if (sale.otherAmount > 0) Text('  · Otro: \$${sale.otherAmount.toStringAsFixed(2)}'),
+                if (sale.cashAmount > 0) Text('  · Efectivo: ${formatCurrencyCl(sale.cashAmount)}'),
+                if (sale.cardAmount > 0) Text('  · Tarjeta: ${formatCurrencyCl(sale.cardAmount)}'),
+                if (sale.otherAmount > 0) Text('  · Otro: ${formatCurrencyCl(sale.otherAmount)}'),
               ],
             ],
           );
