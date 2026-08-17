@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -6,6 +9,8 @@ import '../../services/invoice_ocr_service.dart';
 import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
 import '../../utils/invoice_parser.dart';
+
+enum _InvoiceSource { camera, pdf }
 
 class _InvoiceRow {
   final TextEditingController nameController;
@@ -76,17 +81,67 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
     return scored.take(5).map((e) => e.key).toList();
   }
 
+  Future<void> _chooseSource() async {
+    final source = await showModalBottomSheet<_InvoiceSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Tomar foto'),
+              onTap: () => Navigator.of(context).pop(_InvoiceSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('Elegir archivo PDF'),
+              onTap: () => Navigator.of(context).pop(_InvoiceSource.pdf),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == _InvoiceSource.camera) {
+      await _takePhoto();
+    } else if (source == _InvoiceSource.pdf) {
+      await _pickPdf();
+    }
+  }
+
   Future<void> _takePhoto() async {
     final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
     if (file == null) return;
+    final bytes = await file.readAsBytes();
+    await _processDocument(bytes, isPdf: false);
+  }
+
+  Future<void> _pickPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final bytes = result.files.first.bytes;
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('No se pudo leer el archivo elegido')));
+      }
+      return;
+    }
+    await _processDocument(bytes, isPdf: true);
+  }
+
+  Future<void> _processDocument(Uint8List bytes, {required bool isPdf}) async {
     setState(() {
       _loading = true;
       _rows = [];
       _rawText = null;
     });
     try {
-      final bytes = await file.readAsBytes();
-      final text = await _ocrService.extractText(bytes);
+      final text = await _ocrService.extractText(bytes, isPdf: isPdf);
       final parsed = parseInvoiceText(text);
       final rows = parsed.map((line) {
         final candidates = _bestCandidates(line.name);
@@ -188,15 +243,15 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
                         const Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey),
                         const SizedBox(height: 16),
                         const Text(
-                          'Toma una foto de la factura o boleta. Se va a leer el texto y tratar de '
-                          'reconocer los artículos y cantidades — siempre revisa antes de confirmar.',
+                          'Toma una foto o elige un PDF de la factura o boleta. Se va a leer el texto y '
+                          'tratar de reconocer los artículos y cantidades — siempre revisa antes de confirmar.',
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 24),
                         FilledButton.icon(
-                          onPressed: _takePhoto,
-                          icon: const Icon(Icons.camera_alt_outlined),
-                          label: const Text('Tomar foto de factura'),
+                          onPressed: _chooseSource,
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: const Text('Foto o PDF de la factura'),
                         ),
                         if (_rawText != null) ...[
                           const SizedBox(height: 16),
