@@ -14,6 +14,8 @@ enum _SortMode { name, stockAsc, stockDesc }
 
 enum _StockFilter { all, lowStock, outOfStock }
 
+const int _pageSize = 50;
+
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
 
@@ -25,6 +27,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   List<Product> _products = [];
   List<Category> _categories = [];
   String _search = '';
@@ -32,31 +35,103 @@ class _ProductListScreenState extends State<ProductListScreen> {
   _SortMode _sortMode = _SortMode.name;
   _StockFilter _stockFilter = _StockFilter.all;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
+  int _requestId = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _scrollController.addListener(_onScroll);
+    _categoryRepository.getAll().then((categories) {
+      if (mounted) setState(() => _categories = categories);
+    });
+    _resetAndLoad();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _productRepository.getAll(),
-      _categoryRepository.getAll(),
-    ]);
+  void _onScroll() {
+    if (_stockFilter == _StockFilter.lowStock || !_hasMore || _loading || _loadingMore) return;
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+      _loadMore();
+    }
+  }
+
+  (String orderBy, bool ascending) get _sortColumn => switch (_sortMode) {
+        _SortMode.name => ('name', true),
+        _SortMode.stockAsc => ('stock_quantity', true),
+        _SortMode.stockDesc => ('stock_quantity', false),
+      };
+
+  /// Vuelve a cargar desde cero (al cambiar búsqueda, categoría, filtro de
+  /// inventario, orden, o al hacer pull-to-refresh). Descarta la respuesta
+  /// si mientras tanto se disparó otra búsqueda más nueva (evita que una
+  /// respuesta lenta y vieja pise el resultado de la más reciente).
+  Future<void> _resetAndLoad() async {
+    final requestId = ++_requestId;
     setState(() {
-      _products = results[0] as List<Product>;
-      _categories = results[1] as List<Category>;
+      _loading = true;
+      _products = [];
+      _hasMore = true;
+    });
+
+    if (_stockFilter == _StockFilter.lowStock) {
+      // Grupo chico (solo productos con umbral configurado): se trae
+      // completo y se filtra/ordena en la app, sin paginar.
+      final candidates = await _productRepository.getLowStockCandidates();
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _products = candidates;
+        _hasMore = false;
+        _loading = false;
+      });
+      return;
+    }
+
+    final (orderBy, ascending) = _sortColumn;
+    final page = await _productRepository.getPage(
+      offset: 0,
+      pageSize: _pageSize,
+      categoryId: _selectedCategoryId,
+      search: _search,
+      onlyOutOfStock: _stockFilter == _StockFilter.outOfStock,
+      orderBy: orderBy,
+      ascending: ascending,
+    );
+    if (!mounted || requestId != _requestId) return;
+    setState(() {
+      _products = page;
+      _hasMore = page.length == _pageSize;
       _loading = false;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    final requestId = _requestId;
+    setState(() => _loadingMore = true);
+    final (orderBy, ascending) = _sortColumn;
+    final page = await _productRepository.getPage(
+      offset: _products.length,
+      pageSize: _pageSize,
+      categoryId: _selectedCategoryId,
+      search: _search,
+      onlyOutOfStock: _stockFilter == _StockFilter.outOfStock,
+      orderBy: orderBy,
+      ascending: ascending,
+    );
+    if (!mounted || requestId != _requestId) return;
+    setState(() {
+      _products = [..._products, ...page];
+      _hasMore = page.length == _pageSize;
+      _loadingMore = false;
     });
   }
 
@@ -66,7 +141,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
     return match.isEmpty ? 'Sin categoría' : match.first.name;
   }
 
-  List<Product> get _filtered {
+  /// Para "Inventario bajo" (que no se filtra ni se ordena en el servidor)
+  /// se aplican búsqueda, categoría, umbral y orden aquí mismo. Para los
+  /// demás casos ya viene todo resuelto del servidor.
+  List<Product> get _visibleProducts {
+    if (_stockFilter != _StockFilter.lowStock) return _products;
+
     final search = _search.toLowerCase();
     final list = _products.where((p) {
       final matchesCategory = _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
@@ -74,12 +154,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           p.name.toLowerCase().contains(search) ||
           (p.barcode?.toLowerCase().contains(search) ?? false) ||
           (p.sku?.toLowerCase().contains(search) ?? false);
-      final matchesStock = switch (_stockFilter) {
-        _StockFilter.all => true,
-        _StockFilter.lowStock => p.isLowStock,
-        _StockFilter.outOfStock => p.trackStock && p.stockQuantity <= 0,
-      };
-      return matchesCategory && matchesSearch && matchesStock;
+      return matchesCategory && matchesSearch && p.isLowStock;
     }).toList();
 
     switch (_sortMode) {
@@ -100,7 +175,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ProductFormScreen(product: product, categories: _categories)),
     );
-    if (changed == true) _loadData();
+    if (changed == true) _resetAndLoad();
   }
 
   Future<void> _scanBarcode() async {
@@ -110,6 +185,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     if (code != null && mounted) {
       _searchController.text = code;
       setState(() => _search = code);
+      _resetAndLoad();
     }
   }
 
@@ -163,7 +239,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         lowStockThreshold: product.lowStockThreshold,
       ),
     );
-    _loadData();
+    _resetAndLoad();
   }
 
   void _toggleSelectionMode() {
@@ -203,7 +279,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _selectionMode = false;
       _selectedIds.clear();
     });
-    _loadData();
+    _resetAndLoad();
   }
 
   Future<void> _bulkChangeCategory() async {
@@ -254,12 +330,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
       _selectionMode = false;
       _selectedIds.clear();
     });
-    _loadData();
+    _resetAndLoad();
   }
 
   @override
   Widget build(BuildContext context) {
     final cameraEnabled = context.watch<AppPreferencesProvider>().cameraScanEnabled;
+    final visible = _visibleProducts;
 
     return Scaffold(
       bottomNavigationBar: (_selectionMode && _selectedIds.isNotEmpty)
@@ -286,7 +363,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
             )
           : null,
       body: RefreshIndicator(
-        onRefresh: _loadData,
+        onRefresh: _resetAndLoad,
         child: Column(
           children: [
             Padding(
@@ -302,7 +379,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      onChanged: (value) => setState(() => _search = value),
+                      onChanged: (value) {
+                        setState(() => _search = value);
+                        _resetAndLoad();
+                      },
                     ),
                   ),
                   if (cameraEnabled)
@@ -315,7 +395,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     icon: const Icon(Icons.sort),
                     tooltip: 'Ordenar',
                     initialValue: _sortMode,
-                    onSelected: (mode) => setState(() => _sortMode = mode),
+                    onSelected: (mode) {
+                      setState(() => _sortMode = mode);
+                      _resetAndLoad();
+                    },
                     itemBuilder: (context) => const [
                       PopupMenuItem(value: _SortMode.name, child: Text('Nombre (A-Z)')),
                       PopupMenuItem(value: _SortMode.stockAsc, child: Text('Stock: menor a mayor')),
@@ -354,7 +437,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         ..._categories
                             .map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
                       ],
-                      onChanged: (value) => setState(() => _selectedCategoryId = value),
+                      onChanged: (value) {
+                        setState(() => _selectedCategoryId = value);
+                        _resetAndLoad();
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -372,7 +458,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         DropdownMenuItem(value: _StockFilter.lowStock, child: Text('Inventario bajo')),
                         DropdownMenuItem(value: _StockFilter.outOfStock, child: Text('Sin stock')),
                       ],
-                      onChanged: (value) => setState(() => _stockFilter = value ?? _StockFilter.all),
+                      onChanged: (value) {
+                        setState(() => _stockFilter = value ?? _StockFilter.all);
+                        _resetAndLoad();
+                      },
                     ),
                   ),
                 ],
@@ -382,12 +471,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _filtered.isEmpty
+                  : visible.isEmpty
                       ? const Center(child: Text('No hay productos'))
                       : ListView.builder(
-                          itemCount: _filtered.length,
+                          controller: _scrollController,
+                          itemCount: visible.length + (_loadingMore ? 1 : 0),
                           itemBuilder: (context, index) {
-                            final product = _filtered[index];
+                            if (index >= visible.length) {
+                              return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
+                            final product = visible[index];
                             final margin = product.marginPercent;
                             final selected = _selectedIds.contains(product.id);
                             return ListTile(
