@@ -57,6 +57,25 @@ estas dos opciones así en tu proyecto de Supabase:
 También te recomiendo mantener este repositorio de GitHub como **Privado**
 (Settings → General → Danger Zone → Change visibility).
 
+### Recuperar u olvidar la contraseña
+En la pantalla de inicio de sesión hay un enlace **"¿Olvidaste tu
+contraseña?"** que pide el correo y manda un enlace para elegir una
+contraseña nueva (funciona tanto en el panel web como en el APK — el
+enlace siempre abre el panel web, ahí se define la contraseña nueva y
+después puedes volver a entrar, también desde el APK, con esa contraseña).
+Cualquier usuario que ya inició sesión también puede cambiar su contraseña
+en cualquier momento desde **Configuración → Cambiar contraseña**, sin
+depender del correo.
+
+Para que el enlace de recuperación funcione, hay que autorizarlo una vez en
+Supabase:
+1. Ve a **Authentication** → **URL Configuration**.
+2. En **Redirect URLs**, agrega la URL de tu panel publicado, por ejemplo
+   `https://TU-USUARIO.github.io/POSible/` (con el `/` final, y con tu
+   usuario/nombre de repositorio reales).
+3. Guarda. Si no haces este paso, Supabase rechaza el enlace de
+   recuperación con un error de "redirect not allowed".
+
 ### Multi-tienda: varias tiendas compartiendo la misma app
 POSible ahora soporta varias tiendas usando la misma app y la misma base de
 datos, cada una viendo **solo sus propios datos** (productos, ventas,

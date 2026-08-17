@@ -13,6 +13,7 @@ import 'screens/auth/lock_gate.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/pending_approval_screen.dart';
 import 'screens/auth/pin_login_screen.dart';
+import 'screens/auth/reset_password_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/profile_repository.dart';
 
@@ -71,6 +72,7 @@ class _AuthGateState extends State<AuthGate> {
   late final Stream<AuthState> _authStateStream;
   Future<EmployeeProfile?>? _profileFuture;
   String? _profileForUserId;
+  bool _passwordRecovery = false;
 
   @override
   void initState() {
@@ -88,14 +90,26 @@ class _AuthGateState extends State<AuthGate> {
     return StreamBuilder<AuthState>(
       stream: _authStateStream,
       builder: (context, snapshot) {
+        // El enlace de "¿Olvidaste tu contraseña?" abre una sesión temporal
+        // de recuperación: hay que pedir la contraseña nueva en vez de
+        // dejar entrar directo a la app con ella.
+        if (snapshot.data?.event == AuthChangeEvent.passwordRecovery) {
+          _passwordRecovery = true;
+        }
+
         final session = Supabase.instance.client.auth.currentSession;
         if (session == null) {
           _profileFuture = null;
           _profileForUserId = null;
+          _passwordRecovery = false;
           // El login rápido con PIN es solo para el APK (Android) — en el
           // panel web siempre se usa correo y contraseña completos.
           final knownEmails = context.watch<AppPreferencesProvider>().knownEmails;
           return (kIsWeb || knownEmails.isEmpty) ? const LoginScreen() : const PinLoginScreen();
+        }
+
+        if (_passwordRecovery) {
+          return ResetPasswordScreen(onDone: () => setState(() => _passwordRecovery = false));
         }
 
         if (_profileForUserId != session.user.id) {
