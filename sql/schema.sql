@@ -227,6 +227,19 @@ create table if not exists open_tickets (
 );
 alter table open_tickets add column if not exists store_id uuid references stores(id);
 
+-- Reloj de entrada/salida: cada empleado marca cuándo entra y cuándo sale.
+-- "clock_out" queda en null mientras la persona sigue "marcada" (entrada
+-- sin salida todavía).
+create table if not exists time_clock_entries (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id),
+  user_id uuid references auth.users(id),
+  user_email text,
+  clock_in timestamptz not null default now(),
+  clock_out timestamptz,
+  created_at timestamptz not null default now()
+);
+
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)
 create or replace function adjust_product_stock(p_id uuid, p_delta numeric)
@@ -412,6 +425,7 @@ alter table store_settings enable row level security;
 alter table product_catalog enable row level security;
 alter table open_tickets enable row level security;
 alter table cash_movements enable row level security;
+alter table time_clock_entries enable row level security;
 
 drop policy if exists "auth full access" on categories;
 drop policy if exists "auth full access" on products;
@@ -478,6 +492,10 @@ create policy "solo mi tienda" on open_tickets for all
   using (public.is_approved() and store_id is not distinct from public.current_store_id())
   with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 create policy "solo mi tienda" on cash_movements for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+drop policy if exists "solo mi tienda" on time_clock_entries;
+create policy "solo mi tienda" on time_clock_entries for all
   using (public.is_approved() and store_id is not distinct from public.current_store_id())
   with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 
