@@ -255,17 +255,16 @@ está pensado para poder ejecutarse varias veces sin borrar tus datos. Si no
 lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 
 ## Qué incluye esta versión
-- **Ventas — mosaico de fotos y pestañas**: los productos se muestran como
-  mosaicos con foto (como una vitrina), con la cantidad de columnas
-  ajustándose sola al ancho de la pantalla (unas 5 en una tablet ancha,
-  menos en un celular). En vez de elegir la categoría en un menú
-  desplegable, ahora hay pestañas arriba — **"Más vendidos"** (los que más
-  se vendieron en los últimos 30 días, para tenerlos siempre a mano sin
-  buscarlos) y "Todos", seguidas de una por cada categoría — y puedes
-  deslizar el dedo para pasar de una a otra, como páginas. Los productos
-  sin foto muestran un color liso con su nombre en vez de una foto vacía;
-  puedes seguir prefiriendo la vista en lista clásica desde **Configuración
-  → Vista en lista de artículos**.
+- **Ventas — mosaico de fotos**: los productos se muestran como mosaicos con
+  foto (como una vitrina) — foto de fondo con el nombre superpuesto si
+  tiene, o un círculo gris con el nombre debajo si todavía no tiene foto.
+  La cantidad de columnas se ajusta sola al ancho de la pantalla (unas 5 en
+  una tablet ancha, menos en un celular). El botón **"Más vendidos"** (junto
+  al buscador) muestra de inmediato los productos más vendidos en los
+  últimos 30 días, sin tener que buscarlos; el menú desplegable de al lado
+  sigue sirviendo para elegir una categoría en particular. Puedes seguir
+  prefiriendo la vista en lista clásica desde **Configuración → Vista en
+  lista de artículos**.
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
   impuestos, pago en efectivo/tarjeta/otro o **dividido entre varios**
   (ej. mitad efectivo, mitad tarjeta), "artículo rápido" (agregar algo con
