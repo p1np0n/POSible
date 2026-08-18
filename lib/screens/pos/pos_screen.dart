@@ -676,20 +676,20 @@ class _PosScreenState extends State<PosScreen> {
       ),
     );
 
-    final cartPanel = CartPanel(
-      onSaleCompleted: () {
-        _loadData();
-        _refreshOpenTicketCount();
-      },
-      onTicketHeld: () {
-        _loadData();
-        _refreshOpenTicketCount();
-      },
-    );
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSplitWide = constraints.maxWidth >= _splitLayoutBreakpoint;
+        final cartPanel = CartPanel(
+          compact: !isSplitWide,
+          onSaleCompleted: () {
+            _loadData();
+            _refreshOpenTicketCount();
+          },
+          onTicketHeld: () {
+            _loadData();
+            _refreshOpenTicketCount();
+          },
+        );
         if (isSplitWide) {
           return Row(
             children: [
@@ -699,11 +699,19 @@ class _PosScreenState extends State<PosScreen> {
             ],
           );
         }
+        // El carrito compacto se docka abajo con su alto natural (chico si
+        // está plegado, más grande si el cajero despliega el detalle),
+        // hasta un tope — así el mosaico de arriba se queda con todo el
+        // resto de la pantalla en vez de perder un 42% fijo aunque el
+        // carrito esté plegado.
         return Column(
           children: [
             Expanded(child: productsPanel),
             const Divider(height: 1),
-            SizedBox(height: constraints.maxHeight * 0.42, child: cartPanel),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.62),
+              child: cartPanel,
+            ),
           ],
         );
       },

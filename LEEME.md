@@ -320,6 +320,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de un producto en el buscador de Ventas y presionas Enter (o lo escaneas
   con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
   tocarlo.
+- **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
+  el carrito se docka abajo del mosaico de productos mostrando solo el
+  total y los botones **Guardar**/**Cobrar** — toca la flechita para
+  desplegar la lista de artículos, cliente/descuento y la forma de pago,
+  y para plegarla de nuevo. Así el mosaico aprovecha casi toda la
+  pantalla mientras vendes, en vez de perder espacio fijo aunque el
+  carrito esté vacío o casi. En pantallas anchas (tablet horizontal,
+  computador) el carrito sigue al lado, siempre completo, sin plegar.
 - **Lector de código de barras USB**: si usas uno (funciona como un
   teclado que escribe el código y presiona Enter), activa **Configuración
   → "Uso un lector de código de barras USB en Ventas"**. Con esto, el
