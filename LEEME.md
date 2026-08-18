@@ -275,7 +275,10 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   personalizadas solo se pueden editar desde el ícono de engranaje, no
   agregar con mantener presionado).
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
-  impuestos, pago en efectivo/tarjeta/otro o **dividido entre varios**
+  IVA (la tasa que pongas en Configuración se descuenta del precio que ya
+  cargaste — **no se suma aparte**, porque el precio de tus artículos ya lo
+  incluye — y solo sirve para mostrar el desglose en la venta y el ticket),
+  pago en efectivo/tarjeta/otro o **dividido entre varios**
   (ej. mitad efectivo, mitad tarjeta), "artículo rápido" (agregar algo con
   nombre y precio libres sin que esté en tu inventario, ej. algo pesado en
   el momento o un cargo especial), "tickets abiertos" (dejar una venta en
@@ -370,11 +373,16 @@ Al crear o editar un producto puedes elegir "Tipo de precio":
 
 ### APK vs panel web: no son exactamente lo mismo
 El **APK** (celular) se queda con lo esencial para atender en el mostrador:
-Ventas, Recibos, Turno, Inventario, Reportes, Clientes y Configuración. El **panel
-web** además tiene todo lo de administración (back office): Artículos con
-su submenú (Lista de artículos, Categorías, Modificadores, Descuentos) y
-Empleados. Así el celular queda simple y rápido para vender, y la
-administración más completa la haces desde la computadora.
+Ventas, Recibos, Turno, Inventario y Clientes (si tu tienda lo tiene
+activado), más una Configuración reducida (impuestos, apariencia, cámara,
+bloqueo automático y cerrar sesión). El **panel web** además tiene todo lo
+de administración (back office): Reportes, Artículos con su submenú (Lista
+de artículos, Categorías, Modificadores, Descuentos), Empleados, Catálogo
+global, Tiendas, y en Configuración también "Cambiar contraseña" y
+"Alertas de inventario bajo". Así el celular queda simple y rápido para
+vender, y la administración más completa la haces desde la computadora (si
+un cajero necesita cambiar su contraseña desde el celular, puede usar
+"¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión).
 
 ### Diseño que se adapta a la pantalla
 El menú se ve distinto según el tamaño de pantalla: en el celular es un

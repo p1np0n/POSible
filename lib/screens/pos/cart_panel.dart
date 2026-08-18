@@ -72,8 +72,13 @@ class _CartPanelState extends State<CartPanel> {
   double get _discountAmount =>
       context.read<CartProvider>().selectedDiscount?.amountFor(_subtotal) ?? 0;
   double get _taxableAmount => _subtotal - _discountAmount;
-  double get _taxAmount => _taxableAmount * _taxRatePercent / 100;
-  double get _total => _taxableAmount + _taxAmount;
+  // El precio de cada artículo YA incluye el IVA — nunca se suma aparte. La
+  // tasa configurada solo sirve para calcular qué parte de ese precio es
+  // impuesto, para mostrarlo desglosado (como pide la ley), no para
+  // agregarlo al total.
+  double get _taxAmount =>
+      _taxRatePercent <= 0 ? 0 : _taxableAmount - (_taxableAmount / (1 + _taxRatePercent / 100));
+  double get _total => _taxableAmount;
 
   double get _splitCash => double.tryParse(_cashAmountController.text) ?? 0;
   double get _splitCard => double.tryParse(_cardAmountController.text) ?? 0;
@@ -268,6 +273,32 @@ class _CartPanelState extends State<CartPanel> {
     if (mounted) context.read<CartProvider>().clear();
   }
 
+  /// Resumen chico (Subtotal / IVA incl. / Total) que va junto al título
+  /// "Carrito", siempre visible aunque haya que desplazarse por la lista de
+  /// artículos o el resto del panel.
+  Widget _headerAmount(String label, double amount, {bool emphasize = false}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: emphasize ? 13 : 12,
+            color: emphasize ? null : Colors.grey.shade600,
+          ),
+        ),
+        CurrencyText(
+          amount,
+          bold: emphasize,
+          style: TextStyle(
+            fontSize: emphasize ? 15 : 12,
+            color: emphasize ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
@@ -278,20 +309,39 @@ class _CartPanelState extends State<CartPanel> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
-                if (cart.items.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: (_processing || _holding) ? null : _voidCart,
-                    icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                    label: const Text('Anular', style: TextStyle(color: Colors.red)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
+                    if (cart.items.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: (_processing || _holding) ? null : _voidCart,
+                        icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                        label: const Text('Anular', style: TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+                if (cart.items.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 2,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _headerAmount('Subtotal', _taxableAmount),
+                      if (_taxAmount > 0) _headerAmount('IVA incl.', _taxAmount),
+                      _headerAmount('Total', _total, emphasize: true),
+                    ],
                   ),
+                ],
               ],
             ),
           ),
           Expanded(
+            flex: 3,
             child: cart.items.isEmpty
                 ? const Center(
                     child: Text('El carrito está vacío', style: TextStyle(color: Colors.grey)),
@@ -326,12 +376,19 @@ class _CartPanelState extends State<CartPanel> {
                   ),
           ),
           const Divider(height: 1),
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (context.watch<StoreProvider>().showCustomers)
+          // Flexible (no un simple SingleChildScrollView suelto) para que
+          // nunca empuje el botón "Cobrar" fuera de la pantalla: si el
+          // carrito tiene muchos artículos y queda poco espacio, esta franja
+          // se achica y scrollea dentro de lo que le toca, en vez de
+          // desbordarse por debajo del panel (donde quedaba invisible).
+          Flexible(
+            flex: 2,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (context.watch<StoreProvider>().showCustomers)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
@@ -428,7 +485,7 @@ class _CartPanelState extends State<CartPanel> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Impuesto (${_taxRatePercent.toStringAsFixed(1)}%)'),
+                        Text('IVA incluido (${_taxRatePercent.toStringAsFixed(1)}%)'),
                         CurrencyText(_taxAmount),
                       ],
                     ),
@@ -471,6 +528,7 @@ class _CartPanelState extends State<CartPanel> {
                   ],
                 ),
               ],
+              ),
             ),
           ),
         ],

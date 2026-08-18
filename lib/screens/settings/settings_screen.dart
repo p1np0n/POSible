@@ -162,8 +162,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: _taxRateController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Tasa de impuesto (%)',
-                  helperText: 'Se aplica automáticamente al total de cada venta',
+                  labelText: 'Tasa de IVA / impuesto (%)',
+                  helperText:
+                      'El precio de tus artículos ya lo incluye — esto solo sirve para mostrar '
+                      'el desglose en la venta y el ticket, no se suma aparte',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -174,45 +176,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Guardar'),
               ),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Alertas de inventario bajo', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _notifyEmailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Correo para avisos de inventario bajo (opcional)',
-                  helperText:
-                      'Requiere activar la función "notify-low-stock" en Supabase — ver LEEME.md',
-                  border: OutlineInputBorder(),
+              if (kIsWeb) ...[
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text('Alertas de inventario bajo', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _notifyEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo para avisos de inventario bajo (opcional)',
+                    helperText:
+                        'Requiere activar la función "notify-low-stock" en Supabase — ver LEEME.md',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _savingNotifyEmail ? null : _saveNotifyEmail,
-                      child: _savingNotifyEmail
-                          ? const SizedBox(
-                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Guardar'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _savingNotifyEmail ? null : _saveNotifyEmail,
+                        child: _savingNotifyEmail
+                            ? const SizedBox(
+                                height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('Guardar'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _sendingTest ? null : _sendTestEmail,
-                      child: _sendingTest
-                          ? const SizedBox(
-                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Enviar prueba ahora'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _sendingTest ? null : _sendTestEmail,
+                        child: _sendingTest
+                            ? const SizedBox(
+                                height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('Enviar prueba ahora'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 32),
               const Divider(),
               const SizedBox(height: 16),
@@ -281,29 +285,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Cambiar contraseña', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _newPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Repite la contraseña', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _changingPassword ? null : _changePassword,
-                child: _changingPassword
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Actualizar contraseña'),
-              ),
+              if (kIsWeb) ...[
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text('Cambiar contraseña', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _newPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  decoration:
+                      const InputDecoration(labelText: 'Repite la contraseña', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _changingPassword ? null : _changePassword,
+                  child: _changingPassword
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Actualizar contraseña'),
+                ),
+              ],
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),
