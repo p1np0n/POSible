@@ -298,7 +298,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   elegida (ahí también la renombras o la eliminas). Para agregar rápido un
   producto sin abrir esa pantalla: mantén presionado en cualquier parte del
   mosaico, o toca el último mosaico "Agregar producto" — se abre un
-  buscador y, al elegir uno, queda agregado ahí mismo. El menú desplegable
+  buscador y, al elegir uno, queda agregado ahí mismo. Dentro de una
+  pestaña, el buscador de arriba solo muestra lo que ya agregaste a mano
+  mientras está vacío — pero en cuanto escribes algo, busca en todo tu
+  catálogo (no solo en la pestaña), para poder vender cualquier producto
+  sin tener que agregarlo antes a la pestaña. El menú desplegable
   de categorías sigue sirviendo para filtrar por una categoría real del
   catálogo. Puedes seguir prefiriendo la vista en lista clásica desde
   **Configuración → Vista en lista de artículos** (ahí las pestañas
