@@ -316,7 +316,19 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   cliente y retomarla después desde el mismo ícono, incluyendo el cliente
   y descuento que tenías elegidos), "anular venta" (botón rojo arriba del
   carrito para descartar todo sin cobrar) y asignar la venta a un cliente
-  (botón "Elegir" junto a "Sin cliente").
+  (botón "Elegir" junto a "Sin cliente"). Si escaneas el código de barras
+  de un producto en el buscador de Ventas y presionas Enter (o lo escaneas
+  con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
+  tocarlo.
+- **Lector de código de barras USB**: si usas uno (funciona como un
+  teclado que escribe el código y presiona Enter), activa **Configuración
+  → "Uso un lector de código de barras USB en Ventas"**. Con esto, el
+  buscador de Ventas recupera el foco solo después de cada acción (agregar
+  un producto, cerrar un cuadro de diálogo, cambiar de categoría, etc.), así
+  el lector siempre tiene dónde escribir sin que el cajero tenga que tocar
+  la pantalla entre un escaneo y otro. Queda apagado por defecto porque en
+  una pantalla táctil sin ese lector esto abriría el teclado en pantalla de
+  más — solo actívalo si realmente usas un lector físico.
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
 - **Turno**: cada empleado abre y cierra su propia caja; hay un historial
