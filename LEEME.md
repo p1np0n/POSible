@@ -321,13 +321,16 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
   tocarlo.
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
-  el carrito se docka abajo del mosaico de productos mostrando solo el
+  el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para
-  desplegar la lista de artículos, cliente/descuento y la forma de pago,
-  y para plegarla de nuevo. Así el mosaico aprovecha casi toda la
-  pantalla mientras vendes, en vez de perder espacio fijo aunque el
-  carrito esté vacío o casi. En pantallas anchas (tablet horizontal,
-  computador) el carrito sigue al lado, siempre completo, sin plegar.
+  desplegar la lista de artículos, cliente/descuento y la forma de pago
+  (ocupa casi toda la pantalla mientras está desplegado), y para plegarla
+  de nuevo. Así el mosaico aprovecha casi toda la pantalla mientras
+  vendes, en vez de perder espacio fijo aunque el carrito esté vacío o
+  casi. En pantallas anchas (tablet horizontal, computador) el carrito
+  sigue al lado derecho, siempre completo, sin plegar. Los mosaicos de
+  producto también son más chicos que antes, para ver más de una vez sin
+  desplazarte.
 - **Lector de código de barras USB**: si usas uno (funciona como un
   teclado que escribe el código y presiona Enter), activa **Configuración
   → "Uso un lector de código de barras USB en Ventas"**. Con esto, el
@@ -363,7 +366,7 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   después en Lista de artículos). Usa una clave de prueba compartida por
   defecto (con límites); en Configuración puedes poner tu propia clave
   gratuita de [ocr.space](https://ocr.space/ocrapi) para que sea confiable.
-- **Artículos** (solo en el panel web — ver más abajo): lista de productos,
+- **Artículos** (en el APK y en el panel web): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
   (en el catálogo global y en Open Food Facts si no lo tiene). El botón
@@ -436,17 +439,19 @@ Al crear o editar un producto puedes elegir "Tipo de precio":
   texto.
 
 ### APK vs panel web: no son exactamente lo mismo
-El **APK** (celular) se queda con lo esencial para atender en el mostrador:
-Ventas, Recibos, Turno, Inventario y Clientes (si tu tienda lo tiene
-activado), más una Configuración reducida (impuestos, apariencia, cámara,
-bloqueo automático y cerrar sesión). El **panel web** además tiene todo lo
-de administración (back office): Reportes, Artículos con su submenú (Lista
-de artículos, Categorías, Modificadores, Descuentos), Empleados, Catálogo
-global, Tiendas, y en Configuración también "Cambiar contraseña" y
-"Alertas de inventario bajo". Así el celular queda simple y rápido para
-vender, y la administración más completa la haces desde la computadora (si
-un cajero necesita cambiar su contraseña desde el celular, puede usar
-"¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión).
+El **APK** (celular) tiene lo esencial para atender en el mostrador y
+mantener el catálogo al día: Ventas, Recibos, Turno, Inventario, Clientes
+(si tu tienda lo tiene activado), el menú **Artículos** completo (Lista de
+artículos, Categorías, Modificadores, Descuentos), más una Configuración
+reducida (impuestos, margen, apariencia, cámara, lector USB, bloqueo
+automático y cerrar sesión). El **panel web** además tiene todo lo de
+administración (back office) que no hace falta desde el mostrador:
+Reportes, Empleados, Catálogo global, Tiendas, y en Configuración también
+"Cambiar contraseña" y "Alertas de inventario bajo". Así el celular queda
+simple y rápido para vender y mantener el catálogo, y la administración
+más completa la haces desde la computadora (si un cajero necesita cambiar
+su contraseña desde el celular, puede usar "¿Olvidaste tu contraseña?" en
+la pantalla de inicio de sesión).
 
 ### Diseño que se adapta a la pantalla
 El menú se ve distinto según el tamaño de pantalla: en el celular es un
