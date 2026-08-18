@@ -19,7 +19,10 @@ class SalesRepository {
     required int loyaltyPointsEarned,
   }) async {
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
-    final total = subtotal - discountAmount + taxAmount;
+    // El precio de cada artículo ya incluye el IVA — "taxAmount" es solo la
+    // porción de ese precio que corresponde a impuesto (para el desglose del
+    // ticket), nunca se suma aparte al total.
+    final total = subtotal - discountAmount;
 
     final methodsUsed = [cashAmount, cardAmount, otherAmount].where((amount) => amount > 0).length;
     final paymentMethod = methodsUsed > 1

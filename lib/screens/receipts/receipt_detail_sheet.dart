@@ -91,7 +91,7 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [const Text('Impuesto'), CurrencyText(sale.taxAmount)],
+                    children: [const Text('IVA incluido'), CurrencyText(sale.taxAmount)],
                   ),
                 ),
               const SizedBox(height: 8),
