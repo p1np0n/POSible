@@ -37,21 +37,6 @@ const double _splitLayoutBreakpoint = 900;
 /// una tablet ancha da unas 5 por línea, como se pidió).
 const double _targetTileWidth = 168.0;
 
-/// Colores de fondo para productos sin foto (se elige uno según el nombre,
-/// para que cada uno se distinga a simple vista en la grilla).
-const List<Color> _placeholderPalette = [
-  Color(0xFFE3C097),
-  Color(0xFFB5D8CC),
-  Color(0xFFF2C6C2),
-  Color(0xFFC9D6EA),
-  Color(0xFFEAD7B7),
-  Color(0xFFCBE4B4),
-  Color(0xFFE6C9E0),
-  Color(0xFFBEE3DB),
-];
-
-Color _colorForName(String name) => _placeholderPalette[name.hashCode.abs() % _placeholderPalette.length];
-
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
@@ -59,7 +44,7 @@ class PosScreen extends StatefulWidget {
   State<PosScreen> createState() => _PosScreenState();
 }
 
-class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMixin {
+class _PosScreenState extends State<PosScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final ModifierRepository _modifierRepository = ModifierRepository();
@@ -71,10 +56,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   List<Category> _categories = [];
   List<Modifier> _modifiers = [];
   List<String> _topSellingIds = [];
+  String? _selectedCategoryId;
+  bool _showTopSelling = false;
   String _search = '';
   bool _loading = true;
   int _openTicketCount = 0;
-  TabController? _tabController;
 
   @override
   void initState() {
@@ -89,7 +75,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   @override
   void dispose() {
     _searchController.dispose();
-    _tabController?.dispose();
     super.dispose();
   }
 
@@ -102,30 +87,13 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _reportsRepository.getTopSellingProductIds(),
     ]);
     if (!mounted) return;
-    final categories = results[1] as List<Category>;
     setState(() {
       _products = results[0] as List<Product>;
-      _categories = categories;
+      _categories = results[1] as List<Category>;
       _modifiers = results[2] as List<Modifier>;
       _topSellingIds = results[3] as List<String>;
       _loading = false;
     });
-    // "Más vendidos" + "Todos" + una pestaña por categoría. Se arranca en
-    // "Todos" (índice 1) para no confundir a una tienda nueva sin ventas
-    // todavía, pero "Más vendidos" queda a un toque de distancia.
-    _ensureTabController(categories.length + 2, defaultIndex: 1);
-  }
-
-  void _ensureTabController(int length, {int defaultIndex = 0}) {
-    if (_tabController != null && _tabController!.length == length) return;
-    final previousIndex = _tabController?.index ?? defaultIndex;
-    _tabController?.dispose();
-    _tabController = TabController(
-      length: length,
-      vsync: this,
-      initialIndex: previousIndex < length ? previousIndex : 0,
-    );
-    if (mounted) setState(() {});
   }
 
   Future<void> _addToCart(Product product) async {
@@ -229,19 +197,17 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         (product.sku?.toLowerCase().contains(search) ?? false);
   }
 
-  /// Productos para la pestaña "index": 0 = Más vendidos (ordenados de más a
-  /// menos, según ventas de los últimos 30 días), 1 = Todos, 2 en adelante =
-  /// una categoría cada una (en el mismo orden que "_categories").
-  List<Product> _productsForTab(int index) {
-    if (index == 0) {
+  /// "Más vendidos" (chip activado) manda por sobre la categoría elegida en
+  /// el menú desplegable — ordenados de más a menos vendido en los últimos
+  /// 30 días. Si no, se filtra por la categoría elegida (o todas).
+  List<Product> get _filteredProducts {
+    if (_showTopSelling) {
       final byId = {for (final p in _products) p.id: p};
       return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
     }
-    if (index == 1) {
-      return _products.where(_matchesSearch).toList();
-    }
-    final category = _categories[index - 2];
-    return _products.where((p) => p.categoryId == category.id && _matchesSearch(p)).toList();
+    return _products
+        .where((p) => (_selectedCategoryId == null || p.categoryId == _selectedCategoryId) && _matchesSearch(p))
+        .toList();
   }
 
   void _openCashSessionSheet() {
@@ -361,7 +327,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
     final prefs = context.watch<AppPreferencesProvider>();
-    final tabController = _tabController;
+    final products = _filteredProducts;
 
     final productsPanel = RefreshIndicator(
       onRefresh: _loadData,
@@ -425,35 +391,50 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               ],
             ),
           ),
-          if (tabController != null)
-            TabBar(
-              controller: tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                const Tab(text: 'Más vendidos'),
-                const Tab(text: 'Todos'),
-                ..._categories.map((category) => Tab(text: category.name)),
-              ],
-            ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: _loading || tabController == null
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: tabController,
-                    children: List.generate(tabController.length, (index) {
-                      final products = _productsForTab(index);
-                      if (products.isEmpty) {
-                        return Center(
-                          child: Text(index == 0 ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
-                        );
-                      }
-                      return prefs.useListLayout
-                          ? _buildList(products, cashSession)
-                          : _buildTileGrid(products, cashSession);
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                FilterChip(
+                  avatar: const Icon(Icons.trending_up, size: 18),
+                  label: const Text('Más vendidos'),
+                  selected: _showTopSelling,
+                  onSelected: (value) => setState(() => _showTopSelling = value),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String?>(
+                    value: _selectedCategoryId,
+                    decoration: const InputDecoration(
+                      labelText: 'Categoría',
+                      prefixIcon: Icon(Icons.category_outlined),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                      ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _selectedCategoryId = value;
+                      _showTopSelling = false;
                     }),
                   ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : products.isEmpty
+                    ? Center(
+                        child: Text(_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
+                      )
+                    : prefs.useListLayout
+                        ? _buildList(products, cashSession)
+                        : _buildTileGrid(products, cashSession),
           ),
         ],
       ),
@@ -510,9 +491,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     return CurrencyText(product.price, bold: bold, style: TextStyle(color: color));
   }
 
-  /// Mosaico de fotos (como una vitrina): la cantidad de columnas se ajusta
-  /// sola al ancho disponible (unas 5 en una tablet ancha, menos en un
-  /// celular), en vez de un número fijo.
+  /// Mosaico de productos, parecido a una vitrina: foto de fondo con el
+  /// nombre superpuesto para los que tienen foto, un círculo gris con el
+  /// nombre debajo para los que no. La cantidad de columnas se ajusta sola
+  /// al ancho disponible (unas 5 en una tablet ancha, menos en un celular).
   Widget _buildTileGrid(List<Product> products, CashSessionProvider cashSession) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -540,69 +522,87 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     return Card(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.zero,
+      color: hasImage ? null : Colors.grey.shade50,
       child: InkWell(
         onTap: canTap ? () => _addToCart(product) : null,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (hasImage)
-              Image.network(
-                product.imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: _colorForName(product.name)),
-              )
-            else ...[
-              Container(color: _colorForName(product.name)),
-              const Center(
-                child: Icon(Icons.inventory_2_outlined, size: 34, color: Colors.black26),
-              ),
-            ],
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
-                decoration: hasImage
-                    ? BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
-                        ),
-                      )
-                    : null,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: hasImage ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    _priceLabel(product, color: hasImage ? Colors.white : Colors.black87),
-                  ],
-                ),
+        child: hasImage ? _photoTile(product, outOfStock) : _placeholderTile(product, outOfStock),
+      ),
+    );
+  }
+
+  /// Foto a pantalla completa con el nombre en una franja oscura abajo.
+  Widget _photoTile(Product product, bool outOfStock) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          product.imageUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
               ),
             ),
-            if (outOfStock)
-              Container(
-                color: Colors.black54,
-                alignment: Alignment.center,
-                child: const Text(
-                  'AGOTADO',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-          ],
+            child: Text(
+              product.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
         ),
+        if (outOfStock)
+          Container(
+            color: Colors.black54,
+            alignment: Alignment.center,
+            child: const Text('AGOTADO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+      ],
+    );
+  }
+
+  /// Sin foto: un círculo gris (como una estantería sin etiqueta) con el
+  /// nombre debajo — para que la grilla se vea igual de ordenada aunque no
+  /// todos los productos tengan foto todavía.
+  Widget _placeholderTile(Product product, bool outOfStock) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Center(
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            product.name,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87),
+          ),
+          if (outOfStock)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Text('Agotado', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+        ],
       ),
     );
   }
