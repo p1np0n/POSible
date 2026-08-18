@@ -14,10 +14,17 @@ class CsvExportService {
       return match.isEmpty ? '' : match.first.name;
     }
 
+    String pricingTypeLabel(Product p) {
+      if (p.isVariablePrice) return 'Variable';
+      if (p.isSoldByWeight) return 'Por peso';
+      return 'Fijo';
+    }
+
     final rows = <List<dynamic>>[
       [
         'Nombre',
         'Categoría',
+        'Tipo de precio',
         'Precio',
         'Costo',
         'SKU',
@@ -29,6 +36,7 @@ class CsvExportService {
       ...products.map((p) => [
             p.name,
             categoryName(p.categoryId),
+            pricingTypeLabel(p),
             p.price,
             p.cost ?? '',
             p.sku ?? '',
