@@ -53,10 +53,10 @@ class _HomeShellState extends State<HomeShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // El APK (celular) se queda con lo esencial para atender en el mostrador.
-    // El panel web además tiene la administración completa (back office).
-    // Reportes, Clientes y Empleados solo se muestran si la tienda los tiene
-    // activados (las tiendas nuevas empiezan sin esos tres).
+    // El APK (celular) se queda con lo esencial para atender en el mostrador:
+    // Reportes, Empleados, Catálogo global y Tiendas quedan solo en el panel
+    // web (nunca en el APK), a propósito. Clientes sí se muestra en ambos si
+    // la tienda lo tiene activado (las tiendas nuevas empiezan sin activar).
     //
     // Solo se muestra _screens[index] (no IndexedStack), así cada pantalla
     // vuelve a cargar sus datos al seleccionarla.
@@ -66,7 +66,7 @@ class _HomeShellState extends State<HomeShell> {
       const TurnoScreen(),
       const TimeClockScreen(),
       const StockMovementsScreen(),
-      if (store.showReports) const ReportsScreen(),
+      if (kIsWeb && store.showReports) const ReportsScreen(),
       if (store.showCustomers) const CustomerListScreen(),
       const SettingsScreen(),
       if (kIsWeb) ...[
@@ -86,7 +86,7 @@ class _HomeShellState extends State<HomeShell> {
       'Turno',
       'Reloj',
       'Inventario',
-      if (store.showReports) 'Reportes',
+      if (kIsWeb && store.showReports) 'Reportes',
       if (store.showCustomers) 'Clientes',
       'Configuración',
       if (kIsWeb) ...[
@@ -106,7 +106,7 @@ class _HomeShellState extends State<HomeShell> {
     // qué posición quedó cada pantalla según lo que esta tienda tiene
     // activado.
     var next = 5;
-    final reportsIndex = store.showReports ? next++ : -1;
+    final reportsIndex = (kIsWeb && store.showReports) ? next++ : -1;
     final customersIndex = store.showCustomers ? next++ : -1;
     final settingsIndex = next++;
     final productsIndex = kIsWeb ? next++ : -1;
@@ -209,7 +209,7 @@ class _HomeShellState extends State<HomeShell> {
               selected: index == inventoryIndex,
               onTap: () => _selectIndex(inventoryIndex, closeDrawer: closeDrawer),
             ),
-          if (store.showReports)
+          if (kIsWeb && store.showReports)
             ListTile(
               leading: const Icon(Icons.bar_chart),
               title: const Text('Reportes'),
