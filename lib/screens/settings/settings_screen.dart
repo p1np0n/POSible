@@ -335,6 +335,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: prefs.cameraScanEnabled,
                 onChanged: prefs.setCameraScanEnabled,
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Uso un lector de código de barras USB en Ventas'),
+                subtitle: const Text(
+                  'El buscador de Ventas se mantiene siempre listo para que el lector '
+                  'escriba ahí y agregue el producto de inmediato, sin tener que tocar '
+                  'la pantalla entre un escaneo y otro. Déjalo apagado si vendes solo '
+                  'tocando la pantalla, para no abrir el teclado de más.',
+                ),
+                value: prefs.usbScannerModeEnabled,
+                onChanged: prefs.setUsbScannerModeEnabled,
+              ),
               if (!kIsWeb) ...[
                 const SizedBox(height: 24),
                 const Divider(),

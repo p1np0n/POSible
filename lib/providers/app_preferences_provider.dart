@@ -5,6 +5,7 @@ class AppPreferencesProvider extends ChangeNotifier {
   static const _darkModeKey = 'dark_mode';
   static const _listLayoutKey = 'pos_list_layout';
   static const _cameraScanKey = 'camera_scan_enabled';
+  static const _usbScannerModeKey = 'usb_scanner_mode_enabled';
   static const _knownEmailsKey = 'pin_known_emails';
   static const _autoLockMinutesKey = 'auto_lock_minutes';
   static const _lastActiveAtKey = 'last_active_at';
@@ -13,6 +14,14 @@ class AppPreferencesProvider extends ChangeNotifier {
   bool useListLayout = false;
   bool cameraScanEnabled = true;
   bool loaded = false;
+
+  /// Si está activo, en Ventas el buscador (donde también se puede
+  /// escanear) recupera el foco solo después de cada acción — así un
+  /// lector de código de barras USB/OTG, que funciona como un teclado,
+  /// siempre puede escribir ahí sin que el cajero tenga que tocarlo entre
+  /// un escaneo y otro. Apagado por defecto porque en una pantalla táctil
+  /// sin ese tipo de lector esto abriría el teclado en pantalla de más.
+  bool usbScannerModeEnabled = false;
 
   // Correos que ya iniciaron sesión en ESTE dispositivo, para poder mostrar
   // el acceso rápido con PIN (elegir quién eres + escribir tu PIN) en vez de
@@ -29,6 +38,7 @@ class AppPreferencesProvider extends ChangeNotifier {
     darkMode = prefs.getBool(_darkModeKey) ?? false;
     useListLayout = prefs.getBool(_listLayoutKey) ?? false;
     cameraScanEnabled = prefs.getBool(_cameraScanKey) ?? true;
+    usbScannerModeEnabled = prefs.getBool(_usbScannerModeKey) ?? false;
     knownEmails = prefs.getStringList(_knownEmailsKey) ?? [];
     autoLockMinutes = prefs.getInt(_autoLockMinutesKey) ?? 15;
     loaded = true;
@@ -95,5 +105,12 @@ class AppPreferencesProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_cameraScanKey, value);
+  }
+
+  Future<void> setUsbScannerModeEnabled(bool value) async {
+    usbScannerModeEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_usbScannerModeKey, value);
   }
 }

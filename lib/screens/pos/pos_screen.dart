@@ -56,6 +56,13 @@ class _PosScreenState extends State<PosScreen> {
   final ReportsRepository _reportsRepository = ReportsRepository();
   final PosPageRepository _pageRepository = PosPageRepository();
   final _searchController = TextEditingController();
+  // Con un lector de código de barras USB (funciona como un teclado que
+  // "escribe" el código y presiona Enter), el foco tiene que quedarse
+  // siempre en este campo — si se pierde (por ejemplo, al tocar un filtro
+  // o cerrar un cuadro de diálogo), lo que el lector escanea no llega a
+  // ningún lado y parece que "no lee". Por eso se lo devuelve después de
+  // cada interacción que pudiera habérselo quitado.
+  final _searchFocusNode = FocusNode();
 
   List<Product> _products = [];
   List<Category> _categories = [];
@@ -76,13 +83,30 @@ class _PosScreenState extends State<PosScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<CashSessionProvider>().refresh();
       _refreshOpenTicketCount();
+      _refocusSearch();
     });
     _loadData();
+  }
+
+  /// Le devuelve el foco al campo de búsqueda (el que recibe lo que
+  /// escanea el lector USB) después de que termine de dibujarse el frame
+  /// actual — así gana por sobre cualquier otro widget que se lo haya
+  /// pedido durante la interacción que se acaba de procesar. Solo hace
+  /// algo si "Modo lector USB" está activado en Configuración: en una
+  /// pantalla táctil sin ese lector, forzar el foco aquí abriría el
+  /// teclado en pantalla de más, así que por defecto queda apagado.
+  void _refocusSearch() {
+    if (!mounted) return;
+    if (!context.read<AppPreferencesProvider>().usbScannerModeEnabled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -118,23 +142,27 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _addToCart(Product product) async {
-    var effective = product;
-    if (product.isVariablePrice) {
-      final price = await _askVariablePrice(product);
-      if (price == null || !mounted) return;
-      effective = product.copyWith(price: price);
-    }
-    if (_modifiers.isEmpty) {
-      context.read<CartProvider>().addProduct(effective);
-      return;
-    }
-    final selected = await showModalBottomSheet<List<Modifier>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => ModifierPickerSheet(product: effective, modifiers: _modifiers),
-    );
-    if (selected != null && mounted) {
-      context.read<CartProvider>().addProduct(effective, modifiers: selected);
+    try {
+      var effective = product;
+      if (product.isVariablePrice) {
+        final price = await _askVariablePrice(product);
+        if (price == null || !mounted) return;
+        effective = product.copyWith(price: price);
+      }
+      if (_modifiers.isEmpty) {
+        context.read<CartProvider>().addProduct(effective);
+        return;
+      }
+      final selected = await showModalBottomSheet<List<Modifier>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => ModifierPickerSheet(product: effective, modifiers: _modifiers),
+      );
+      if (selected != null && mounted) {
+        context.read<CartProvider>().addProduct(effective, modifiers: selected);
+      }
+    } finally {
+      _refocusSearch();
     }
   }
 
@@ -207,6 +235,39 @@ class _PosScreenState extends State<PosScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Agregado: ${product.name} (${decoded.weightKg.toStringAsFixed(3)} kg)')),
     );
+    return true;
+  }
+
+  /// Si "code" coincide exactamente con el código de barras de un producto
+  /// (normal, no de balanza), lo agrega de inmediato al carrito — así el
+  /// lector de código de barras USB no necesita nada más que este campo
+  /// tenga el foco. Devuelve true si "code" coincidió con algún producto,
+  /// para que quien llama no lo trate además como una búsqueda de texto.
+  Future<bool> _tryAddScannedBarcode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return false;
+    Product? product;
+    for (final p in _products) {
+      if (p.barcode != null && p.barcode == trimmed) {
+        product = p;
+        break;
+      }
+    }
+    if (product == null) return false;
+    if (!mounted) return true;
+    if (!context.read<CashSessionProvider>().isOpen) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Abre la caja antes de vender')),
+      );
+      return true;
+    }
+    if (product.trackStock && product.stockQuantity <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${product.name} está sin stock')),
+      );
+      return true;
+    }
+    await _addToCart(product);
     return true;
   }
 
@@ -284,7 +345,10 @@ class _PosScreenState extends State<PosScreen> {
         ],
       ),
     );
-    if (name == null || name.isEmpty || !mounted) return;
+    if (name == null || name.isEmpty || !mounted) {
+      _refocusSearch();
+      return;
+    }
     final page = await _pageRepository.create(name);
     if (!mounted) return;
     setState(() {
@@ -293,6 +357,7 @@ class _PosScreenState extends State<PosScreen> {
       _selectedPageId = page.id;
       _showTopSelling = false;
     });
+    _refocusSearch();
   }
 
   Future<void> _managePage(PosPage page) async {
@@ -307,6 +372,7 @@ class _PosScreenState extends State<PosScreen> {
       ),
     );
     if (mounted) _loadData();
+    _refocusSearch();
   }
 
   Future<void> _quickAddProductToPage(String pageId) async {
@@ -314,21 +380,26 @@ class _PosScreenState extends State<PosScreen> {
       context: context,
       builder: (_) => _ProductPickerDialog(products: _products),
     );
-    if (selected == null || !mounted) return;
+    if (selected == null || !mounted) {
+      _refocusSearch();
+      return;
+    }
     await _pageRepository.addProduct(pageId, selected.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${selected.name} agregado a la pestaña')),
     );
     _loadData();
+    _refocusSearch();
   }
 
-  void _openCashSessionSheet() {
-    showModalBottomSheet(
+  Future<void> _openCashSessionSheet() async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (_) => const CashSessionSheet(),
     );
+    _refocusSearch();
   }
 
   Future<void> _scanBarcode() async {
@@ -336,12 +407,13 @@ class _PosScreenState extends State<PosScreen> {
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
     if (code != null && mounted) {
-      final handled = await _tryAddWeightBarcode(code);
+      final handled = await _tryAddWeightBarcode(code) || await _tryAddScannedBarcode(code);
       if (!handled && mounted) {
         _searchController.text = code;
         setState(() => _search = code);
       }
     }
+    _refocusSearch();
   }
 
   Future<void> _addProduct() async {
@@ -349,6 +421,7 @@ class _PosScreenState extends State<PosScreen> {
       MaterialPageRoute(builder: (_) => ProductFormScreen(categories: _categories)),
     );
     if (changed == true) _loadData();
+    _refocusSearch();
   }
 
   Future<void> _addQuickItem() async {
@@ -359,6 +432,7 @@ class _PosScreenState extends State<PosScreen> {
     if (product != null && mounted) {
       context.read<CartProvider>().addProduct(product);
     }
+    _refocusSearch();
   }
 
   Future<void> _refreshOpenTicketCount() async {
@@ -383,6 +457,7 @@ class _PosScreenState extends State<PosScreen> {
       await _resumeTicket(ticket);
     }
     _refreshOpenTicketCount();
+    _refocusSearch();
   }
 
   Future<void> _resumeTicket(OpenTicket ticket) async {
@@ -460,19 +535,24 @@ class _PosScreenState extends State<PosScreen> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Buscar producto o código',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                    focusNode: _searchFocusNode,
+                    autofocus: prefs.usbScannerModeEnabled,
+                    decoration: InputDecoration(
+                      labelText: prefs.usbScannerModeEnabled
+                          ? 'Buscar producto o código (o escanea aquí)'
+                          : 'Buscar producto o código',
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     onChanged: (value) => setState(() => _search = value),
                     onSubmitted: (value) async {
-                      final handled = await _tryAddWeightBarcode(value);
+                      final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
                       if (handled && mounted) {
                         _searchController.clear();
                         setState(() => _search = '');
                       }
+                      _refocusSearch();
                     },
                   ),
                 ),
@@ -514,20 +594,26 @@ class _PosScreenState extends State<PosScreen> {
                     avatar: const Icon(Icons.trending_up, size: 18),
                     label: const Text('Más vendidos'),
                     selected: _showTopSelling,
-                    onSelected: (value) => setState(() {
-                      _showTopSelling = value;
-                      if (value) _selectedPageId = null;
-                    }),
+                    onSelected: (value) {
+                      setState(() {
+                        _showTopSelling = value;
+                        if (value) _selectedPageId = null;
+                      });
+                      _refocusSearch();
+                    },
                   ),
                   for (final page in _pages) ...[
                     const SizedBox(width: 8),
                     ChoiceChip(
                       label: Text(page.name),
                       selected: _selectedPageId == page.id,
-                      onSelected: (value) => setState(() {
-                        _selectedPageId = value ? page.id : null;
-                        _showTopSelling = false;
-                      }),
+                      onSelected: (value) {
+                        setState(() {
+                          _selectedPageId = value ? page.id : null;
+                          _showTopSelling = false;
+                        });
+                        _refocusSearch();
+                      },
                     ),
                   ],
                   const SizedBox(width: 4),
@@ -564,11 +650,14 @@ class _PosScreenState extends State<PosScreen> {
                 const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
                 ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
               ],
-              onChanged: (value) => setState(() {
-                _selectedCategoryId = value;
-                _showTopSelling = false;
-                _selectedPageId = null;
-              }),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategoryId = value;
+                  _showTopSelling = false;
+                  _selectedPageId = null;
+                });
+                _refocusSearch();
+              },
             ),
           ),
           const SizedBox(height: 8),
