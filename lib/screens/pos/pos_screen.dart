@@ -314,7 +314,15 @@ class _PosScreenState extends State<PosScreen> {
       return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
     }
     if (_selectedPageId != null) {
-      return _productsForPage(_selectedPageId!).where(_matchesSearch).toList();
+      // Mientras no se busque nada, se muestra solo lo que se agregó a
+      // mano a esta pestaña — pero en cuanto se escribe algo, se busca en
+      // TODO el catálogo (no solo en lo ya agregado), para poder vender
+      // cualquier producto sin salir de la pestaña ni tener que agregarlo
+      // a ella primero.
+      if (_search.trim().isNotEmpty) {
+        return _products.where(_matchesSearch).toList();
+      }
+      return _productsForPage(_selectedPageId!).toList();
     }
     return _products
         .where((p) => (_selectedCategoryId == null || p.categoryId == _selectedCategoryId) && _matchesSearch(p))
