@@ -255,6 +255,17 @@ está pensado para poder ejecutarse varias veces sin borrar tus datos. Si no
 lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 
 ## Qué incluye esta versión
+- **Ventas — mosaico de fotos y pestañas**: los productos se muestran como
+  mosaicos con foto (como una vitrina), con la cantidad de columnas
+  ajustándose sola al ancho de la pantalla (unas 5 en una tablet ancha,
+  menos en un celular). En vez de elegir la categoría en un menú
+  desplegable, ahora hay pestañas arriba — **"Más vendidos"** (los que más
+  se vendieron en los últimos 30 días, para tenerlos siempre a mano sin
+  buscarlos) y "Todos", seguidas de una por cada categoría — y puedes
+  deslizar el dedo para pasar de una a otra, como páginas. Los productos
+  sin foto muestran un color liso con su nombre en vez de una foto vacía;
+  puedes seguir prefiriendo la vista en lista clásica desde **Configuración
+  → Vista en lista de artículos**.
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
   impuestos, pago en efectivo/tarjeta/otro o **dividido entre varios**
   (ej. mitad efectivo, mitad tarjeta), "artículo rápido" (agregar algo con
@@ -294,8 +305,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Artículos** (solo en el panel web — ver más abajo): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
-  (en el catálogo global y en Open Food Facts si no lo tiene). Al crear un
-  producto también puedes buscarlo por nombre en el catálogo global (ícono
+  (en el catálogo global y en Open Food Facts si no lo tiene). El botón
+  **"Buscar fotos por código de barras"** (ícono de lupa sobre una foto, en
+  Lista de artículos) revisa todos los productos que tienen código de
+  barras pero no tienen foto todavía, y les busca la foto automáticamente
+  (mismas fuentes: catálogo global, Open Food Facts, UPCitemdb) — así no
+  hace falta entrar producto por producto. Es de mejor esfuerzo: no todos
+  los códigos de barras tienen foto disponible en esas bases de datos. Al
+  crear un producto también puedes buscarlo por nombre en el catálogo global (ícono
   de lupa junto a "Nombre") para reutilizar lo que ya cargó otra de tus
   tiendas — nunca copia el precio automáticamente, solo lo muestra como
   precio sugerido. Si tienes modificadores activos (ej. "Extra queso"), al

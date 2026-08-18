@@ -69,8 +69,9 @@ class Product {
 
   /// Copia este producto reemplazando el precio (ej. al pedirle al cajero
   /// el precio de un artículo de precio variable antes de agregarlo al
-  /// carrito).
-  Product copyWith({double? price}) => Product(
+  /// carrito) y/o la foto (ej. al encontrarla automáticamente por código de
+  /// barras).
+  Product copyWith({double? price, String? imageUrl}) => Product(
         id: id,
         name: name,
         categoryId: categoryId,
@@ -78,7 +79,7 @@ class Product {
         cost: cost,
         sku: sku,
         barcode: barcode,
-        imageUrl: imageUrl,
+        imageUrl: imageUrl ?? this.imageUrl,
         stockQuantity: stockQuantity,
         trackStock: trackStock,
         active: active,

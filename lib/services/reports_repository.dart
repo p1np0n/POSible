@@ -128,6 +128,29 @@ class ReportsRepository {
     return (sales as List).fold<double>(0, (sum, s) => sum + (s['total'] as num).toDouble());
   }
 
+  /// IDs de los productos más vendidos (por cantidad) en los últimos [days]
+  /// días, de mayor a menor. Se usa para la pestaña "Más vendidos" en
+  /// Ventas. Ignora líneas sin product_id (artículos rápidos, que no están
+  /// en el catálogo).
+  Future<List<String>> getTopSellingProductIds({int days = 30, int limit = 12}) async {
+    final from = DateTime.now().subtract(Duration(days: days));
+    final saleIds = await _saleIdsInRange(from, DateTime.now());
+    if (saleIds.isEmpty) return [];
+
+    final items =
+        await _client.from('sale_items').select('product_id, quantity').inFilter('sale_id', saleIds);
+
+    final totals = <String, double>{};
+    for (final item in (items as List).cast<Map<String, dynamic>>()) {
+      final productId = item['product_id'] as String?;
+      if (productId == null) continue;
+      final qty = (item['quantity'] as num).toDouble();
+      totals[productId] = (totals[productId] ?? 0) + qty;
+    }
+    final sorted = totals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(limit).map((e) => e.key).toList();
+  }
+
   Future<List<String>> _saleIdsInRange(DateTime from, DateTime to) async {
     final sales = await _client
         .from('sales')
