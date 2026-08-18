@@ -17,6 +17,7 @@ import '../../services/discount_repository.dart';
 import '../../services/modifier_repository.dart';
 import '../../services/open_ticket_repository.dart';
 import '../../services/product_repository.dart';
+import '../../services/reports_repository.dart';
 import '../../widgets/currency_text.dart';
 import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
@@ -31,6 +32,26 @@ import 'quick_item_dialog.dart';
 /// pero el carrito SIEMPRE está visible en pantalla, nunca hay que abrirlo.
 const double _splitLayoutBreakpoint = 900;
 
+/// Ancho aproximado de cada mosaico de producto — a partir de esto se
+/// calculan cuántas columnas caben según el ancho real de la pantalla (en
+/// una tablet ancha da unas 5 por línea, como se pidió).
+const double _targetTileWidth = 168.0;
+
+/// Colores de fondo para productos sin foto (se elige uno según el nombre,
+/// para que cada uno se distinga a simple vista en la grilla).
+const List<Color> _placeholderPalette = [
+  Color(0xFFE3C097),
+  Color(0xFFB5D8CC),
+  Color(0xFFF2C6C2),
+  Color(0xFFC9D6EA),
+  Color(0xFFEAD7B7),
+  Color(0xFFCBE4B4),
+  Color(0xFFE6C9E0),
+  Color(0xFFBEE3DB),
+];
+
+Color _colorForName(String name) => _placeholderPalette[name.hashCode.abs() % _placeholderPalette.length];
+
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
@@ -38,20 +59,22 @@ class PosScreen extends StatefulWidget {
   State<PosScreen> createState() => _PosScreenState();
 }
 
-class _PosScreenState extends State<PosScreen> {
+class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMixin {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final ModifierRepository _modifierRepository = ModifierRepository();
   final OpenTicketRepository _openTicketRepository = OpenTicketRepository();
+  final ReportsRepository _reportsRepository = ReportsRepository();
   final _searchController = TextEditingController();
 
   List<Product> _products = [];
   List<Category> _categories = [];
   List<Modifier> _modifiers = [];
-  String? _selectedCategoryId;
+  List<String> _topSellingIds = [];
   String _search = '';
   bool _loading = true;
   int _openTicketCount = 0;
+  TabController? _tabController;
 
   @override
   void initState() {
@@ -66,6 +89,7 @@ class _PosScreenState extends State<PosScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -75,13 +99,33 @@ class _PosScreenState extends State<PosScreen> {
       _productRepository.getAll(),
       _categoryRepository.getAll(),
       _modifierRepository.getAll(onlyActive: true),
+      _reportsRepository.getTopSellingProductIds(),
     ]);
+    if (!mounted) return;
+    final categories = results[1] as List<Category>;
     setState(() {
       _products = results[0] as List<Product>;
-      _categories = results[1] as List<Category>;
+      _categories = categories;
       _modifiers = results[2] as List<Modifier>;
+      _topSellingIds = results[3] as List<String>;
       _loading = false;
     });
+    // "Más vendidos" + "Todos" + una pestaña por categoría. Se arranca en
+    // "Todos" (índice 1) para no confundir a una tienda nueva sin ventas
+    // todavía, pero "Más vendidos" queda a un toque de distancia.
+    _ensureTabController(categories.length + 2, defaultIndex: 1);
+  }
+
+  void _ensureTabController(int length, {int defaultIndex = 0}) {
+    if (_tabController != null && _tabController!.length == length) return;
+    final previousIndex = _tabController?.index ?? defaultIndex;
+    _tabController?.dispose();
+    _tabController = TabController(
+      length: length,
+      vsync: this,
+      initialIndex: previousIndex < length ? previousIndex : 0,
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _addToCart(Product product) async {
@@ -177,16 +221,27 @@ class _PosScreenState extends State<PosScreen> {
     return true;
   }
 
-  List<Product> get _filteredProducts {
-    return _products.where((product) {
-      final matchesCategory = _selectedCategoryId == null || product.categoryId == _selectedCategoryId;
-      final search = _search.toLowerCase();
-      final matchesSearch = _search.isEmpty ||
-          product.name.toLowerCase().contains(search) ||
-          (product.barcode?.toLowerCase().contains(search) ?? false) ||
-          (product.sku?.toLowerCase().contains(search) ?? false);
-      return matchesCategory && matchesSearch;
-    }).toList();
+  bool _matchesSearch(Product product) {
+    final search = _search.toLowerCase();
+    return search.isEmpty ||
+        product.name.toLowerCase().contains(search) ||
+        (product.barcode?.toLowerCase().contains(search) ?? false) ||
+        (product.sku?.toLowerCase().contains(search) ?? false);
+  }
+
+  /// Productos para la pestaña "index": 0 = Más vendidos (ordenados de más a
+  /// menos, según ventas de los últimos 30 días), 1 = Todos, 2 en adelante =
+  /// una categoría cada una (en el mismo orden que "_categories").
+  List<Product> _productsForTab(int index) {
+    if (index == 0) {
+      final byId = {for (final p in _products) p.id: p};
+      return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
+    }
+    if (index == 1) {
+      return _products.where(_matchesSearch).toList();
+    }
+    final category = _categories[index - 2];
+    return _products.where((p) => p.categoryId == category.id && _matchesSearch(p)).toList();
   }
 
   void _openCashSessionSheet() {
@@ -306,6 +361,7 @@ class _PosScreenState extends State<PosScreen> {
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
     final prefs = context.watch<AppPreferencesProvider>();
+    final tabController = _tabController;
 
     final productsPanel = RefreshIndicator(
       onRefresh: _loadData,
@@ -369,32 +425,35 @@ class _PosScreenState extends State<PosScreen> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: DropdownButtonFormField<String?>(
-              value: _selectedCategoryId,
-              decoration: const InputDecoration(
-                labelText: 'Categoría',
-                prefixIcon: Icon(Icons.category_outlined),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
-                ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
+          if (tabController != null)
+            TabBar(
+              controller: tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                const Tab(text: 'Más vendidos'),
+                const Tab(text: 'Todos'),
+                ..._categories.map((category) => Tab(text: category.name)),
               ],
-              onChanged: (value) => setState(() => _selectedCategoryId = value),
             ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Expanded(
-            child: _loading
+            child: _loading || tabController == null
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredProducts.isEmpty
-                    ? const Center(child: Text('No hay productos'))
-                    : prefs.useListLayout
-                        ? _buildList(cashSession)
-                        : _buildGrid(cashSession),
+                : TabBarView(
+                    controller: tabController,
+                    children: List.generate(tabController.length, (index) {
+                      final products = _productsForTab(index);
+                      if (products.isEmpty) {
+                        return Center(
+                          child: Text(index == 0 ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
+                        );
+                      }
+                      return prefs.useListLayout
+                          ? _buildList(products, cashSession)
+                          : _buildTileGrid(products, cashSession);
+                    }),
+                  ),
           ),
         ],
       ),
@@ -434,83 +493,125 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  Widget _priceLabel(Product product, {bool bold = false}) {
+  Widget _priceLabel(Product product, {bool bold = false, Color? color}) {
+    final baseStyle = TextStyle(color: color, fontSize: bold ? 14 : 12);
     if (product.isVariablePrice) {
-      return Text('Precio variable', style: TextStyle(fontStyle: FontStyle.italic, fontSize: bold ? 14 : 12));
+      return Text('Precio variable', style: baseStyle.copyWith(fontStyle: FontStyle.italic));
     }
     if (product.isSoldByWeight) {
       return Row(
         mainAxisSize: MainAxisSize.min,
-        children: [CurrencyText(product.price, bold: bold), const Text(' /kg', style: TextStyle(fontSize: 12))],
+        children: [
+          CurrencyText(product.price, bold: bold, style: TextStyle(color: color)),
+          Text(' /kg', style: baseStyle),
+        ],
       );
     }
-    return CurrencyText(product.price, bold: bold);
+    return CurrencyText(product.price, bold: bold, style: TextStyle(color: color));
   }
 
-  Widget _buildGrid(CashSessionProvider cashSession) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.4,
-      ),
-      itemCount: _filteredProducts.length,
-      itemBuilder: (context, index) {
-        final product = _filteredProducts[index];
-        final outOfStock = product.trackStock && product.stockQuantity <= 0;
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: (outOfStock || !cashSession.isOpen) ? null : () => _addToCart(product),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      if (product.imageUrl != null) ...[
-                        CircleAvatar(radius: 14, backgroundImage: NetworkImage(product.imageUrl!)),
-                        const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                        child: Text(
-                          product.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _priceLabel(product),
-                      if (outOfStock)
-                        const Text('Agotado', style: TextStyle(color: Colors.red, fontSize: 12))
-                      else if (product.trackStock)
-                        Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+  /// Mosaico de fotos (como una vitrina): la cantidad de columnas se ajusta
+  /// sola al ancho disponible (unas 5 en una tablet ancha, menos en un
+  /// celular), en vez de un número fijo.
+  Widget _buildTileGrid(List<Product> products, CashSessionProvider cashSession) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = (constraints.maxWidth / _targetTileWidth).floor().clamp(2, 8).toInt();
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.92,
           ),
+          itemCount: products.length,
+          itemBuilder: (context, index) => _buildTile(products[index], cashSession),
         );
       },
     );
   }
 
-  Widget _buildList(CashSessionProvider cashSession) {
+  Widget _buildTile(Product product, CashSessionProvider cashSession) {
+    final outOfStock = product.trackStock && product.stockQuantity <= 0;
+    final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
+    final canTap = !outOfStock && cashSession.isOpen;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: canTap ? () => _addToCart(product) : null,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasImage)
+              Image.network(
+                product.imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: _colorForName(product.name)),
+              )
+            else ...[
+              Container(color: _colorForName(product.name)),
+              const Center(
+                child: Icon(Icons.inventory_2_outlined, size: 34, color: Colors.black26),
+              ),
+            ],
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
+                decoration: hasImage
+                    ? BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
+                        ),
+                      )
+                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: hasImage ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    _priceLabel(product, color: hasImage ? Colors.white : Colors.black87),
+                  ],
+                ),
+              ),
+            ),
+            if (outOfStock)
+              Container(
+                color: Colors.black54,
+                alignment: Alignment.center,
+                child: const Text(
+                  'AGOTADO',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildList(List<Product> products, CashSessionProvider cashSession) {
     return ListView.builder(
-      itemCount: _filteredProducts.length,
+      itemCount: products.length,
       itemBuilder: (context, index) {
-        final product = _filteredProducts[index];
+        final product = products[index];
         final outOfStock = product.trackStock && product.stockQuantity <= 0;
         return ListTile(
           leading: CircleAvatar(
