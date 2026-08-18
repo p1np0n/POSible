@@ -344,8 +344,8 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   alimenta solo, automáticamente, con cada producto que cualquier tienda
   agrega a su propio inventario (con o sin código de barras); desde aquí
   puedes además agregar, editar o borrar entradas a mano.
-- **Configuración**: tasa de impuesto, modo oscuro, vista en lista, cerrar
-  sesión.
+- **Configuración**: tasa de impuesto, margen general de venta, modo
+  oscuro, vista en lista, cerrar sesión.
 
 ### Inventario bajo y margen (en Lista de artículos)
 Al editar un producto puedes poner un número en "Alertar cuando el stock
@@ -356,6 +356,20 @@ que por categoría. Si le pones costo al producto, la lista también muestra
 el margen (%) calculado automáticamente. El ícono de lápiz en cada fila
 abre un cuadro rápido para cambiar solo precio y costo sin entrar al
 formulario completo.
+
+### Margen de venta y calculadora de IVA (al crear/editar un producto)
+En Configuración hay un campo **"Margen general (%)"** (por defecto 30%)
+que se usa para sugerir el precio de venta a partir del costo, en
+cualquier artículo que no tenga su propio margen configurado. En el
+formulario de cada producto (debajo de Precio y Costo) hay un campo
+**"Margen de este producto (%)"**, que si lo llenas reemplaza al margen
+general solo para ese artículo (vacío = usa el general). Con el botón
+**"Calcular precio"** se calcula el precio de venta sugerido a partir del
+costo y ese margen, y lo pone en el campo Precio (no lo hace solo, hay que
+tocar el botón, para no pisar un precio que estés editando a mano).
+El campo "Precio" siempre es **con IVA incluido**: justo debajo aparece,
+solo informativo, el desglose Neto/IVA calculado con la tasa de impuesto
+de Configuración.
 
 ### Tipo de precio: fijo, variable o por peso
 Al crear o editar un producto puedes elegir "Tipo de precio":

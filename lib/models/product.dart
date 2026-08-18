@@ -22,6 +22,11 @@ class Product {
   /// cuando pricingType es 'weight'.
   final String? plu;
 
+  /// Margen objetivo (%) propio de este producto, para calcular el precio
+  /// de venta sugerido a partir del costo. Si es null, se usa el margen
+  /// general de la tienda (Configuración).
+  final double? targetMarginPercent;
+
   Product({
     required this.id,
     required this.name,
@@ -37,6 +42,7 @@ class Product {
     this.lowStockThreshold,
     this.pricingType = 'fixed',
     this.plu,
+    this.targetMarginPercent,
   });
 
   bool get isVariablePrice => pricingType == 'variable';
@@ -86,6 +92,7 @@ class Product {
         lowStockThreshold: lowStockThreshold,
         pricingType: pricingType,
         plu: plu,
+        targetMarginPercent: targetMarginPercent,
       );
 
   factory Product.fromMap(Map<String, dynamic> map) => Product(
@@ -103,6 +110,7 @@ class Product {
         lowStockThreshold: (map['low_stock_threshold'] as num?)?.toDouble(),
         pricingType: map['pricing_type'] as String? ?? 'fixed',
         plu: map['plu'] as String?,
+        targetMarginPercent: (map['target_margin_percent'] as num?)?.toDouble(),
       );
 
   Map<String, dynamic> toMap() => {
@@ -119,5 +127,6 @@ class Product {
         'low_stock_threshold': lowStockThreshold,
         'pricing_type': pricingType,
         'plu': plu,
+        'target_margin_percent': targetMarginPercent,
       };
 }

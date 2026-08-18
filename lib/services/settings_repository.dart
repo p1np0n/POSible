@@ -22,6 +22,14 @@ class SettingsRepository {
     }, onConflict: 'store_id');
   }
 
+  Future<void> updateDefaultMargin(double defaultMarginPercent) async {
+    await _client.from('store_settings').upsert({
+      'store_id': CurrentStore.id,
+      'default_margin_percent': defaultMarginPercent,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'store_id');
+  }
+
   Future<void> updateLowStockNotifyEmail(String? email) async {
     await _client.from('store_settings').upsert({
       'store_id': CurrentStore.id,
