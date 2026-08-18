@@ -53,10 +53,12 @@ class _HomeShellState extends State<HomeShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // El APK (celular) se queda con lo esencial para atender en el mostrador:
-    // Reportes, Empleados, Catálogo global y Tiendas quedan solo en el panel
-    // web (nunca en el APK), a propósito. Clientes sí se muestra en ambos si
-    // la tienda lo tiene activado (las tiendas nuevas empiezan sin activar).
+    // El APK (celular) se queda con lo esencial para atender en el mostrador
+    // más el menú Artículos (catálogo, categorías, modificadores y
+    // descuentos), para poder mantener el catálogo sin depender del panel
+    // web. Reportes, Empleados, Catálogo global y Tiendas siguen solo en el
+    // panel web, a propósito. Clientes sí se muestra en ambos si la tienda
+    // lo tiene activado (las tiendas nuevas empiezan sin activar).
     //
     // Solo se muestra _screens[index] (no IndexedStack), así cada pantalla
     // vuelve a cargar sus datos al seleccionarla.
@@ -69,11 +71,11 @@ class _HomeShellState extends State<HomeShell> {
       if (kIsWeb && store.showReports) const ReportsScreen(),
       if (store.showCustomers) const CustomerListScreen(),
       const SettingsScreen(),
+      const ProductListScreen(),
+      const CategoriesScreen(),
+      const ModifiersScreen(),
+      const DiscountsScreen(),
       if (kIsWeb) ...[
-        const ProductListScreen(),
-        const CategoriesScreen(),
-        const ModifiersScreen(),
-        const DiscountsScreen(),
         if (store.showEmployees) const EmployeesScreen(),
         if (store.isSuperAdmin) const InventoryScreen(),
         if (store.isSuperAdmin) const StoresScreen(),
@@ -89,11 +91,11 @@ class _HomeShellState extends State<HomeShell> {
       if (kIsWeb && store.showReports) 'Reportes',
       if (store.showCustomers) 'Clientes',
       'Configuración',
+      'Lista de artículos',
+      'Categorías',
+      'Modificadores',
+      'Descuentos',
       if (kIsWeb) ...[
-        'Lista de artículos',
-        'Categorías',
-        'Modificadores',
-        'Descuentos',
         if (store.showEmployees) 'Empleados',
         if (store.isSuperAdmin) 'Catálogo global',
         if (store.isSuperAdmin) 'Tiendas',
@@ -109,10 +111,10 @@ class _HomeShellState extends State<HomeShell> {
     final reportsIndex = (kIsWeb && store.showReports) ? next++ : -1;
     final customersIndex = store.showCustomers ? next++ : -1;
     final settingsIndex = next++;
-    final productsIndex = kIsWeb ? next++ : -1;
-    final categoriesIndex = kIsWeb ? next++ : -1;
-    final modifiersIndex = kIsWeb ? next++ : -1;
-    final discountsIndex = kIsWeb ? next++ : -1;
+    final productsIndex = next++;
+    final categoriesIndex = next++;
+    final modifiersIndex = next++;
+    final discountsIndex = next++;
     final employeesIndex = (kIsWeb && store.showEmployees) ? next++ : -1;
     final inventoryIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
     final storesIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
@@ -168,39 +170,38 @@ class _HomeShellState extends State<HomeShell> {
             selected: index == 4,
             onTap: () => _selectIndex(4, closeDrawer: closeDrawer),
           ),
-          if (kIsWeb)
-            ExpansionTile(
-              leading: const Icon(Icons.inventory_2),
-              title: const Text('Artículos'),
-              initiallyExpanded: _articulosExpanded,
-              onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
-              children: [
-                ListTile(
-                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                  title: const Text('Lista de artículos'),
-                  selected: index == productsIndex,
-                  onTap: () => _selectIndex(productsIndex, closeDrawer: closeDrawer),
-                ),
-                ListTile(
-                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                  title: const Text('Categorías'),
-                  selected: index == categoriesIndex,
-                  onTap: () => _selectIndex(categoriesIndex, closeDrawer: closeDrawer),
-                ),
-                ListTile(
-                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                  title: const Text('Modificadores'),
-                  selected: index == modifiersIndex,
-                  onTap: () => _selectIndex(modifiersIndex, closeDrawer: closeDrawer),
-                ),
-                ListTile(
-                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                  title: const Text('Descuentos'),
-                  selected: index == discountsIndex,
-                  onTap: () => _selectIndex(discountsIndex, closeDrawer: closeDrawer),
-                ),
-              ],
-            ),
+          ExpansionTile(
+            leading: const Icon(Icons.inventory_2),
+            title: const Text('Artículos'),
+            initiallyExpanded: _articulosExpanded,
+            onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                title: const Text('Lista de artículos'),
+                selected: index == productsIndex,
+                onTap: () => _selectIndex(productsIndex, closeDrawer: closeDrawer),
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                title: const Text('Categorías'),
+                selected: index == categoriesIndex,
+                onTap: () => _selectIndex(categoriesIndex, closeDrawer: closeDrawer),
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                title: const Text('Modificadores'),
+                selected: index == modifiersIndex,
+                onTap: () => _selectIndex(modifiersIndex, closeDrawer: closeDrawer),
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                title: const Text('Descuentos'),
+                selected: index == discountsIndex,
+                onTap: () => _selectIndex(discountsIndex, closeDrawer: closeDrawer),
+              ),
+            ],
+          ),
           if (kIsWeb && store.isSuperAdmin)
             ListTile(
               leading: const Icon(Icons.public),

@@ -37,9 +37,10 @@ import 'quick_item_dialog.dart';
 const double _splitLayoutBreakpoint = 900;
 
 /// Ancho aproximado de cada mosaico de producto — a partir de esto se
-/// calculan cuántas columnas caben según el ancho real de la pantalla (en
-/// una tablet ancha da unas 5 por línea, como se pidió).
-const double _targetTileWidth = 168.0;
+/// calculan cuántas columnas caben según el ancho real de la pantalla
+/// (da mosaicos chicos, unos 5x5 visibles a la vez en una tablet, como se
+/// pidió, para ver más productos sin desplazarse).
+const double _targetTileWidth = 120.0;
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -517,73 +518,76 @@ class _PosScreenState extends State<PosScreen> {
     final prefs = context.watch<AppPreferencesProvider>();
     final products = _filteredProducts;
 
-    final productsPanel = RefreshIndicator(
+    final banner = (!cashSession.loading && !cashSession.isOpen)
+        ? MaterialBanner(
+            content: const Text('La caja está cerrada. Ábrela para empezar a vender.'),
+            actions: [
+              TextButton(onPressed: _openCashSessionSheet, child: const Text('Abrir caja')),
+            ],
+          )
+        : null;
+
+    final searchBar = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              autofocus: prefs.usbScannerModeEnabled,
+              decoration: InputDecoration(
+                labelText: prefs.usbScannerModeEnabled
+                    ? 'Buscar producto o código (o escanea aquí)'
+                    : 'Buscar producto o código',
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _search = value),
+              onSubmitted: (value) async {
+                final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
+                if (handled && mounted) {
+                  _searchController.clear();
+                  setState(() => _search = '');
+                }
+                _refocusSearch();
+              },
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_box_outlined),
+            tooltip: 'Agregar producto',
+            onPressed: _addProduct,
+          ),
+          if (prefs.cameraScanEnabled)
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Escanear código de barras',
+              onPressed: _scanBarcode,
+            ),
+          IconButton(
+            icon: const Icon(Icons.flash_on),
+            tooltip: 'Artículo rápido',
+            onPressed: cashSession.isOpen ? _addQuickItem : null,
+          ),
+          Badge(
+            label: Text('$_openTicketCount'),
+            isLabelVisible: _openTicketCount > 0,
+            child: IconButton(
+              icon: const Icon(Icons.receipt_long_outlined),
+              tooltip: 'Tickets en espera',
+              onPressed: cashSession.isOpen ? _openTicketsList : null,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final filtersAndGrid = RefreshIndicator(
       onRefresh: _loadData,
       child: Column(
         children: [
-          if (!cashSession.loading && !cashSession.isOpen)
-            MaterialBanner(
-              content: const Text('La caja está cerrada. Ábrela para empezar a vender.'),
-              actions: [
-                TextButton(onPressed: _openCashSessionSheet, child: const Text('Abrir caja')),
-              ],
-            ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    autofocus: prefs.usbScannerModeEnabled,
-                    decoration: InputDecoration(
-                      labelText: prefs.usbScannerModeEnabled
-                          ? 'Buscar producto o código (o escanea aquí)'
-                          : 'Buscar producto o código',
-                      prefixIcon: const Icon(Icons.search),
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: (value) => setState(() => _search = value),
-                    onSubmitted: (value) async {
-                      final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
-                      if (handled && mounted) {
-                        _searchController.clear();
-                        setState(() => _search = '');
-                      }
-                      _refocusSearch();
-                    },
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_box_outlined),
-                  tooltip: 'Agregar producto',
-                  onPressed: _addProduct,
-                ),
-                if (prefs.cameraScanEnabled)
-                  IconButton(
-                    icon: const Icon(Icons.qr_code_scanner),
-                    tooltip: 'Escanear código de barras',
-                    onPressed: _scanBarcode,
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.flash_on),
-                  tooltip: 'Artículo rápido',
-                  onPressed: cashSession.isOpen ? _addQuickItem : null,
-                ),
-                Badge(
-                  label: Text('$_openTicketCount'),
-                  isLabelVisible: _openTicketCount > 0,
-                  child: IconButton(
-                    icon: const Icon(Icons.receipt_long_outlined),
-                    tooltip: 'Tickets en espera',
-                    onPressed: cashSession.isOpen ? _openTicketsList : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: SingleChildScrollView(
@@ -690,28 +694,41 @@ class _PosScreenState extends State<PosScreen> {
             _refreshOpenTicketCount();
           },
         );
+        // Pantalla ancha (tablet horizontal, computador): el carrito va
+        // siempre lado a lado, completo, a la derecha.
         if (isSplitWide) {
           return Row(
             children: [
-              Expanded(flex: 3, child: productsPanel),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    if (banner != null) banner,
+                    searchBar,
+                    Expanded(child: filtersAndGrid),
+                  ],
+                ),
+              ),
               const VerticalDivider(width: 1),
               SizedBox(width: 400, child: cartPanel),
             ],
           );
         }
-        // El carrito compacto se docka abajo con su alto natural (chico si
-        // está plegado, más grande si el cajero despliega el detalle),
-        // hasta un tope — así el mosaico de arriba se queda con todo el
-        // resto de la pantalla en vez de perder un 42% fijo aunque el
-        // carrito esté plegado.
+        // Pantalla angosta (celular, tablet vertical): el carrito va arriba,
+        // justo debajo del buscador — no debajo del mosaico — y al
+        // desplegarlo ocupa casi toda la pantalla (de lado a lado, y con
+        // bastante alto) para revisar el detalle antes de cobrar; el
+        // mosaico de productos queda con lo que sobra.
         return Column(
           children: [
-            Expanded(child: productsPanel),
-            const Divider(height: 1),
+            if (banner != null) banner,
+            searchBar,
             ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.62),
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.8),
               child: cartPanel,
             ),
+            const Divider(height: 1),
+            Expanded(child: filtersAndGrid),
           ],
         );
       },
