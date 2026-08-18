@@ -65,4 +65,25 @@ class SettingsRepository {
       return 'No se pudo conectar con la función "notify-low-stock". ¿Ya la creaste en Supabase? ($e)';
     }
   }
+
+  /// Llama a la Edge Function "fill-missing-photos" (ver LEEME.md para
+  /// activarla) para buscar en internet, ahora mismo, una foto de los
+  /// productos de esta tienda que tengan código de barras pero no tengan
+  /// foto todavía. Devuelve un mensaje para mostrarle al usuario.
+  Future<String> fillMissingPhotosNow() async {
+    try {
+      final res = await _client.functions.invoke('fill-missing-photos', body: {'limit': 15});
+      final data = res.data;
+      if (res.status == 200 && data is Map) {
+        final updated = data['updated'] ?? 0;
+        final scanned = data['scanned'] ?? 0;
+        if (scanned == 0) return 'No hay productos sin foto pendientes (con código de barras).';
+        return 'Listo: se agregó foto a $updated de $scanned producto(s) revisados.';
+      }
+      if (data is Map && data['error'] != null) return 'Error: ${data['error']}';
+      return 'Error inesperado (código ${res.status})';
+    } catch (e) {
+      return 'No se pudo conectar con la función "fill-missing-photos". ¿Ya la creaste en Supabase? ($e)';
+    }
+  }
 }

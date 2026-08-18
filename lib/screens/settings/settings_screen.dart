@@ -29,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _sendingTest = false;
   bool _savingOcrApiKey = false;
   bool _changingPassword = false;
+  bool _fillingPhotos = false;
 
   @override
   void initState() {
@@ -118,6 +119,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final message = await _repository.sendLowStockTestEmail();
     if (mounted) {
       setState(() => _sendingTest = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _fillMissingPhotosNow() async {
+    setState(() => _fillingPhotos = true);
+    final message = await _repository.fillMissingPhotosNow();
+    if (mounted) {
+      setState(() => _fillingPhotos = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
@@ -282,6 +292,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: _savingOcrApiKey
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Guardar'),
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('Fotos de productos', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text(
+                'Todas las noches se revisan solos los artículos con código de barras que '
+                'todavía no tienen foto, y se les busca una en internet (requiere activar la '
+                'función "fill-missing-photos" en Supabase — ver LEEME.md). Con este botón '
+                'puedes correrlo ahora mismo, sin esperar a la noche.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _fillingPhotos ? null : _fillMissingPhotosNow,
+                child: _fillingPhotos
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Buscar fotos faltantes ahora'),
               ),
               const SizedBox(height: 32),
               const Divider(),

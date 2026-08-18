@@ -221,6 +221,36 @@ servicio que realmente envía el correo):
    key>` (lo encuentras en Project Settings → API), y el horario que
    prefieras.
 
+### Fotos automáticas para productos sin foto (opcional)
+Los artículos que tienen código de barras pero no tienen foto pueden
+completarse solos: una vez activada esta función, cada noche revisa una
+tanda de esos productos, les busca una foto en internet (las mismas
+fuentes que usa la app al escanear un código de barras) y la guarda ya
+reducida y comprimida — pesa poco, pero se ve nítida — así no hay que
+entrar producto por producto a agregarla a mano.
+
+1. En tu proyecto de Supabase, ve a **Edge Functions** → **Create a new
+   function**, ponle el nombre exacto **`fill-missing-photos`**, pega
+   TODO el contenido de `supabase/functions/fill-missing-photos/index.ts`
+   de este repositorio y dale **Deploy**.
+2. Ya puedes usar el botón **"Buscar fotos faltantes ahora"** en
+   Configuración para correrla cuando quieras (revisa hasta 15 productos
+   de tu tienda por corrida, para no demorarse ni gastar de más en las
+   APIs gratuitas que consulta — si tienes más de 15 pendientes, corre el
+   botón de nuevo o espera a la siguiente noche).
+3. Opcional pero recomendado — para que corra sola todas las noches: en
+   Supabase ve a **Database → Cron Jobs → Create a new cron job**, tipo
+   **HTTP Request**, con la URL de la función `fill-missing-photos`, el
+   header `Authorization: Bearer <tu service_role key>`, y un horario
+   nocturno (ej. `0 6 * * *`, que es 6:00 UTC — de madrugada en Chile).
+   Corriendo así, revisa los productos de todas tus tiendas, no solo la
+   tuya.
+
+Mientras no actives esta función, el botón va a mostrar un mensaje de
+error explicando que falta este paso — el resto de la app sigue
+funcionando normal, y siempre puedes seguir agregando la foto a mano
+desde el formulario de cada producto.
+
 ## Paso 4: Compilar el APK cuando lo necesites
 
 El panel web (`https://<tu-usuario>.github.io/<tu-repo>/`) sí se actualiza
