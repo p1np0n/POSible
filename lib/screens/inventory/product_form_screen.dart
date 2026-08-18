@@ -13,6 +13,7 @@ import '../../services/photo_upload_service.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
+import '../../services/settings_repository.dart';
 import '../../utils/currency_format_cl.dart';
 import '../scan/barcode_scanner_screen.dart';
 
@@ -38,6 +39,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final PhotoUploadService _photoService = PhotoUploadService();
+  final SettingsRepository _settingsRepository = SettingsRepository();
 
   late final TextEditingController _nameController;
   final _nameFocusNode = FocusNode();
@@ -45,6 +47,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   List<CatalogEntry> _nameSuggestions = [];
   late final TextEditingController _priceController;
   late final TextEditingController _costController;
+  late final TextEditingController _marginController;
   late final TextEditingController _skuController;
   late final TextEditingController _barcodeController;
   late final TextEditingController _stockController;
@@ -59,6 +62,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _saving = false;
   bool _looking = false;
   bool _uploadingPhoto = false;
+  double _defaultMarginPercent = 30;
+  double _taxRatePercent = 0;
 
   bool get _isEditing => widget.product != null;
   bool get _isVariablePrice => _pricingType == 'variable';
@@ -69,7 +74,17 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final cost = double.tryParse(_costController.text);
     if (price == null || cost == null || price == 0 || cost == 0) return null;
     final margin = ((price - cost) / price) * 100;
-    return 'Margen: ${margin.toStringAsFixed(1)}%';
+    return 'Margen actual: ${margin.toStringAsFixed(1)}%';
+  }
+
+  /// Desglose de IVA del precio ya ingresado (que se asume con el IVA
+  /// incluido) — solo informativo, no cambia el precio.
+  String? get _ivaBreakdownText {
+    final price = double.tryParse(_priceController.text);
+    if (price == null || price <= 0 || _taxRatePercent <= 0) return null;
+    final net = price / (1 + _taxRatePercent / 100);
+    final iva = price - net;
+    return 'Neto: ${formatCurrencyCl(net)} · IVA (${_taxRatePercent.toStringAsFixed(1)}%): ${formatCurrencyCl(iva)}';
   }
 
   @override
@@ -81,6 +96,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _priceController = TextEditingController(text: product != null ? product.price.round().toString() : '');
     _costController =
         TextEditingController(text: product?.cost != null ? product!.cost!.round().toString() : '');
+    _marginController = TextEditingController(
+        text: product?.targetMarginPercent != null ? product!.targetMarginPercent!.toStringAsFixed(1) : '');
     _skuController = TextEditingController(text: product?.sku ?? '');
     _barcodeController = TextEditingController(text: product?.barcode ?? widget.initialBarcode ?? '');
     _stockController =
@@ -98,6 +115,22 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (product == null && widget.initialBarcode != null && widget.initialBarcode!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _lookupBarcode());
     }
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await _settingsRepository.getSettings();
+      if (mounted) {
+        setState(() {
+          _defaultMarginPercent = settings.defaultMarginPercent;
+          _taxRatePercent = settings.taxRatePercent;
+        });
+      }
+    } catch (_) {
+      // Nos quedamos con los valores por defecto (30% de margen, 0% de IVA)
+      // si todavía no hay configuración guardada.
+    }
   }
 
   @override
@@ -107,6 +140,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _nameController.dispose();
     _priceController.dispose();
     _costController.dispose();
+    _marginController.dispose();
     _skuController.dispose();
     _barcodeController.dispose();
     _stockController.dispose();
@@ -138,6 +172,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           _trackStock && _lowStockController.text.isNotEmpty ? double.tryParse(_lowStockController.text) : null,
       pricingType: _pricingType,
       plu: _isSoldByWeight && plu.isNotEmpty ? plu : null,
+      targetMarginPercent:
+          _marginController.text.trim().isEmpty ? null : double.tryParse(_marginController.text.trim()),
     );
 
     try {
@@ -175,6 +211,29 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Calcula el precio de venta sugerido a partir del costo y el margen (el
+  /// propio de este producto si lo escribió, si no el general de la
+  /// tienda), y lo pone en el campo Precio — solo al tocar el botón, nunca
+  /// solo.
+  void _calculatePriceFromMargin() {
+    final cost = double.tryParse(_costController.text);
+    if (cost == null || cost <= 0) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Ingresa el costo primero')));
+      return;
+    }
+    final margin = _marginController.text.trim().isEmpty
+        ? _defaultMarginPercent
+        : double.tryParse(_marginController.text.trim()) ?? _defaultMarginPercent;
+    if (margin >= 100) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('El margen debe ser menor a 100%')));
+      return;
+    }
+    final price = cost / (1 - margin / 100);
+    setState(() => _priceController.text = price.round().toString());
   }
 
   Future<void> _scanBarcode() async {
@@ -486,10 +545,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: _isSoldByWeight
-                          ? 'Precio por kilo'
+                          ? 'Precio por kilo (IVA incluido)'
                           : _isVariablePrice
                               ? 'Precio de referencia (opcional)'
-                              : 'Precio de venta',
+                              : 'Precio de venta (IVA incluido)',
+                      helperText: _isVariablePrice ? null : 'Ingresa el precio final, con el IVA ya sumado',
                       border: const OutlineInputBorder(),
                     ),
                     validator: (value) {
@@ -511,6 +571,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 ),
               ],
             ),
+            if (_ivaBreakdownText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(_ivaBreakdownText!, style: Theme.of(context).textTheme.bodySmall),
+              ),
             if (_isVariablePrice)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -519,6 +584,30 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _marginController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Margen de este producto (%)',
+                      helperText: 'Vacío = usa el margen general '
+                          '(${_defaultMarginPercent.toStringAsFixed(0)}%, en Configuración)',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _calculatePriceFromMargin,
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('Calcular precio'),
+                ),
+              ],
+            ),
             if (_marginText != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),

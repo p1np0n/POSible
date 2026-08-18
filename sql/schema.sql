@@ -61,6 +61,10 @@ alter table products add constraint products_pricing_type_check
 -- Código interno corto (ej. "00123") que identifica al producto dentro de
 -- un código de barras de balanza (pricing_type = 'weight').
 alter table products add column if not exists plu text;
+-- Margen objetivo propio de este producto (%), para calcular el precio de
+-- venta sugerido a partir del costo. Si es null, se usa el margen general
+-- de "store_settings.default_margin_percent".
+alter table products add column if not exists target_margin_percent numeric(5,2);
 drop index if exists products_plu_store_idx;
 create unique index products_plu_store_idx on products(store_id, plu) where plu is not null;
 
@@ -178,6 +182,9 @@ alter table store_settings add column if not exists low_stock_notify_email text;
 -- estrictos y compartida entre todo el mundo) — para uso real conviene
 -- una propia, gratis en ocr.space.
 alter table store_settings add column if not exists ocr_api_key text;
+-- Margen general (%) que se usa para sugerir el precio de venta a partir
+-- del costo cuando un producto no tiene su propio margen configurado.
+alter table store_settings add column if not exists default_margin_percent numeric(5,2) not null default 30;
 alter table store_settings add column if not exists store_id uuid references stores(id);
 alter table store_settings drop constraint if exists store_settings_store_id_key;
 alter table store_settings add constraint store_settings_store_id_key unique (store_id);

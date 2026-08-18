@@ -17,12 +17,14 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final SettingsRepository _repository = SettingsRepository();
   final _taxRateController = TextEditingController();
+  final _marginController = TextEditingController();
   final _notifyEmailController = TextEditingController();
   final _ocrApiKeyController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
+  bool _savingMargin = false;
   bool _savingNotifyEmail = false;
   bool _sendingTest = false;
   bool _savingOcrApiKey = false;
@@ -38,10 +40,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final settings = await _repository.getSettings();
       _taxRateController.text = settings.taxRatePercent.toStringAsFixed(2);
+      _marginController.text = settings.defaultMarginPercent.toStringAsFixed(2);
       _notifyEmailController.text = settings.lowStockNotifyEmail ?? '';
       _ocrApiKeyController.text = settings.ocrApiKey ?? '';
     } catch (_) {
       _taxRateController.text = '0';
+      _marginController.text = '30';
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -136,9 +140,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _saveMargin() async {
+    final value = double.tryParse(_marginController.text);
+    if (value == null) return;
+    setState(() => _savingMargin = true);
+    try {
+      await _repository.updateDefaultMargin(value);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Margen actualizado')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingMargin = false);
+    }
+  }
+
   @override
   void dispose() {
     _taxRateController.dispose();
+    _marginController.dispose();
     _notifyEmailController.dispose();
     _ocrApiKeyController.dispose();
     _newPasswordController.dispose();
@@ -173,6 +196,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               FilledButton(
                 onPressed: _saving ? null : _save,
                 child: _saving
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Guardar'),
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('Margen', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _marginController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Margen general (%)',
+                  helperText: 'Se usa para sugerir el precio de venta a partir del costo, en los '
+                      'artículos que no tengan su propio margen configurado',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _savingMargin ? null : _saveMargin,
+                child: _savingMargin
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Guardar'),
               ),

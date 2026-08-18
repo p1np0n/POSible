@@ -251,6 +251,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         lowStockThreshold: product.lowStockThreshold,
         pricingType: product.pricingType,
         plu: product.plu,
+        targetMarginPercent: product.targetMarginPercent,
       ),
     );
     _resetAndLoad();
@@ -407,6 +408,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           lowStockThreshold: product.lowStockThreshold,
           pricingType: product.pricingType,
           plu: product.plu,
+          targetMarginPercent: product.targetMarginPercent,
         ),
       );
     }
