@@ -7,6 +7,8 @@ import '../../models/customer.dart';
 import '../../models/discount.dart';
 import '../../models/modifier.dart';
 import '../../models/open_ticket.dart';
+import '../../models/pos_page.dart';
+import '../../models/pos_page_item.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -16,6 +18,7 @@ import '../../services/customer_repository.dart';
 import '../../services/discount_repository.dart';
 import '../../services/modifier_repository.dart';
 import '../../services/open_ticket_repository.dart';
+import '../../services/pos_page_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../widgets/currency_text.dart';
@@ -25,6 +28,7 @@ import 'cart_panel.dart';
 import 'cash_session_sheet.dart';
 import 'modifier_picker_sheet.dart';
 import 'open_tickets_sheet.dart';
+import 'pos_page_manager_sheet.dart';
 import 'quick_item_dialog.dart';
 
 /// A partir de este ancho, Ventas se divide lado a lado (productos +
@@ -50,13 +54,17 @@ class _PosScreenState extends State<PosScreen> {
   final ModifierRepository _modifierRepository = ModifierRepository();
   final OpenTicketRepository _openTicketRepository = OpenTicketRepository();
   final ReportsRepository _reportsRepository = ReportsRepository();
+  final PosPageRepository _pageRepository = PosPageRepository();
   final _searchController = TextEditingController();
 
   List<Product> _products = [];
   List<Category> _categories = [];
   List<Modifier> _modifiers = [];
   List<String> _topSellingIds = [];
+  List<PosPage> _pages = [];
+  Map<String, List<PosPageItem>> _pageItemsByPage = {};
   String? _selectedCategoryId;
+  String? _selectedPageId;
   bool _showTopSelling = false;
   String _search = '';
   bool _loading = true;
@@ -85,13 +93,26 @@ class _PosScreenState extends State<PosScreen> {
       _categoryRepository.getAll(),
       _modifierRepository.getAll(onlyActive: true),
       _reportsRepository.getTopSellingProductIds(),
+      _pageRepository.getAll(),
+      _pageRepository.getAllItems(),
     ]);
     if (!mounted) return;
+    final pages = results[4] as List<PosPage>;
+    final allItems = results[5] as List<PosPageItem>;
+    final grouped = <String, List<PosPageItem>>{};
+    for (final item in allItems) {
+      grouped.putIfAbsent(item.pageId, () => []).add(item);
+    }
     setState(() {
       _products = results[0] as List<Product>;
       _categories = results[1] as List<Category>;
       _modifiers = results[2] as List<Modifier>;
       _topSellingIds = results[3] as List<String>;
+      _pages = pages;
+      _pageItemsByPage = grouped;
+      if (_selectedPageId != null && !pages.any((p) => p.id == _selectedPageId)) {
+        _selectedPageId = null;
+      }
       _loading = false;
     });
   }
@@ -197,17 +218,109 @@ class _PosScreenState extends State<PosScreen> {
         (product.sku?.toLowerCase().contains(search) ?? false);
   }
 
-  /// "Más vendidos" (chip activado) manda por sobre la categoría elegida en
-  /// el menú desplegable — ordenados de más a menos vendido en los últimos
-  /// 30 días. Si no, se filtra por la categoría elegida (o todas).
+  /// Productos de una pestaña personalizada: los agregados uno por uno, más
+  /// los de cada categoría completa que se haya agregado, en el orden en
+  /// que se agregaron (sin repetir si un producto queda incluido por dos
+  /// vías a la vez).
+  List<Product> _productsForPage(String pageId) {
+    final items = _pageItemsByPage[pageId] ?? const [];
+    final byId = {for (final p in _products) p.id: p};
+    final byCategory = <String, List<Product>>{};
+    for (final p in _products) {
+      if (p.categoryId != null) byCategory.putIfAbsent(p.categoryId!, () => []).add(p);
+    }
+    final result = <Product>[];
+    final seen = <String>{};
+    for (final item in items) {
+      if (item.productId != null) {
+        final p = byId[item.productId];
+        if (p != null && seen.add(p.id)) result.add(p);
+      } else if (item.categoryId != null) {
+        for (final p in byCategory[item.categoryId] ?? const []) {
+          if (seen.add(p.id)) result.add(p);
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Orden de prioridad: "Más vendidos" > pestaña personalizada elegida >
+  /// categoría del menú desplegable (o todas).
   List<Product> get _filteredProducts {
     if (_showTopSelling) {
       final byId = {for (final p in _products) p.id: p};
       return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
     }
+    if (_selectedPageId != null) {
+      return _productsForPage(_selectedPageId!).where(_matchesSearch).toList();
+    }
     return _products
         .where((p) => (_selectedCategoryId == null || p.categoryId == _selectedCategoryId) && _matchesSearch(p))
         .toList();
+  }
+
+  Future<void> _createPage() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nueva pestaña'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nombre',
+            hintText: 'Ej. Verduras, Promos',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty || !mounted) return;
+    final page = await _pageRepository.create(name);
+    if (!mounted) return;
+    setState(() {
+      _pages = [..._pages, page];
+      _pageItemsByPage[page.id] = [];
+      _selectedPageId = page.id;
+      _showTopSelling = false;
+    });
+  }
+
+  Future<void> _managePage(PosPage page) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PosPageManagerSheet(
+        page: page,
+        allProducts: _products,
+        allCategories: _categories,
+        items: _pageItemsByPage[page.id] ?? const [],
+      ),
+    );
+    if (mounted) _loadData();
+  }
+
+  Future<void> _quickAddProductToPage(String pageId) async {
+    final selected = await showDialog<Product>(
+      context: context,
+      builder: (_) => _ProductPickerDialog(products: _products),
+    );
+    if (selected == null || !mounted) return;
+    await _pageRepository.addProduct(pageId, selected.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${selected.name} agregado a la pestaña')),
+    );
+    _loadData();
   }
 
   void _openCashSessionSheet() {
@@ -393,42 +506,76 @@ class _PosScreenState extends State<PosScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                FilterChip(
-                  avatar: const Icon(Icons.trending_up, size: 18),
-                  label: const Text('Más vendidos'),
-                  selected: _showTopSelling,
-                  onSelected: (value) => setState(() => _showTopSelling = value),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<String?>(
-                    value: _selectedCategoryId,
-                    decoration: const InputDecoration(
-                      labelText: 'Categoría',
-                      prefixIcon: Icon(Icons.category_outlined),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
-                      ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
-                    ],
-                    onChanged: (value) => setState(() {
-                      _selectedCategoryId = value;
-                      _showTopSelling = false;
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  FilterChip(
+                    avatar: const Icon(Icons.trending_up, size: 18),
+                    label: const Text('Más vendidos'),
+                    selected: _showTopSelling,
+                    onSelected: (value) => setState(() {
+                      _showTopSelling = value;
+                      if (value) _selectedPageId = null;
                     }),
                   ),
-                ),
+                  for (final page in _pages) ...[
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(page.name),
+                      selected: _selectedPageId == page.id,
+                      onSelected: (value) => setState(() {
+                        _selectedPageId = value ? page.id : null;
+                        _showTopSelling = false;
+                      }),
+                    ),
+                  ],
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Crear pestaña',
+                    onPressed: _createPage,
+                  ),
+                  if (_selectedPageId != null)
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      tooltip: 'Editar esta pestaña',
+                      onPressed: () {
+                        final page = _pages.where((p) => p.id == _selectedPageId);
+                        if (page.isNotEmpty) _managePage(page.first);
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonFormField<String?>(
+              value: _selectedCategoryId,
+              decoration: const InputDecoration(
+                labelText: 'Categoría',
+                prefixIcon: Icon(Icons.category_outlined),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
               ],
+              onChanged: (value) => setState(() {
+                _selectedCategoryId = value;
+                _showTopSelling = false;
+                _selectedPageId = null;
+              }),
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : products.isEmpty
+                : (products.isEmpty && _selectedPageId == null)
                     ? Center(
                         child: Text(_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
                       )
@@ -492,14 +639,18 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   /// Mosaico de productos, parecido a una vitrina: foto de fondo con el
-  /// nombre superpuesto para los que tienen foto, un círculo gris con el
-  /// nombre debajo para los que no. La cantidad de columnas se ajusta sola
-  /// al ancho disponible (unas 5 en una tablet ancha, menos en un celular).
+  /// precio arriba y el nombre superpuesto abajo para los que tienen foto,
+  /// un círculo gris con precio y nombre para los que no. La cantidad de
+  /// columnas se ajusta sola al ancho disponible (unas 5 en una tablet
+  /// ancha, menos en un celular). En una pestaña personalizada, mantener
+  /// presionado en cualquier parte (o tocar el mosaico "Agregar producto"
+  /// al final) abre el buscador para agregar un producto ahí.
   Widget _buildTileGrid(List<Product> products, CashSessionProvider cashSession) {
+    final pageId = _selectedPageId;
     return LayoutBuilder(
       builder: (context, constraints) {
         final crossAxisCount = (constraints.maxWidth / _targetTileWidth).floor().clamp(2, 8).toInt();
-        return GridView.builder(
+        final grid = GridView.builder(
           padding: const EdgeInsets.all(12),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
@@ -507,10 +658,42 @@ class _PosScreenState extends State<PosScreen> {
             crossAxisSpacing: 10,
             childAspectRatio: 0.92,
           ),
-          itemCount: products.length,
-          itemBuilder: (context, index) => _buildTile(products[index], cashSession),
+          itemCount: products.length + (pageId != null ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (pageId != null && index == products.length) {
+              return _addTile(pageId);
+            }
+            return _buildTile(products[index], cashSession);
+          },
+        );
+        if (pageId == null) return grid;
+        return GestureDetector(
+          onLongPress: () => _quickAddProductToPage(pageId),
+          child: grid,
         );
       },
+    );
+  }
+
+  Widget _addTile(String pageId) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      color: Colors.grey.shade100,
+      child: InkWell(
+        onTap: () => _quickAddProductToPage(pageId),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_circle_outline, size: 32, color: Colors.grey),
+              SizedBox(height: 6),
+              Text('Agregar\nproducto', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -530,7 +713,21 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  /// Foto a pantalla completa con el nombre en una franja oscura abajo.
+  Widget _priceBadge(Product product, {required bool overlay}) {
+    final label = _priceLabel(product, bold: true, color: overlay ? Colors.white : Colors.black87);
+    if (!overlay) return label;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: label,
+    );
+  }
+
+  /// Foto a pantalla completa, precio arriba en una etiqueta y el nombre en
+  /// una franja oscura abajo.
   Widget _photoTile(Product product, bool outOfStock) {
     return Stack(
       fit: StackFit.expand,
@@ -539,6 +736,11 @@ class _PosScreenState extends State<PosScreen> {
           product.imageUrl!,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200),
+        ),
+        Positioned(
+          top: 6,
+          left: 6,
+          child: _priceBadge(product, overlay: true),
         ),
         Positioned(
           left: 0,
@@ -571,15 +773,16 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  /// Sin foto: un círculo gris (como una estantería sin etiqueta) con el
-  /// nombre debajo — para que la grilla se vea igual de ordenada aunque no
-  /// todos los productos tengan foto todavía.
+  /// Sin foto: precio arriba, un círculo gris (como una estantería sin
+  /// etiqueta) y el nombre debajo — para que la grilla se vea igual de
+  /// ordenada aunque no todos los productos tengan foto todavía.
   Widget _placeholderTile(Product product, bool outOfStock) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Align(alignment: Alignment.topLeft, child: _priceBadge(product, overlay: false)),
           Expanded(
             child: Center(
               child: Container(
@@ -589,7 +792,6 @@ class _PosScreenState extends State<PosScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 6),
           Text(
             product.name,
             maxLines: 2,
@@ -629,6 +831,83 @@ class _PosScreenState extends State<PosScreen> {
           onTap: () => _addToCart(product),
         );
       },
+    );
+  }
+}
+
+/// Diálogo simple para buscar y elegir un producto — usado para agregarlo a
+/// una pestaña personalizada de Ventas.
+class _ProductPickerDialog extends StatefulWidget {
+  final List<Product> products;
+
+  const _ProductPickerDialog({required this.products});
+
+  @override
+  State<_ProductPickerDialog> createState() => _ProductPickerDialogState();
+}
+
+class _ProductPickerDialogState extends State<_ProductPickerDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final search = _controller.text.trim().toLowerCase();
+    final results = search.isEmpty
+        ? widget.products
+        : widget.products
+            .where((p) =>
+                p.name.toLowerCase().contains(search) || (p.barcode?.toLowerCase().contains(search) ?? false))
+            .toList();
+
+    return AlertDialog(
+      title: const Text('Buscar producto para agregar'),
+      content: SizedBox(
+        width: 400,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Buscar producto o código',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: results.isEmpty
+                  ? const Center(child: Text('Sin resultados'))
+                  : ListView.builder(
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final p = results[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: p.imageUrl != null ? NetworkImage(p.imageUrl!) : null,
+                            child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
+                          ),
+                          title: Text(p.name),
+                          onTap: () => Navigator.of(context).pop(p),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+      ],
     );
   }
 }
