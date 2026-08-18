@@ -300,6 +300,43 @@ create policy "solo mi tienda" on stock_movements for all
   using (public.is_approved() and store_id is not distinct from public.current_store_id())
   with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 
+-- Pestañas personalizadas en Ventas ("A1", "Verduras", "Promos", etc.): cada
+-- tienda arma las suyas con los productos y/o categorías que quiera, para
+-- tenerlos a mano sin buscar. "pos_page_items" guarda cada artículo o
+-- categoría agregada a una pestaña (exactamente uno de los dos, nunca
+-- ambos ni ninguno).
+create table if not exists pos_pages (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id),
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table pos_pages enable row level security;
+drop policy if exists "solo mi tienda" on pos_pages;
+create policy "solo mi tienda" on pos_pages for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+
+create table if not exists pos_page_items (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references stores(id),
+  page_id uuid not null references pos_pages(id) on delete cascade,
+  product_id uuid references products(id) on delete cascade,
+  category_id uuid references categories(id) on delete cascade,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint pos_page_items_producto_o_categoria check (
+    (product_id is not null and category_id is null) or
+    (product_id is null and category_id is not null)
+  )
+);
+alter table pos_page_items enable row level security;
+drop policy if exists "solo mi tienda" on pos_page_items;
+create policy "solo mi tienda" on pos_page_items for all
+  using (public.is_approved() and store_id is not distinct from public.current_store_id())
+  with check (public.is_approved() and store_id is not distinct from public.current_store_id());
+
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)
 create or replace function adjust_product_stock(p_id uuid, p_delta numeric)

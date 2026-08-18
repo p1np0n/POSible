@@ -255,16 +255,25 @@ está pensado para poder ejecutarse varias veces sin borrar tus datos. Si no
 lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 
 ## Qué incluye esta versión
-- **Ventas — mosaico de fotos**: los productos se muestran como mosaicos con
-  foto (como una vitrina) — foto de fondo con el nombre superpuesto si
-  tiene, o un círculo gris con el nombre debajo si todavía no tiene foto.
-  La cantidad de columnas se ajusta sola al ancho de la pantalla (unas 5 en
-  una tablet ancha, menos en un celular). El botón **"Más vendidos"** (junto
-  al buscador) muestra de inmediato los productos más vendidos en los
-  últimos 30 días, sin tener que buscarlos; el menú desplegable de al lado
-  sigue sirviendo para elegir una categoría en particular. Puedes seguir
-  prefiriendo la vista en lista clásica desde **Configuración → Vista en
-  lista de artículos**.
+- **Ventas — mosaico de fotos y pestañas personalizadas**: los productos se
+  muestran como mosaicos con foto (como una vitrina) — foto de fondo con el
+  precio arriba y el nombre superpuesto abajo si tiene, o un círculo gris
+  con precio y nombre si todavía no tiene foto. La cantidad de columnas se
+  ajusta sola al ancho de la pantalla (unas 5 en una tablet ancha, menos en
+  un celular). El botón **"Más vendidos"** (junto al buscador) muestra de
+  inmediato los productos más vendidos en los últimos 30 días. El botón
+  **"+"** de al lado crea una **pestaña personalizada** (ej. "Promos",
+  "Verduras") a la que le agregas los productos o categorías completas que
+  quieras, desde el ícono de engranaje que aparece cuando esa pestaña está
+  elegida (ahí también la renombras o la eliminas). Para agregar rápido un
+  producto sin abrir esa pantalla: mantén presionado en cualquier parte del
+  mosaico, o toca el último mosaico "Agregar producto" — se abre un
+  buscador y, al elegir uno, queda agregado ahí mismo. El menú desplegable
+  de categorías sigue sirviendo para filtrar por una categoría real del
+  catálogo. Puedes seguir prefiriendo la vista en lista clásica desde
+  **Configuración → Vista en lista de artículos** (ahí las pestañas
+  personalizadas solo se pueden editar desde el ícono de engranaje, no
+  agregar con mantener presionado).
 - **Ventas y caja**: apertura/cierre de caja (Turno), carrito, descuentos,
   impuestos, pago en efectivo/tarjeta/otro o **dividido entre varios**
   (ej. mitad efectivo, mitad tarjeta), "artículo rápido" (agregar algo con
