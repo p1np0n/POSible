@@ -29,7 +29,6 @@ import 'cash_session_sheet.dart';
 import 'modifier_picker_sheet.dart';
 import 'open_tickets_sheet.dart';
 import 'pos_page_manager_sheet.dart';
-import 'quick_item_dialog.dart';
 
 /// A partir de este ancho, Ventas se divide lado a lado (productos +
 /// carrito); antes de eso queda apilado (productos arriba, carrito abajo),
@@ -77,6 +76,9 @@ class _PosScreenState extends State<PosScreen> {
   String _search = '';
   bool _loading = true;
   int _openTicketCount = 0;
+  // Si el buscador está desplegado (mostrando el campo de texto) o
+  // escondido detrás del ícono de lupa — ver la barra de arriba en build().
+  bool _searchExpanded = false;
 
   @override
   void initState() {
@@ -433,17 +435,6 @@ class _PosScreenState extends State<PosScreen> {
     _refocusSearch();
   }
 
-  Future<void> _addQuickItem() async {
-    final product = await showDialog<Product>(
-      context: context,
-      builder: (_) => const QuickItemDialog(),
-    );
-    if (product != null && mounted) {
-      context.read<CartProvider>().addProduct(product);
-    }
-    _refocusSearch();
-  }
-
   Future<void> _refreshOpenTicketCount() async {
     final session = context.read<CashSessionProvider>().current;
     if (session == null) {
@@ -535,60 +526,109 @@ class _PosScreenState extends State<PosScreen> {
           )
         : null;
 
-    final searchBar = Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              autofocus: prefs.usbScannerModeEnabled,
-              decoration: InputDecoration(
-                labelText: prefs.usbScannerModeEnabled
-                    ? 'Buscar producto o código (o escanea aquí)'
-                    : 'Buscar producto o código',
-                prefixIcon: const Icon(Icons.search),
-                border: const OutlineInputBorder(),
-                isDense: true,
+    // Barra de arriba de color (sigue el color primario del tema, como el
+    // AppBar del menú, para que se vea como una sola barra continua): el
+    // buscador queda escondido detrás de un ícono de lupa hasta que se
+    // toca, para que por defecto se vea limpia — salvo con el lector de
+    // código de barras USB activado, donde el campo tiene que quedar
+    // siempre visible y con foco (ver _refocusSearch).
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final searchExpanded = _searchExpanded || prefs.usbScannerModeEnabled;
+    final searchBar = Material(
+      color: Theme.of(context).colorScheme.primary,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Row(
+            children: [
+              if (searchExpanded) ...[
+                if (!prefs.usbScannerModeEnabled)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    color: onPrimary,
+                    tooltip: 'Cerrar buscador',
+                    onPressed: () => setState(() {
+                      _searchExpanded = false;
+                      _searchController.clear();
+                      _search = '';
+                    }),
+                  ),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    autofocus: true,
+                    style: TextStyle(color: onPrimary),
+                    cursorColor: onPrimary,
+                    decoration: InputDecoration(
+                      hintText: prefs.usbScannerModeEnabled
+                          ? 'Buscar producto o código (o escanea aquí)'
+                          : 'Buscar producto o código',
+                      hintStyle: TextStyle(color: onPrimary.withOpacity(0.75)),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (value) => setState(() => _search = value),
+                    onSubmitted: (value) async {
+                      final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
+                      if (handled && mounted) {
+                        _searchController.clear();
+                        setState(() => _search = '');
+                      }
+                      _refocusSearch();
+                    },
+                  ),
+                ),
+              ] else
+                Expanded(
+                  child: IconButton(
+                    icon: const Icon(Icons.search),
+                    color: onPrimary,
+                    tooltip: 'Buscar producto o código',
+                    alignment: Alignment.centerLeft,
+                    onPressed: () => setState(() => _searchExpanded = true),
+                  ),
+                ),
+              if (prefs.cameraScanEnabled)
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  color: onPrimary,
+                  tooltip: 'Escanear código de barras',
+                  onPressed: _scanBarcode,
+                ),
+              Badge(
+                label: Text('$_openTicketCount'),
+                isLabelVisible: _openTicketCount > 0,
+                child: IconButton(
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  color: onPrimary,
+                  disabledColor: onPrimary.withOpacity(0.45),
+                  tooltip: 'Tickets en espera',
+                  onPressed: cashSession.isOpen ? _openTicketsList : null,
+                ),
               ),
-              onChanged: (value) => setState(() => _search = value),
-              onSubmitted: (value) async {
-                final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
-                if (handled && mounted) {
-                  _searchController.clear();
-                  setState(() => _search = '');
-                }
-                _refocusSearch();
-              },
-            ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: onPrimary),
+                tooltip: 'Más',
+                onSelected: (value) {
+                  if (value == 'add_product') _addProduct();
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'add_product',
+                    child: Row(
+                      children: [
+                        Icon(Icons.add_box_outlined),
+                        SizedBox(width: 12),
+                        Text('Agregar producto'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.add_box_outlined),
-            tooltip: 'Agregar producto',
-            onPressed: _addProduct,
-          ),
-          if (prefs.cameraScanEnabled)
-            IconButton(
-              icon: const Icon(Icons.qr_code_scanner),
-              tooltip: 'Escanear código de barras',
-              onPressed: _scanBarcode,
-            ),
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            tooltip: 'Artículo rápido',
-            onPressed: cashSession.isOpen ? _addQuickItem : null,
-          ),
-          Badge(
-            label: Text('$_openTicketCount'),
-            isLabelVisible: _openTicketCount > 0,
-            child: IconButton(
-              icon: const Icon(Icons.receipt_long_outlined),
-              tooltip: 'Tickets en espera',
-              onPressed: cashSession.isOpen ? _openTicketsList : null,
-            ),
-          ),
-        ],
+        ),
       ),
     );
 

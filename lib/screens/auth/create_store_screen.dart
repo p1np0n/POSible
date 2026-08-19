@@ -64,7 +64,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.storefront_outlined, size: 64, color: Colors.indigo),
+                  Icon(Icons.storefront_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 8),
                   Text(
                     'Registra tu tienda',

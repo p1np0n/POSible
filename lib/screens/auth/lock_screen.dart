@@ -77,7 +77,7 @@ class _LockScreenState extends State<LockScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.lock_outline, size: 56, color: Colors.indigo),
+                Icon(Icons.lock_outline, size: 56, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 8),
                 const Text('App bloqueada', style: TextStyle(fontSize: 20)),
                 const SizedBox(height: 4),
