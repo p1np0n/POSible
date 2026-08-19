@@ -338,6 +338,15 @@ create table if not exists pos_page_items (
     (product_id is null and category_id is not null)
   )
 );
+-- Nombre y precio propios de un botón de venta rápida (ej. "Huevos
+-- 5x1000"), distintos del producto real que tiene detrás — se puede
+-- agregar el mismo producto varias veces a una pestaña con nombres y
+-- precios distintos (por eso no hay restricción de unicidad en
+-- product_id). Si quedan en null, el botón muestra el nombre/precio
+-- normal del producto.
+alter table pos_page_items add column if not exists custom_name text;
+alter table pos_page_items add column if not exists custom_price numeric;
+
 alter table pos_page_items enable row level security;
 drop policy if exists "solo mi tienda" on pos_page_items;
 create policy "solo mi tienda" on pos_page_items for all

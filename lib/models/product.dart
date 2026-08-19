@@ -75,11 +75,12 @@ class Product {
 
   /// Copia este producto reemplazando el precio (ej. al pedirle al cajero
   /// el precio de un artículo de precio variable antes de agregarlo al
-  /// carrito) y/o la foto (ej. al encontrarla automáticamente por código de
-  /// barras).
-  Product copyWith({double? price, String? imageUrl}) => Product(
+  /// carrito), la foto (ej. al encontrarla automáticamente por código de
+  /// barras) y/o el nombre (ej. el nombre propio de un botón de venta
+  /// rápida en una pestaña, distinto del nombre real del producto).
+  Product copyWith({String? name, double? price, String? imageUrl}) => Product(
         id: id,
-        name: name,
+        name: name ?? this.name,
         categoryId: categoryId,
         price: price ?? this.price,
         cost: cost,

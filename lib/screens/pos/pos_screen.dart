@@ -30,6 +30,7 @@ import 'cart_panel.dart';
 import 'cash_session_sheet.dart';
 import 'modifier_picker_sheet.dart';
 import 'open_tickets_sheet.dart';
+import 'page_item_customize_dialog.dart';
 import 'pos_page_manager_sheet.dart';
 
 /// A partir de este ancho, Ventas se divide lado a lado (productos +
@@ -320,14 +321,25 @@ class _PosScreenState extends State<PosScreen> {
       if (p.categoryId != null) byCategory.putIfAbsent(p.categoryId!, () => []).add(p);
     }
     final result = <Product>[];
-    final seen = <String>{};
+    // Un producto agregado sin nombre/precio propio no debería repetirse
+    // (ej. agregado a mano y también incluido por una categoría), pero un
+    // botón de venta rápida CON nombre/precio propio sí puede repetir el
+    // mismo producto (ej. "Huevos 5x1000" y "Huevos 4x1000" del mismo
+    // producto), así que ese caso no se filtra.
+    final seenPlain = <String>{};
     for (final item in items) {
       if (item.productId != null) {
         final p = byId[item.productId];
-        if (p != null && seen.add(p.id)) result.add(p);
+        if (p == null) continue;
+        final hasCustom = item.customName != null || item.customPrice != null;
+        if (hasCustom) {
+          result.add(p.copyWith(name: item.customName, price: item.customPrice));
+        } else if (seenPlain.add(p.id)) {
+          result.add(p);
+        }
       } else if (item.categoryId != null) {
         for (final p in byCategory[item.categoryId] ?? const []) {
-          if (seen.add(p.id)) result.add(p);
+          if (seenPlain.add(p.id)) result.add(p);
         }
       }
     }
@@ -426,10 +438,16 @@ class _PosScreenState extends State<PosScreen> {
       _refocusSearch();
       return;
     }
-    await _pageRepository.addProduct(pageId, selected.id);
+    final customized = await showPageItemCustomizeDialog(context, product: selected);
+    if (customized == null || !mounted) {
+      _refocusSearch();
+      return;
+    }
+    final (customName, customPrice) = customized;
+    await _pageRepository.addProduct(pageId, selected.id, customName: customName, customPrice: customPrice);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${selected.name} agregado a la pestaña')),
+      SnackBar(content: Text('${customName ?? selected.name} agregado a la pestaña')),
     );
     _loadData();
     _refocusSearch();

@@ -309,9 +309,20 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   pestaña, el buscador de arriba solo muestra lo que ya agregaste a mano
   mientras está vacío — pero en cuanto escribes algo, busca en todo tu
   catálogo (no solo en la pestaña), para poder vender cualquier producto
-  sin tener que agregarlo antes a la pestaña. El menú desplegable
-  de categorías sigue sirviendo para filtrar por una categoría real del
-  catálogo. Puedes seguir prefiriendo la vista en lista clásica desde
+  sin tener que agregarlo antes a la pestaña.
+- **Botones de venta rápida con nombre y precio propios**: al agregar un
+  producto a una pestaña (desde "Agregar producto" en el mosaico o desde
+  el ícono de engranaje de la pestaña), puedes ponerle un nombre y un
+  precio propios al botón (ej. "Huevos 5x1000"), distintos del nombre y
+  precio real del producto en el catálogo — igual que en Loyverse. Podés
+  agregar el mismo producto varias veces con nombres/precios distintos.
+  El botón sigue sumando stock/ventas al producto real de siempre; solo
+  cambia lo que se ve y lo que se cobra en ese botón. Para editar el
+  nombre/precio de un botón ya agregado, entra al ícono de engranaje de la
+  pestaña y toca el lápiz junto a ese ítem. **Requiere volver a correr
+  `sql/schema.sql`** (agrega las columnas `custom_name`/`custom_price` a
+  `pos_page_items`).
+- Puedes seguir prefiriendo la vista en lista clásica desde
   **Configuración → Vista en lista de artículos** (ahí las pestañas
   personalizadas solo se pueden editar desde el ícono de engranaje, no
   agregar con mantener presionado).
