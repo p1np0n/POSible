@@ -9,6 +9,8 @@ import '../../services/csv_export_service.dart';
 import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'product_form_screen.dart';
 
@@ -588,9 +590,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
             const SizedBox(height: 8),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const LoadingIndicator()
                   : visible.isEmpty
-                      ? const Center(child: Text('No hay productos'))
+                      ? const EmptyState(message: 'No hay artículos', icon: Icons.inventory_2_outlined)
                       : ListView.builder(
                           controller: _scrollController,
                           itemCount: visible.length + (_loadingMore ? 1 : 0),

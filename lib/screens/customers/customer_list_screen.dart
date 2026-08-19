@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/customer.dart';
 import '../../services/customer_repository.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 import 'customer_form_screen.dart';
 
 class CustomerListScreen extends StatefulWidget {
@@ -76,9 +78,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const LoadingIndicator()
                   : _customers.isEmpty
-                      ? const Center(child: Text('No hay clientes'))
+                      ? const EmptyState(message: 'No hay clientes registrados', icon: Icons.people_outline)
                       : ListView.builder(
                           itemCount: _customers.length,
                           itemBuilder: (context, index) {

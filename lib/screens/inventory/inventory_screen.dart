@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/catalog_entry.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 /// Catálogo global de productos: UNO SOLO, compartido entre todas tus
 /// tiendas. Se alimenta automáticamente de lo que cada tienda agrega a su
@@ -114,9 +116,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingIndicator()
                 : _entries.isEmpty
-                    ? const Center(child: Text('No hay productos en el catálogo global todavía'))
+                    ? const EmptyState(
+                        message: 'No hay productos en el catálogo global todavía',
+                        icon: Icons.public_outlined,
+                      )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _entries.length,

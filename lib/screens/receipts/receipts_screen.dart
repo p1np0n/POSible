@@ -4,6 +4,8 @@ import '../../models/sale.dart';
 import '../../services/receipts_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 import 'receipt_detail_sheet.dart';
 
 class ReceiptsScreen extends StatefulWidget {
@@ -91,9 +93,9 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingIndicator()
                 : groups.isEmpty
-                    ? const Center(child: Text('No hay recibos'))
+                    ? const EmptyState(message: 'Aún no tienes recibos', icon: Icons.receipt_long_outlined)
                     : ListView(
                         children: groups.entries.map((entry) {
                           return Column(
