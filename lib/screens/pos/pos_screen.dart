@@ -622,82 +622,7 @@ class _PosScreenState extends State<PosScreen> {
                     tooltip: 'Menú',
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
-                Text('Ventas', style: TextStyle(color: onPrimary, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          avatar: const Icon(Icons.trending_up, size: 18),
-                          label: const Text('Más vendidos'),
-                          selected: _showTopSelling,
-                          onSelected: (value) {
-                            setState(() {
-                              _showTopSelling = value;
-                              if (value) {
-                                _selectedPageId = null;
-                                _selectedCategoryId = null;
-                              }
-                            });
-                            _refocusSearch();
-                          },
-                        ),
-                        for (final page in _pages) ...[
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: Text(page.name),
-                            selected: _selectedPageId == page.id,
-                            onSelected: (value) {
-                              setState(() {
-                                _selectedPageId = value ? page.id : null;
-                                _showTopSelling = false;
-                                if (value) _selectedCategoryId = null;
-                              });
-                              _refocusSearch();
-                            },
-                          ),
-                        ],
-                        // Un chip por categoría en la misma fila, en vez de un
-                        // dropdown aparte debajo — un solo lugar para filtrar,
-                        // no dos.
-                        for (final category in _categories) ...[
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: Text(category.name),
-                            selected: _selectedCategoryId == category.id,
-                            onSelected: (value) {
-                              setState(() {
-                                _selectedCategoryId = value ? category.id : null;
-                                _showTopSelling = false;
-                                if (value) _selectedPageId = null;
-                              });
-                              _refocusSearch();
-                            },
-                          ),
-                        ],
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          color: onPrimary,
-                          tooltip: 'Crear pestaña',
-                          onPressed: _createPage,
-                        ),
-                        if (_selectedPageId != null)
-                          IconButton(
-                            icon: const Icon(Icons.settings_outlined),
-                            color: onPrimary,
-                            tooltip: 'Editar esta pestaña',
-                            onPressed: () {
-                              final page = _pages.where((p) => p.id == _selectedPageId);
-                              if (page.isNotEmpty) _managePage(page.first);
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+                const Expanded(child: SizedBox()),
                 IconButton(
                   icon: const Icon(Icons.search),
                   color: onPrimary,
@@ -767,6 +692,8 @@ class _PosScreenState extends State<PosScreen> {
       ),
     );
 
+    final quickSaleBar = _buildQuickSaleBar();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSplitWide = constraints.maxWidth >= _splitLayoutBreakpoint;
@@ -782,22 +709,30 @@ class _PosScreenState extends State<PosScreen> {
           },
         );
         // Pantalla ancha (tablet horizontal, computador): el carrito va
-        // siempre lado a lado, completo, a la derecha.
+        // siempre lado a lado, completo, a la derecha, y las pestañas de
+        // venta rápida quedan abajo de todo, ocupando el ancho completo.
         if (isSplitWide) {
-          return Row(
+          return Column(
             children: [
               Expanded(
-                flex: 3,
-                child: Column(
+                child: Row(
                   children: [
-                    if (banner != null) banner,
-                    searchBar,
-                    Expanded(child: filtersAndGrid),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        children: [
+                          if (banner != null) banner,
+                          searchBar,
+                          Expanded(child: filtersAndGrid),
+                        ],
+                      ),
+                    ),
+                    const VerticalDivider(width: 1),
+                    SizedBox(width: 400, child: cartPanel),
                   ],
                 ),
               ),
-              const VerticalDivider(width: 1),
-              SizedBox(width: 400, child: cartPanel),
+              quickSaleBar,
             ],
           );
         }
@@ -805,7 +740,8 @@ class _PosScreenState extends State<PosScreen> {
         // justo debajo del buscador — no debajo del mosaico — y al
         // desplegarlo ocupa casi toda la pantalla (de lado a lado, y con
         // bastante alto) para revisar el detalle antes de cobrar; el
-        // mosaico de productos queda con lo que sobra.
+        // mosaico de productos queda con lo que sobra, y las pestañas de
+        // venta rápida quedan al final, abajo de todo.
         return Column(
           children: [
             if (banner != null) banner,
@@ -816,9 +752,96 @@ class _PosScreenState extends State<PosScreen> {
             ),
             const Divider(height: 1),
             Expanded(child: filtersAndGrid),
+            quickSaleBar,
           ],
         );
       },
+    );
+  }
+
+  /// Pestañas de acceso rápido (Más vendidos, pestañas personalizadas y
+  /// categorías) en su propia barra al final de la pantalla, cerca de
+  /// donde se toca para vender, en vez de arriba junto al buscador.
+  Widget _buildQuickSaleBar() {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 4,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                FilterChip(
+                  avatar: const Icon(Icons.trending_up, size: 18),
+                  label: const Text('Más vendidos'),
+                  selected: _showTopSelling,
+                  onSelected: (value) {
+                    setState(() {
+                      _showTopSelling = value;
+                      if (value) {
+                        _selectedPageId = null;
+                        _selectedCategoryId = null;
+                      }
+                    });
+                    _refocusSearch();
+                  },
+                ),
+                for (final page in _pages) ...[
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text(page.name),
+                    selected: _selectedPageId == page.id,
+                    onSelected: (value) {
+                      setState(() {
+                        _selectedPageId = value ? page.id : null;
+                        _showTopSelling = false;
+                        if (value) _selectedCategoryId = null;
+                      });
+                      _refocusSearch();
+                    },
+                  ),
+                ],
+                // Un chip por categoría en la misma fila, en vez de un
+                // dropdown aparte — un solo lugar para filtrar, no dos.
+                for (final category in _categories) ...[
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text(category.name),
+                    selected: _selectedCategoryId == category.id,
+                    onSelected: (value) {
+                      setState(() {
+                        _selectedCategoryId = value ? category.id : null;
+                        _showTopSelling = false;
+                        if (value) _selectedPageId = null;
+                      });
+                      _refocusSearch();
+                    },
+                  ),
+                ],
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.add_circle_outline, color: onSurface),
+                  tooltip: 'Crear pestaña',
+                  onPressed: _createPage,
+                ),
+                if (_selectedPageId != null)
+                  IconButton(
+                    icon: Icon(Icons.settings_outlined, color: onSurface),
+                    tooltip: 'Editar esta pestaña',
+                    onPressed: () {
+                      final page = _pages.where((p) => p.id == _selectedPageId);
+                      if (page.isNotEmpty) _managePage(page.first);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
