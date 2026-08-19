@@ -21,6 +21,14 @@ class ProfileRepository {
     return (data as List).map((e) => EmployeeProfile.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  /// Empleados de una tienda en particular — para el administrador
+  /// principal, desde "Tiendas", para poder restablecerles el PIN sin
+  /// necesidad de iniciar sesión en esa tienda.
+  Future<List<EmployeeProfile>> getForStore(String storeId) async {
+    final data = await _client.from('profiles').select().eq('store_id', storeId).order('created_at');
+    return (data as List).map((e) => EmployeeProfile.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   Future<void> setApproved(String id, bool approved) async {
     await _client.from('profiles').update({'approved': approved}).eq('id', id);
   }

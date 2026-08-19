@@ -164,6 +164,13 @@ para tiendas creadas después de correr `sql/schema.sql` con este cambio (o
 para tiendas más antiguas, una vez que lo corras, se completa solo con el
 correo del administrador que ya tenían guardado).
 
+También puedes **ver y restablecer el PIN de cualquier empleado de
+cualquier tienda** (no solo del administrador): botón **"Ver empleados"**
+en la tarjeta de esa tienda — se abre la lista con un ícono de llave junto
+a cada uno para restablecerle el PIN. No te deja aprobar ni quitar
+empleados de una tienda que no es la tuya, eso sigue siendo solo del
+dueño de esa tienda.
+
 Estas funciones (crear empleado, restablecer PIN/contraseña) requieren un
 paso extra, porque son acciones "de administrador" que, por seguridad, la
 app no puede hacer directamente — necesitan pasar por una función que
