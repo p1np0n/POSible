@@ -17,6 +17,34 @@ import 'screens/auth/reset_password_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/profile_repository.dart';
 
+/// Color principal de la marca: naranja, con blanco y negro como base
+/// neutra (en vez del morado/índigo que traía Flutter por defecto) — así
+/// se ve más parecido a lo que se pidió, y se aplica en toda la app
+/// (botones, barra de arriba, etc.) desde un solo lugar.
+const _brandOrange = Color(0xFFFF7A1A);
+
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  final colorScheme = ColorScheme.fromSeed(seedColor: _brandOrange, brightness: brightness).copyWith(
+    primary: _brandOrange,
+    onPrimary: Colors.white,
+    surface: isDark ? const Color(0xFF121212) : Colors.white,
+    onSurface: isDark ? Colors.white : Colors.black,
+  );
+  return ThemeData(
+    useMaterial3: true,
+    brightness: brightness,
+    colorScheme: colorScheme,
+    scaffoldBackgroundColor: colorScheme.surface,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: _brandOrange,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      centerTitle: false,
+    ),
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
@@ -44,15 +72,8 @@ class PosibleApp extends StatelessWidget {
             title: 'POSible',
             debugShowCheckedModeBanner: false,
             themeMode: prefs.darkMode ? ThemeMode.dark : ThemeMode.light,
-            theme: ThemeData(
-              colorSchemeSeed: Colors.indigo,
-              useMaterial3: true,
-            ),
-            darkTheme: ThemeData(
-              colorSchemeSeed: Colors.indigo,
-              brightness: Brightness.dark,
-              useMaterial3: true,
-            ),
+            theme: _buildTheme(Brightness.light),
+            darkTheme: _buildTheme(Brightness.dark),
             home: const AuthGate(),
           );
         },

@@ -105,7 +105,7 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.point_of_sale, size: 64, color: Colors.indigo),
+        Icon(Icons.point_of_sale, size: 64, color: Theme.of(context).colorScheme.primary),
         const SizedBox(height: 8),
         Text('POSible', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),

@@ -320,9 +320,7 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   cargaste — **no se suma aparte**, porque el precio de tus artículos ya lo
   incluye — y solo sirve para mostrar el desglose en la venta y el ticket),
   pago en efectivo/tarjeta/otro o **dividido entre varios**
-  (ej. mitad efectivo, mitad tarjeta), "artículo rápido" (agregar algo con
-  nombre y precio libres sin que esté en tu inventario, ej. algo pesado en
-  el momento o un cargo especial), "tickets abiertos" (dejar una venta en
+  (ej. mitad efectivo, mitad tarjeta), "tickets abiertos" (dejar una venta en
   espera con el botón de recibo junto al buscador, para atender a otro
   cliente y retomarla después desde el mismo ícono, incluyendo el cliente
   y descuento que tenías elegidos), "anular venta" (botón rojo arriba del
@@ -331,6 +329,13 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de un producto en el buscador de Ventas y presionas Enter (o lo escaneas
   con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
   tocarlo.
+- **Barra de arriba en Ventas**: el buscador queda escondido detrás de un
+  ícono de lupa (toca para desplegarlo) para que la pantalla se vea
+  limpia por defecto — salvo con el lector de código de barras USB
+  activado (Configuración), donde queda siempre visible porque lo
+  necesita. Los demás accesos (escanear con cámara, tickets en espera) son
+  íconos, y "Agregar producto" quedó en el menú de los tres puntos, para
+  no llenar la barra de botones que se usan menos seguido.
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para

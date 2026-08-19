@@ -65,7 +65,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.lock_reset, size: 64, color: Colors.indigo),
+                  Icon(Icons.lock_reset, size: 64, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 8),
                   Text(
                     'Elige tu contraseña nueva',
