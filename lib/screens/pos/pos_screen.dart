@@ -326,9 +326,14 @@ class _PosScreenState extends State<PosScreen> {
       }
       return _productsForPage(_selectedPageId!).toList();
     }
-    return _products
-        .where((p) => (_selectedCategoryId == null || p.categoryId == _selectedCategoryId) && _matchesSearch(p))
-        .toList();
+    // Mismo criterio que en una pestaña: con una categoría específica
+    // elegida, en cuanto se escribe algo en el buscador se busca en todo
+    // el catálogo (no solo en esa categoría), para no dejar productos
+    // "escondidos" solo porque están en otra categoría.
+    if (_search.trim().isNotEmpty) {
+      return _products.where(_matchesSearch).toList();
+    }
+    return _products.where((p) => _selectedCategoryId == null || p.categoryId == _selectedCategoryId).toList();
   }
 
   Future<void> _createPage() async {
