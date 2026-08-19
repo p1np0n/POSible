@@ -11,6 +11,8 @@ import '../../services/product_repository.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_indicator.dart';
+import '../../widgets/product_avatar.dart';
+import '../../widgets/status_badge.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'product_form_screen.dart';
 
@@ -19,6 +21,11 @@ enum _SortMode { name, stockAsc, stockDesc }
 enum _StockFilter { all, lowStock, outOfStock }
 
 const int _pageSize = 50;
+
+/// Debajo de este ancho, la barra de herramientas agrupa ordenar/
+/// seleccionar/exportar/buscar fotos en un solo menú — a este ancho no
+/// caben como íconos sueltos junto al buscador sin apretarlo demasiado.
+const double _toolbarCompactBreakpoint = 600;
 
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
@@ -456,71 +463,117 @@ class _ProductListScreenState extends State<ProductListScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(
-                        labelText: 'Buscar producto o código',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                        isDense: true,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // En pantallas angostas, ordenar/seleccionar/exportar/buscar
+                  // fotos se apretaban junto al buscador hasta dejarlo casi
+                  // inusable — se agrupan en un solo menú y se deja siempre
+                  // visible lo esencial: buscador, escanear y "Nuevo".
+                  final compact = constraints.maxWidth < _toolbarCompactBreakpoint;
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: const InputDecoration(
+                            labelText: 'Buscar producto o código',
+                            prefixIcon: Icon(Icons.search),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onChanged: (value) {
+                            setState(() => _search = value);
+                            _resetAndLoad();
+                          },
+                        ),
                       ),
-                      onChanged: (value) {
-                        setState(() => _search = value);
-                        _resetAndLoad();
-                      },
-                    ),
-                  ),
-                  if (cameraEnabled)
-                    IconButton(
-                      icon: const Icon(Icons.qr_code_scanner),
-                      tooltip: 'Escanear código de barras',
-                      onPressed: _scanBarcode,
-                    ),
-                  PopupMenuButton<_SortMode>(
-                    icon: const Icon(Icons.sort),
-                    tooltip: 'Ordenar',
-                    initialValue: _sortMode,
-                    onSelected: (mode) {
-                      setState(() => _sortMode = mode);
-                      _resetAndLoad();
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: _SortMode.name, child: Text('Nombre (A-Z)')),
-                      PopupMenuItem(value: _SortMode.stockAsc, child: Text('Stock: menor a mayor')),
-                      PopupMenuItem(value: _SortMode.stockDesc, child: Text('Stock: mayor a menor')),
+                      if (cameraEnabled)
+                        IconButton(
+                          icon: const Icon(Icons.qr_code_scanner),
+                          tooltip: 'Escanear código de barras',
+                          onPressed: _scanBarcode,
+                        ),
+                      if (compact)
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          tooltip: 'Más acciones',
+                          onSelected: (value) {
+                            if (value == 'sort_name') {
+                              setState(() => _sortMode = _SortMode.name);
+                              _resetAndLoad();
+                            } else if (value == 'sort_stock_asc') {
+                              setState(() => _sortMode = _SortMode.stockAsc);
+                              _resetAndLoad();
+                            } else if (value == 'sort_stock_desc') {
+                              setState(() => _sortMode = _SortMode.stockDesc);
+                              _resetAndLoad();
+                            } else if (value == 'select') {
+                              _toggleSelectionMode();
+                            } else if (value == 'export') {
+                              if (!_exporting) _exportCsv();
+                            } else if (value == 'find_images') {
+                              if (!_findingImages) _findImagesByBarcode();
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'sort_name', child: Text('Ordenar: Nombre (A-Z)')),
+                            const PopupMenuItem(value: 'sort_stock_asc', child: Text('Ordenar: Stock menor a mayor')),
+                            const PopupMenuItem(value: 'sort_stock_desc', child: Text('Ordenar: Stock mayor a menor')),
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: 'select',
+                              child: Text(_selectionMode ? 'Cancelar selección' : 'Seleccionar varios'),
+                            ),
+                            const PopupMenuItem(value: 'export', child: Text('Exportar a CSV')),
+                            const PopupMenuItem(value: 'find_images', child: Text('Buscar fotos por código de barras')),
+                          ],
+                        )
+                      else ...[
+                        PopupMenuButton<_SortMode>(
+                          icon: const Icon(Icons.sort),
+                          tooltip: 'Ordenar',
+                          initialValue: _sortMode,
+                          onSelected: (mode) {
+                            setState(() => _sortMode = mode);
+                            _resetAndLoad();
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: _SortMode.name, child: Text('Nombre (A-Z)')),
+                            PopupMenuItem(value: _SortMode.stockAsc, child: Text('Stock: menor a mayor')),
+                            PopupMenuItem(value: _SortMode.stockDesc, child: Text('Stock: mayor a menor')),
+                          ],
+                        ),
+                        IconButton(
+                          icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
+                          tooltip: _selectionMode ? 'Cancelar selección' : 'Seleccionar varios',
+                          onPressed: _toggleSelectionMode,
+                        ),
+                        IconButton(
+                          icon: _exporting
+                              ? const SizedBox(
+                                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.download_outlined),
+                          tooltip: 'Exportar a CSV',
+                          onPressed: _exporting ? null : _exportCsv,
+                        ),
+                        IconButton(
+                          icon: _findingImages
+                              ? const SizedBox(
+                                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.image_search_outlined),
+                          tooltip: 'Buscar fotos por código de barras',
+                          onPressed: _findingImages ? null : _findImagesByBarcode,
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () => _openForm(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Nuevo'),
+                      ),
                     ],
-                  ),
-                  IconButton(
-                    icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
-                    tooltip: _selectionMode ? 'Cancelar selección' : 'Seleccionar varios',
-                    onPressed: _toggleSelectionMode,
-                  ),
-                  IconButton(
-                    icon: _exporting
-                        ? const SizedBox(
-                            height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.download_outlined),
-                    tooltip: 'Exportar a CSV',
-                    onPressed: _exporting ? null : _exportCsv,
-                  ),
-                  IconButton(
-                    icon: _findingImages
-                        ? const SizedBox(
-                            height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.image_search_outlined),
-                    tooltip: 'Buscar fotos por código de barras',
-                    onPressed: _findingImages ? null : _findImagesByBarcode,
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Nuevo'),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             if (_findingImages)
@@ -606,16 +659,18 @@ class _ProductListScreenState extends State<ProductListScreen> {
                             final product = visible[index];
                             final margin = product.marginPercent;
                             final selected = _selectedIds.contains(product.id);
+                            final outOfStock = product.trackStock && product.stockQuantity <= 0;
+                            const metaStyle = TextStyle(fontSize: 12, color: Colors.grey);
                             return ListTile(
                               leading: _selectionMode
                                   ? Checkbox(
                                       value: selected,
                                       onChanged: (_) => _toggleSelected(product.id),
                                     )
-                                  : CircleAvatar(
-                                      backgroundImage:
-                                          product.imageUrl != null ? NetworkImage(product.imageUrl!) : null,
-                                      child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
+                                  : ProductAvatar(
+                                      name: product.name,
+                                      categoryId: product.categoryId,
+                                      imageUrl: product.imageUrl,
                                     ),
                               selected: selected,
                               title: Text(product.name),
@@ -623,20 +678,33 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    '${_categoryName(product.categoryId)} · Stock: ${product.trackStock ? product.stockQuantity.toStringAsFixed(0) : 'N/A'}'
-                                    '${margin != null ? ' · Margen: ${margin.toStringAsFixed(0)}%' : ''}'
-                                    '${product.isVariablePrice ? ' · Precio variable' : ''}'
-                                    '${product.isSoldByWeight ? ' · Por peso (PLU ${product.plu ?? '-'})' : ''}',
-                                  ),
-                                  if (product.isLowStock)
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 2),
-                                      child: Text(
-                                        'Inventario bajo',
-                                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                                  Text(_categoryName(product.categoryId)),
+                                  const SizedBox(height: 2),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        product.trackStock
+                                            ? 'Stock: ${product.stockQuantity.toStringAsFixed(0)}'
+                                            : 'Stock: N/A',
+                                        style: metaStyle,
                                       ),
-                                    ),
+                                      if (margin != null) Text('Margen: ${margin.toStringAsFixed(0)}%', style: metaStyle),
+                                      if (product.isVariablePrice) const Text('Precio variable', style: metaStyle),
+                                      if (product.isSoldByWeight)
+                                        Text('Por peso (PLU ${product.plu ?? '-'})', style: metaStyle),
+                                      if (outOfStock)
+                                        const StatusBadge(label: 'Sin stock', tone: StatusBadgeTone.danger, dense: true)
+                                      else if (product.isLowStock)
+                                        const StatusBadge(
+                                          label: 'Inventario bajo',
+                                          tone: StatusBadgeTone.warning,
+                                          dense: true,
+                                        ),
+                                    ],
+                                  ),
                                 ],
                               ),
                               trailing: _selectionMode
