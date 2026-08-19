@@ -22,6 +22,8 @@ import '../../services/pos_page_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/product_avatar.dart';
+import '../../widgets/status_badge.dart';
 import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'cart_panel.dart';
@@ -634,7 +636,10 @@ class _PosScreenState extends State<PosScreen> {
                           onSelected: (value) {
                             setState(() {
                               _showTopSelling = value;
-                              if (value) _selectedPageId = null;
+                              if (value) {
+                                _selectedPageId = null;
+                                _selectedCategoryId = null;
+                              }
                             });
                             _refocusSearch();
                           },
@@ -648,6 +653,25 @@ class _PosScreenState extends State<PosScreen> {
                               setState(() {
                                 _selectedPageId = value ? page.id : null;
                                 _showTopSelling = false;
+                                if (value) _selectedCategoryId = null;
+                              });
+                              _refocusSearch();
+                            },
+                          ),
+                        ],
+                        // Un chip por categoría en la misma fila, en vez de un
+                        // dropdown aparte debajo — un solo lugar para filtrar,
+                        // no dos.
+                        for (final category in _categories) ...[
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(category.name),
+                            selected: _selectedCategoryId == category.id,
+                            onSelected: (value) {
+                              setState(() {
+                                _selectedCategoryId = value ? category.id : null;
+                                _showTopSelling = false;
+                                if (value) _selectedPageId = null;
                               });
                               _refocusSearch();
                             },
@@ -728,31 +752,6 @@ class _PosScreenState extends State<PosScreen> {
       onRefresh: _loadData,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: DropdownButtonFormField<String?>(
-              value: _selectedCategoryId,
-              decoration: const InputDecoration(
-                labelText: 'Categoría',
-                prefixIcon: Icon(Icons.category_outlined),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
-                ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedCategoryId = value;
-                  _showTopSelling = false;
-                  _selectedPageId = null;
-                });
-                _refocusSearch();
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -904,14 +903,10 @@ class _PosScreenState extends State<PosScreen> {
     final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
     final canTap = !outOfStock && cashSession.isOpen;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: EdgeInsets.zero,
-      color: hasImage ? null : Colors.grey.shade50,
-      child: InkWell(
-        onTap: canTap ? () => _addToCart(product) : null,
-        child: hasImage ? _photoTile(product, outOfStock) : _placeholderTile(product, outOfStock),
-      ),
+    return _ProductTile(
+      cardColor: hasImage ? null : Colors.grey.shade50,
+      onTap: canTap ? () => _addToCart(product) : null,
+      child: hasImage ? _photoTile(product, outOfStock) : _placeholderTile(product, outOfStock),
     );
   }
 
@@ -967,9 +962,9 @@ class _PosScreenState extends State<PosScreen> {
         ),
         if (outOfStock)
           Container(
-            color: Colors.black54,
+            color: Colors.black.withOpacity(0.55),
             alignment: Alignment.center,
-            child: const Text('AGOTADO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const StatusBadge(label: 'AGOTADO', tone: StatusBadgeTone.danger),
           ),
       ],
     );
@@ -987,11 +982,7 @@ class _PosScreenState extends State<PosScreen> {
           Align(alignment: Alignment.topLeft, child: _priceBadge(product, overlay: false)),
           Expanded(
             child: Center(
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.shade300),
-              ),
+              child: ProductAvatar(name: product.name, categoryId: product.categoryId, radius: 28),
             ),
           ),
           Text(
@@ -1004,7 +995,7 @@ class _PosScreenState extends State<PosScreen> {
           if (outOfStock)
             const Padding(
               padding: EdgeInsets.only(top: 2),
-              child: Text('Agotado', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+              child: StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true),
             ),
         ],
       ),
@@ -1018,19 +1009,98 @@ class _PosScreenState extends State<PosScreen> {
         final product = products[index];
         final outOfStock = product.trackStock && product.stockQuantity <= 0;
         return ListTile(
-          leading: CircleAvatar(
-            backgroundImage: product.imageUrl != null ? NetworkImage(product.imageUrl!) : null,
-            child: product.imageUrl == null ? const Icon(Icons.inventory_2) : null,
-          ),
+          leading: ProductAvatar(name: product.name, categoryId: product.categoryId, imageUrl: product.imageUrl),
           title: Text(product.name),
           subtitle: outOfStock
-              ? const Text('Agotado', style: TextStyle(color: Colors.red))
+              ? const Align(alignment: Alignment.centerLeft, child: StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true))
               : product.trackStock
                   ? Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}')
                   : null,
           trailing: _priceLabel(product, bold: true),
           enabled: !outOfStock && cashSession.isOpen,
           onTap: () => _addToCart(product),
+        );
+      },
+    );
+  }
+}
+
+/// Envuelve un mosaico de producto para dar un feedback breve (rebote +
+/// ícono de check) al tocarlo y agregarlo al carrito, en vez de que el
+/// único cambio visible sea en el panel del carrito (que puede quedar
+/// fuera de foco en pantallas angostas).
+class _ProductTile extends StatefulWidget {
+  final Widget child;
+  final Color? cardColor;
+  final VoidCallback? onTap;
+
+  const _ProductTile({required this.child, required this.cardColor, required this.onTap});
+
+  @override
+  State<_ProductTile> createState() => _ProductTileState();
+}
+
+class _ProductTileState extends State<_ProductTile> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _checkOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+    _scale = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.94), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.94, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _checkOpacity = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 2),
+    ]).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    final onTap = widget.onTap;
+    if (onTap == null) return;
+    onTap();
+    _controller.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Transform.scale(
+          scale: _scale.value,
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            margin: EdgeInsets.zero,
+            color: widget.cardColor,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                InkWell(onTap: widget.onTap == null ? null : _handleTap, child: widget.child),
+                if (_checkOpacity.value > 0)
+                  IgnorePointer(
+                    child: Opacity(
+                      opacity: _checkOpacity.value,
+                      child: Container(
+                        color: Colors.black.withOpacity(0.25),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.check_circle, color: Colors.white, size: 40),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
