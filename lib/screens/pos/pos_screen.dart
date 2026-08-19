@@ -74,6 +74,7 @@ class _PosScreenState extends State<PosScreen> {
   String? _selectedPageId;
   bool _showTopSelling = false;
   String _search = '';
+  int _searchSyncId = 0;
   bool _loading = true;
   int _openTicketCount = 0;
   // Si el buscador está desplegado (mostrando el campo de texto) o
@@ -282,6 +283,29 @@ class _PosScreenState extends State<PosScreen> {
         (product.sku?.toLowerCase().contains(search) ?? false);
   }
 
+  void _onSearchChanged(String value) {
+    setState(() => _search = value);
+    _syncSearchFromServer(value);
+  }
+
+  /// "_products" se carga una sola vez al entrar a Ventas. Si mientras
+  /// tanto se agregó un producto nuevo desde otra pantalla (Lista de
+  /// artículos) en la misma sesión, buscarlo acá no lo encontraría hasta
+  /// volver a entrar a Ventas. Para evitarlo, además del filtro local, se
+  /// busca en el servidor y se agregan al catálogo en memoria los
+  /// productos que falten (sin sacar nada de lo que ya había).
+  Future<void> _syncSearchFromServer(String term) async {
+    final trimmed = term.trim();
+    if (trimmed.isEmpty) return;
+    final requestId = ++_searchSyncId;
+    final results = await _productRepository.getPage(offset: 0, pageSize: 30, search: trimmed);
+    if (!mounted || requestId != _searchSyncId) return;
+    final knownIds = _products.map((p) => p.id).toSet();
+    final missing = results.where((p) => !knownIds.contains(p.id)).toList();
+    if (missing.isEmpty) return;
+    setState(() => _products = [..._products, ...missing]);
+  }
+
   /// Productos de una pestaña personalizada: los agregados uno por uno, más
   /// los de cada categoría completa que se haya agregado, en el orden en
   /// que se agregaron (sin repetir si un producto queda incluido por dos
@@ -394,7 +418,7 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _quickAddProductToPage(String pageId) async {
     final selected = await showDialog<Product>(
       context: context,
-      builder: (_) => _ProductPickerDialog(products: _products),
+      builder: (_) => _ProductPickerDialog(productRepository: _productRepository),
     );
     if (selected == null || !mounted) {
       _refocusSearch();
@@ -573,7 +597,7 @@ class _PosScreenState extends State<PosScreen> {
                       hintStyle: TextStyle(color: onPrimary.withOpacity(0.75)),
                       border: InputBorder.none,
                     ),
-                    onChanged: (value) => setState(() => _search = value),
+                    onChanged: _onSearchChanged,
                     onSubmitted: (value) async {
                       final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
                       if (handled && mounted) {
@@ -1004,10 +1028,15 @@ class _PosScreenState extends State<PosScreen> {
 
 /// Diálogo simple para buscar y elegir un producto — usado para agregarlo a
 /// una pestaña personalizada de Ventas.
+///
+/// Busca directo en el servidor (igual que "Lista de artículos") en vez de
+/// filtrar la lista de productos ya cargada en la pantalla de Ventas: así
+/// siempre ve el catálogo al día, aunque se haya agregado un producto nuevo
+/// desde otra pantalla sin volver a entrar a Ventas.
 class _ProductPickerDialog extends StatefulWidget {
-  final List<Product> products;
+  final ProductRepository productRepository;
 
-  const _ProductPickerDialog({required this.products});
+  const _ProductPickerDialog({required this.productRepository});
 
   @override
   State<_ProductPickerDialog> createState() => _ProductPickerDialogState();
@@ -1015,6 +1044,15 @@ class _ProductPickerDialog extends StatefulWidget {
 
 class _ProductPickerDialogState extends State<_ProductPickerDialog> {
   final _controller = TextEditingController();
+  List<Product> _results = [];
+  bool _loading = true;
+  int _requestId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _search('');
+  }
 
   @override
   void dispose() {
@@ -1022,16 +1060,19 @@ class _ProductPickerDialogState extends State<_ProductPickerDialog> {
     super.dispose();
   }
 
+  Future<void> _search(String term) async {
+    final requestId = ++_requestId;
+    setState(() => _loading = true);
+    final results = await widget.productRepository.getPage(offset: 0, pageSize: 30, search: term.trim());
+    if (!mounted || requestId != _requestId) return;
+    setState(() {
+      _results = results;
+      _loading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final search = _controller.text.trim().toLowerCase();
-    final results = search.isEmpty
-        ? widget.products
-        : widget.products
-            .where((p) =>
-                p.name.toLowerCase().contains(search) || (p.barcode?.toLowerCase().contains(search) ?? false))
-            .toList();
-
     return AlertDialog(
       title: const Text('Buscar producto para agregar'),
       content: SizedBox(
@@ -1048,26 +1089,28 @@ class _ProductPickerDialogState extends State<_ProductPickerDialog> {
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: _search,
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: results.isEmpty
-                  ? const Center(child: Text('Sin resultados'))
-                  : ListView.builder(
-                      itemCount: results.length,
-                      itemBuilder: (context, index) {
-                        final p = results[index];
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: p.imageUrl != null ? NetworkImage(p.imageUrl!) : null,
-                            child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
-                          ),
-                          title: Text(p.name),
-                          onTap: () => Navigator.of(context).pop(p),
-                        );
-                      },
-                    ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _results.isEmpty
+                      ? const Center(child: Text('Sin resultados'))
+                      : ListView.builder(
+                          itemCount: _results.length,
+                          itemBuilder: (context, index) {
+                            final p = _results[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: p.imageUrl != null ? NetworkImage(p.imageUrl!) : null,
+                                child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
+                              ),
+                              title: Text(p.name),
+                              onTap: () => Navigator.of(context).pop(p),
+                            );
+                          },
+                        ),
             ),
           ],
         ),
