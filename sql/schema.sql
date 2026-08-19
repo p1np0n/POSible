@@ -483,13 +483,17 @@ as $$
 $$;
 
 -- Los perfiles y la aprobación de empleados quedan limitados a la propia
--- tienda: un dueño de tienda no puede ver ni aprobar empleados de otra.
+-- tienda: un dueño de tienda no puede ver ni aprobar empleados de otra. El
+-- administrador principal sí puede VER los de cualquier tienda (para poder
+-- restablecerles el PIN desde "Tiendas"), pero no aprobarlos ni quitarlos
+-- (esas acciones siguen limitadas al dueño de esa tienda).
 alter table profiles enable row level security;
 drop policy if exists "ver mi perfil o si estoy aprobado" on profiles;
 drop policy if exists "ver perfiles de mi tienda" on profiles;
 create policy "ver perfiles de mi tienda" on profiles
   for select using (
     id = auth.uid()
+    or public.is_super_admin()
     or (public.is_approved() and store_id is not distinct from public.current_store_id())
   );
 drop policy if exists "aprobados pueden aprobar" on profiles;
