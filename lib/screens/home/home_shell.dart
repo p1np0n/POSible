@@ -267,10 +267,14 @@ class _HomeShellState extends State<HomeShell> {
             Expanded(
               child: Column(
                 children: [
-                  AppBar(
-                    title: Text(titles[index]),
-                    automaticallyImplyLeading: false,
-                  ),
+                  // Ventas arma su propia barra de arriba (título, pestañas
+                  // y buscador en una sola línea), así que no hace falta
+                  // otro AppBar encima solo con el título.
+                  if (index != 0)
+                    AppBar(
+                      title: Text(titles[index]),
+                      automaticallyImplyLeading: false,
+                    ),
                   Expanded(child: screens[index]),
                 ],
               ),
@@ -281,7 +285,10 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(titles[index])),
+      // Ventas arma su propia barra de arriba (título, pestañas y buscador
+      // en una sola línea, con su propio botón para abrir este drawer), así
+      // que no hace falta otro AppBar encima solo con el título.
+      appBar: index == 0 ? null : AppBar(title: Text(titles[index])),
       drawer: Drawer(child: buildNav(context, closeDrawer: true)),
       body: screens[index],
     );
