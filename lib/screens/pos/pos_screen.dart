@@ -563,13 +563,15 @@ class _PosScreenState extends State<PosScreen> {
     // siempre visible y con foco (ver _refocusSearch).
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
     final searchExpanded = _searchExpanded || prefs.usbScannerModeEnabled;
+    // Todo (menú, título, pestañas, buscador e íconos) en una sola línea:
+    // cuando el buscador está colapsado (el caso normal) deja ver el resto;
+    // al desplegarlo, ocupa el espacio de las pestañas mientras se escribe.
+    final hasDrawer = Scaffold.maybeOf(context)?.hasDrawer ?? false;
     final searchBar = Material(
       color: Theme.of(context).colorScheme.primary,
       child: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            Padding(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             children: [
@@ -610,16 +612,75 @@ class _PosScreenState extends State<PosScreen> {
                     },
                   ),
                 ),
-              ] else
-                Expanded(
-                  child: IconButton(
-                    icon: const Icon(Icons.search),
+              ] else ...[
+                if (hasDrawer)
+                  IconButton(
+                    icon: const Icon(Icons.menu),
                     color: onPrimary,
-                    tooltip: 'Buscar producto o código',
-                    alignment: Alignment.centerLeft,
-                    onPressed: () => setState(() => _searchExpanded = true),
+                    tooltip: 'Menú',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                Text('Ventas', style: TextStyle(color: onPrimary, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          avatar: const Icon(Icons.trending_up, size: 18),
+                          label: const Text('Más vendidos'),
+                          selected: _showTopSelling,
+                          onSelected: (value) {
+                            setState(() {
+                              _showTopSelling = value;
+                              if (value) _selectedPageId = null;
+                            });
+                            _refocusSearch();
+                          },
+                        ),
+                        for (final page in _pages) ...[
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(page.name),
+                            selected: _selectedPageId == page.id,
+                            onSelected: (value) {
+                              setState(() {
+                                _selectedPageId = value ? page.id : null;
+                                _showTopSelling = false;
+                              });
+                              _refocusSearch();
+                            },
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          color: onPrimary,
+                          tooltip: 'Crear pestaña',
+                          onPressed: _createPage,
+                        ),
+                        if (_selectedPageId != null)
+                          IconButton(
+                            icon: const Icon(Icons.settings_outlined),
+                            color: onPrimary,
+                            tooltip: 'Editar esta pestaña',
+                            onPressed: () {
+                              final page = _pages.where((p) => p.id == _selectedPageId);
+                              if (page.isNotEmpty) _managePage(page.first);
+                            },
+                          ),
+                      ],
+                    ),
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  color: onPrimary,
+                  tooltip: 'Buscar producto o código',
+                  onPressed: () => setState(() => _searchExpanded = true),
+                ),
+              ],
               if (prefs.cameraScanEnabled)
                 IconButton(
                   icon: const Icon(Icons.qr_code_scanner),
@@ -659,61 +720,6 @@ class _PosScreenState extends State<PosScreen> {
               ),
             ],
           ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    FilterChip(
-                      avatar: const Icon(Icons.trending_up, size: 18),
-                      label: const Text('Más vendidos'),
-                      selected: _showTopSelling,
-                      onSelected: (value) {
-                        setState(() {
-                          _showTopSelling = value;
-                          if (value) _selectedPageId = null;
-                        });
-                        _refocusSearch();
-                      },
-                    ),
-                    for (final page in _pages) ...[
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: Text(page.name),
-                        selected: _selectedPageId == page.id,
-                        onSelected: (value) {
-                          setState(() {
-                            _selectedPageId = value ? page.id : null;
-                            _showTopSelling = false;
-                          });
-                          _refocusSearch();
-                        },
-                      ),
-                    ],
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: onPrimary,
-                      tooltip: 'Crear pestaña',
-                      onPressed: _createPage,
-                    ),
-                    if (_selectedPageId != null)
-                      IconButton(
-                        icon: const Icon(Icons.settings_outlined),
-                        color: onPrimary,
-                        tooltip: 'Editar esta pestaña',
-                        onPressed: () {
-                          final page = _pages.where((p) => p.id == _selectedPageId);
-                          if (page.isNotEmpty) _managePage(page.first);
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

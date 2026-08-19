@@ -329,8 +329,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de un producto en el buscador de Ventas y presionas Enter (o lo escaneas
   con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
   tocarlo.
-- **Barra de arriba en Ventas**: el buscador queda escondido detrás de un
-  ícono de lupa (toca para desplegarlo) para que la pantalla se vea
+- **Barra de arriba en Ventas**: título, menú (celular), pestañas y
+  buscador conviven en una sola línea, sobre el mismo fondo naranja (no
+  hay un AppBar aparte para esta pantalla). El buscador queda escondido
+  detrás de un ícono de lupa (toca para desplegarlo, y ahí sí ocupa el
+  espacio de las pestañas mientras se escribe) para que la pantalla se vea
   limpia por defecto — salvo con el lector de código de barras USB
   activado (Configuración), donde queda siempre visible porque lo
   necesita. Los demás accesos (escanear con cámara, tickets en espera) son
