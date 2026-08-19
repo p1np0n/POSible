@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/reports_repository.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/loading_indicator.dart';
 
 enum ReportRange { today, week, month, custom }
 
@@ -142,7 +143,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           const SizedBox(height: 16),
           if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+            const LoadingIndicator(padding: EdgeInsets.all(32))
           else if (summary != null) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,

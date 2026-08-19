@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/employee_profile.dart';
 import '../../services/profile_repository.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
@@ -134,9 +136,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
           const SizedBox(height: 16),
           if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            const LoadingIndicator()
           else if (_filtered.isEmpty)
-            const Text('No hay empleados todavía')
+            const EmptyState(message: 'No hay empleados todavía', icon: Icons.badge_outlined)
           else
             ..._filtered.map((profile) => Card(
                   child: ListTile(
