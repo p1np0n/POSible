@@ -34,12 +34,29 @@ class PosPageRepository {
     return (data as List).map((e) => PosPageItem.fromMap(e as Map<String, dynamic>)).toList();
   }
 
-  Future<void> addProduct(String pageId, String productId) async {
+  Future<void> addProduct(
+    String pageId,
+    String productId, {
+    String? customName,
+    double? customPrice,
+  }) async {
     await _client.from('pos_page_items').insert({
       'page_id': pageId,
       'product_id': productId,
       'store_id': CurrentStore.id,
+      'custom_name': customName,
+      'custom_price': customPrice,
     });
+  }
+
+  /// Cambia el nombre y/o precio propios de un botón ya agregado a una
+  /// pestaña. Pasar null en cualquiera de los dos lo deja sin
+  /// personalizar (usa el nombre/precio normal del producto).
+  Future<void> updateItem(String itemId, {String? customName, double? customPrice}) async {
+    await _client.from('pos_page_items').update({
+      'custom_name': customName,
+      'custom_price': customPrice,
+    }).eq('id', itemId);
   }
 
   Future<void> addCategory(String pageId, String categoryId) async {

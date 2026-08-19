@@ -5,6 +5,7 @@ import '../../models/pos_page.dart';
 import '../../models/pos_page_item.dart';
 import '../../models/product.dart';
 import '../../services/pos_page_repository.dart';
+import 'page_item_customize_dialog.dart';
 
 /// Hoja para administrar una pestaña personalizada de Ventas: cambiarle el
 /// nombre, agregarle productos o categorías completas, quitar lo que ya
@@ -95,10 +96,28 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
   }
 
   Future<void> _addProduct(Product product) async {
-    if (_items.any((i) => i.productId == product.id)) return;
-    await _repository.addProduct(widget.page.id, product.id);
+    final customized = await showPageItemCustomizeDialog(context, product: product);
+    if (customized == null || !mounted) return;
+    final (customName, customPrice) = customized;
+    await _repository.addProduct(widget.page.id, product.id, customName: customName, customPrice: customPrice);
     _changed = true;
     _productSearchController.clear();
+    final items = await _repository.getAllItems();
+    if (!mounted) return;
+    setState(() => _items = items.where((i) => i.pageId == widget.page.id).toList());
+  }
+
+  Future<void> _editItem(PosPageItem item, Product product) async {
+    final customized = await showPageItemCustomizeDialog(
+      context,
+      product: product,
+      initialName: item.customName,
+      initialPrice: item.customPrice,
+    );
+    if (customized == null || !mounted) return;
+    final (customName, customPrice) = customized;
+    await _repository.updateItem(item.id, customName: customName, customPrice: customPrice);
+    _changed = true;
     final items = await _repository.getAllItems();
     if (!mounted) return;
     setState(() => _items = items.where((i) => i.pageId == widget.page.id).toList());
@@ -223,15 +242,31 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
                   ..._items.map((item) {
                     final product = item.productId != null ? _productById(item.productId!) : null;
                     final category = item.categoryId != null ? _categoryById(item.categoryId!) : null;
+                    final isCustomized = item.customName != null || item.customPrice != null;
                     return ListTile(
                       dense: true,
                       leading: Icon(item.productId != null ? Icons.inventory_2_outlined : Icons.category_outlined),
-                      title: Text(product?.name ?? category?.name ?? '(eliminado)'),
-                      subtitle: item.categoryId != null ? const Text('Categoría completa') : null,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.red),
-                        tooltip: 'Quitar',
-                        onPressed: () => _removeItem(item),
+                      title: Text(item.customName ?? product?.name ?? category?.name ?? '(eliminado)'),
+                      subtitle: item.categoryId != null
+                          ? const Text('Categoría completa')
+                          : isCustomized
+                              ? Text('Botón propio de "${product?.name ?? '(eliminado)'}"')
+                              : null,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (product != null)
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: 'Nombre y precio del botón',
+                              onPressed: () => _editItem(item, product),
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            tooltip: 'Quitar',
+                            onPressed: () => _removeItem(item),
+                          ),
+                        ],
                       ),
                     );
                   }),
