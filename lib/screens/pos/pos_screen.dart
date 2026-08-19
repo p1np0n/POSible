@@ -567,7 +567,9 @@ class _PosScreenState extends State<PosScreen> {
       color: Theme.of(context).colorScheme.primary,
       child: SafeArea(
         bottom: false,
-        child: Padding(
+        child: Column(
+          children: [
+            Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             children: [
@@ -657,6 +659,61 @@ class _PosScreenState extends State<PosScreen> {
               ),
             ],
           ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    FilterChip(
+                      avatar: const Icon(Icons.trending_up, size: 18),
+                      label: const Text('Más vendidos'),
+                      selected: _showTopSelling,
+                      onSelected: (value) {
+                        setState(() {
+                          _showTopSelling = value;
+                          if (value) _selectedPageId = null;
+                        });
+                        _refocusSearch();
+                      },
+                    ),
+                    for (final page in _pages) ...[
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: Text(page.name),
+                        selected: _selectedPageId == page.id,
+                        onSelected: (value) {
+                          setState(() {
+                            _selectedPageId = value ? page.id : null;
+                            _showTopSelling = false;
+                          });
+                          _refocusSearch();
+                        },
+                      ),
+                    ],
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      color: onPrimary,
+                      tooltip: 'Crear pestaña',
+                      onPressed: _createPage,
+                    ),
+                    if (_selectedPageId != null)
+                      IconButton(
+                        icon: const Icon(Icons.settings_outlined),
+                        color: onPrimary,
+                        tooltip: 'Editar esta pestaña',
+                        onPressed: () {
+                          final page = _pages.where((p) => p.id == _selectedPageId);
+                          if (page.isNotEmpty) _managePage(page.first);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -665,58 +722,6 @@ class _PosScreenState extends State<PosScreen> {
       onRefresh: _loadData,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  FilterChip(
-                    avatar: const Icon(Icons.trending_up, size: 18),
-                    label: const Text('Más vendidos'),
-                    selected: _showTopSelling,
-                    onSelected: (value) {
-                      setState(() {
-                        _showTopSelling = value;
-                        if (value) _selectedPageId = null;
-                      });
-                      _refocusSearch();
-                    },
-                  ),
-                  for (final page in _pages) ...[
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: Text(page.name),
-                      selected: _selectedPageId == page.id,
-                      onSelected: (value) {
-                        setState(() {
-                          _selectedPageId = value ? page.id : null;
-                          _showTopSelling = false;
-                        });
-                        _refocusSearch();
-                      },
-                    ),
-                  ],
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    tooltip: 'Crear pestaña',
-                    onPressed: _createPage,
-                  ),
-                  if (_selectedPageId != null)
-                    IconButton(
-                      icon: const Icon(Icons.settings_outlined),
-                      tooltip: 'Editar esta pestaña',
-                      onPressed: () {
-                        final page = _pages.where((p) => p.id == _selectedPageId);
-                        if (page.isNotEmpty) _managePage(page.first);
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: DropdownButtonFormField<String?>(
