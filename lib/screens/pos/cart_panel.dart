@@ -313,6 +313,33 @@ class _CartPanelState extends State<CartPanel> {
     );
   }
 
+  /// Quitar un producto por peso o de precio variable con un solo toque en
+  /// "-" es fácil de hacer sin querer (casi nunca su cantidad es un entero
+  /// mayor a 1, así que el primer toque ya lo borraba) y se pierde un
+  /// pesaje o un precio escrito a mano — para esos casos pide confirmar
+  /// antes. Para un producto normal, el "-" sigue funcionando igual que
+  /// siempre, sin preguntar.
+  Future<void> _decrementOrConfirmRemove(CartItem item) async {
+    final needsConfirmation =
+        item.quantity <= 1 && (item.product.isSoldByWeight || item.product.isVariablePrice);
+    if (!needsConfirmation) {
+      context.read<CartProvider>().decrementItem(item);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Quitar del carrito'),
+        content: Text('¿Quitar "${item.product.name}" del carrito?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Quitar')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) context.read<CartProvider>().removeItem(item);
+  }
+
   Widget _buildItemTile(CartItem item) {
     return ListTile(
       dense: true,
@@ -325,9 +352,9 @@ class _CartPanelState extends State<CartPanel> {
         children: [
           IconButton(
             icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () => context.read<CartProvider>().decrementItem(item),
+            onPressed: () => _decrementOrConfirmRemove(item),
           ),
-          Text(item.quantity.toStringAsFixed(0)),
+          Text(item.product.isSoldByWeight ? item.quantity.toStringAsFixed(3) : item.quantity.toStringAsFixed(0)),
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: () => context.read<CartProvider>().incrementItem(item),
