@@ -36,10 +36,17 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   bool _articulosExpanded = true;
   bool _storeLoadRequested = false;
+  final _navScrollController = ScrollController();
 
   void _selectIndex(int index, {required bool closeDrawer}) {
     if (closeDrawer) Navigator.of(context).maybePop();
     setState(() => _index = index);
+  }
+
+  @override
+  void dispose() {
+    _navScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -122,7 +129,11 @@ class _HomeShellState extends State<HomeShell> {
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
 
     Widget buildNav(BuildContext context, {required bool closeDrawer}) {
-      return ListView(
+      return Scrollbar(
+        controller: _navScrollController,
+        thumbVisibility: true,
+        child: ListView(
+        controller: _navScrollController,
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
@@ -250,6 +261,7 @@ class _HomeShellState extends State<HomeShell> {
             onTap: () => _selectIndex(settingsIndex, closeDrawer: closeDrawer),
           ),
         ],
+        ),
       );
     }
 
