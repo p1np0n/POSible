@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/modifier.dart';
 import '../../services/modifier_repository.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class ModifiersScreen extends StatefulWidget {
   const ModifiersScreen({super.key});
@@ -16,6 +19,7 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
   List<Modifier> _modifiers = [];
   bool _loading = true;
   String _search = '';
+  String? _error;
 
   @override
   void initState() {
@@ -24,12 +28,24 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final modifiers = await _repository.getAll();
     setState(() {
-      _modifiers = modifiers;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final modifiers = await _repository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _modifiers = modifiers;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los modificadores';
+        _loading = false;
+      });
+    }
   }
 
   List<Modifier> get _filtered => _modifiers
@@ -103,10 +119,12 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _filtered.isEmpty
-                    ? const Center(child: Text('No hay modificadores todavía'))
-                    : ListView.builder(
+                ? const LoadingIndicator()
+                : _error != null
+                    ? ErrorState(message: _error!, onRetry: _load)
+                    : _filtered.isEmpty
+                        ? const EmptyState(message: 'No hay modificadores todavía', icon: Icons.tune)
+                        : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _filtered.length,
                         itemBuilder: (context, index) {

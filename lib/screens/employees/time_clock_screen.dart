@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/time_clock_entry.dart';
 import '../../services/time_clock_repository.dart';
 import '../../utils/date_format_es.dart';
+import '../../widgets/error_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class TimeClockScreen extends StatefulWidget {
   const TimeClockScreen({super.key});
@@ -17,6 +19,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   List<TimeClockEntry> _history = [];
   bool _loading = true;
   bool _submitting = false;
+  String? _error;
 
   @override
   void initState() {
@@ -25,16 +28,28 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _repository.getMyOpenEntry(),
-      _repository.getMyHistory(),
-    ]);
     setState(() {
-      _openEntry = results[0] as TimeClockEntry?;
-      _history = results[1] as List<TimeClockEntry>;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final results = await Future.wait([
+        _repository.getMyOpenEntry(),
+        _repository.getMyHistory(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _openEntry = results[0] as TimeClockEntry?;
+        _history = results[1] as List<TimeClockEntry>;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar el reloj de entrada/salida';
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _toggleClock() async {
@@ -59,7 +74,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const LoadingIndicator();
+    if (_error != null) return ErrorState(message: _error!, onRetry: _load);
 
     final isClockedIn = _openEntry != null;
 

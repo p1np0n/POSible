@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/employee_profile.dart';
 import '../../services/profile_repository.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 
 class EmployeesScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   List<EmployeeProfile> _profiles = [];
   bool _loading = true;
   String _search = '';
+  String? _error;
 
   @override
   void initState() {
@@ -26,12 +28,24 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final profiles = await _repository.getAll();
     setState(() {
-      _profiles = profiles;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final profiles = await _repository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _profiles = profiles;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los empleados';
+        _loading = false;
+      });
+    }
   }
 
   List<EmployeeProfile> get _filtered => _profiles
@@ -137,6 +151,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           const SizedBox(height: 16),
           if (_loading)
             const LoadingIndicator()
+          else if (_error != null)
+            ErrorState(message: _error!, onRetry: _load)
           else if (_filtered.isEmpty)
             const EmptyState(message: 'No hay empleados todavía', icon: Icons.badge_outlined)
           else

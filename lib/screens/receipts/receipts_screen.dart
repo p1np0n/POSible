@@ -5,6 +5,7 @@ import '../../services/receipts_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 import 'receipt_detail_sheet.dart';
 
@@ -20,6 +21,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
   List<Sale> _sales = [];
   String _search = '';
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -28,12 +30,24 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final sales = await _repository.getRecent();
     setState(() {
-      _sales = sales;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final sales = await _repository.getRecent();
+      if (!mounted) return;
+      setState(() {
+        _sales = sales;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los recibos';
+        _loading = false;
+      });
+    }
   }
 
   List<Sale> get _filtered {
@@ -94,9 +108,11 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
           Expanded(
             child: _loading
                 ? const LoadingIndicator()
-                : groups.isEmpty
-                    ? const EmptyState(message: 'Aún no tienes recibos', icon: Icons.receipt_long_outlined)
-                    : ListView(
+                : _error != null
+                    ? ErrorState(message: _error!, onRetry: _load)
+                    : groups.isEmpty
+                        ? const EmptyState(message: 'Aún no tienes recibos', icon: Icons.receipt_long_outlined)
+                        : ListView(
                         children: groups.entries.map((entry) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

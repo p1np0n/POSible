@@ -8,6 +8,9 @@ import '../../services/cash_session_repository.dart';
 import '../../services/receipts_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
+import '../../widgets/loading_indicator.dart';
 import 'cash_session_sheet.dart';
 import 'turno_detail_sheet.dart';
 
@@ -24,6 +27,7 @@ class _TurnoScreenState extends State<TurnoScreen> {
   List<CashSession> _history = [];
   Map<String, double> _totalsBySession = {};
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -32,24 +36,36 @@ class _TurnoScreenState extends State<TurnoScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _repository.getHistory(),
-      _receiptsRepository.getRecent(),
-    ]);
-    final history = results[0] as List<CashSession>;
-    final sales = results[1] as List<Sale>;
-    final totals = <String, double>{};
-    for (final sale in sales) {
-      final id = sale.cashSessionId;
-      if (id == null) continue;
-      totals[id] = (totals[id] ?? 0) + sale.total;
-    }
     setState(() {
-      _history = history;
-      _totalsBySession = totals;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final results = await Future.wait([
+        _repository.getHistory(),
+        _receiptsRepository.getRecent(),
+      ]);
+      final history = results[0] as List<CashSession>;
+      final sales = results[1] as List<Sale>;
+      final totals = <String, double>{};
+      for (final sale in sales) {
+        final id = sale.cashSessionId;
+        if (id == null) continue;
+        totals[id] = (totals[id] ?? 0) + sale.total;
+      }
+      if (!mounted) return;
+      setState(() {
+        _history = history;
+        _totalsBySession = totals;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar el historial de turnos';
+        _loading = false;
+      });
+    }
   }
 
   void _openCashSessionSheet() {
@@ -125,9 +141,11 @@ class _TurnoScreenState extends State<TurnoScreen> {
           Text('Historial de turnos', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            const LoadingIndicator()
+          else if (_error != null)
+            ErrorState(message: _error!, onRetry: _load)
           else if (_history.isEmpty)
-            const Text('Todavía no hay turnos registrados')
+            const EmptyState(message: 'Todavía no hay turnos registrados', icon: Icons.schedule_outlined)
           else
             ..._history.map((session) {
               final total = _totalsBySession[session.id] ?? 0;

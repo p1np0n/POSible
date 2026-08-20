@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/product.dart';
+import '../utils/query_timeout.dart';
 
 class ProductRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -11,7 +12,7 @@ class ProductRepository {
     if (onlyActive) {
       query = query.eq('active', true);
     }
-    final data = await query.order('name');
+    final data = await query.order('name').withTimeout();
     return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -38,7 +39,8 @@ class ProductRepository {
       final term = search.replaceAll(',', ' ');
       query = query.or('name.ilike.%$term%,barcode.ilike.%$term%,sku.ilike.%$term%');
     }
-    final data = await query.order(orderBy, ascending: ascending).range(offset, offset + pageSize - 1);
+    final data =
+        await query.order(orderBy, ascending: ascending).range(offset, offset + pageSize - 1).withTimeout();
     return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
   }
 
