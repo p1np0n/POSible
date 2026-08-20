@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/discount.dart';
 import '../../services/discount_repository.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class DiscountsScreen extends StatefulWidget {
   const DiscountsScreen({super.key});
@@ -16,6 +19,7 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
   List<Discount> _discounts = [];
   bool _loading = true;
   String _search = '';
+  String? _error;
 
   @override
   void initState() {
@@ -24,12 +28,24 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final discounts = await _repository.getAll();
     setState(() {
-      _discounts = discounts;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final discounts = await _repository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _discounts = discounts;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los descuentos';
+        _loading = false;
+      });
+    }
   }
 
   List<Discount> get _filtered => _discounts
@@ -91,10 +107,12 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _filtered.isEmpty
-                    ? const Center(child: Text('No hay descuentos todavía'))
-                    : ListView.builder(
+                ? const LoadingIndicator()
+                : _error != null
+                    ? ErrorState(message: _error!, onRetry: _load)
+                    : _filtered.isEmpty
+                        ? const EmptyState(message: 'No hay descuentos todavía', icon: Icons.percent_outlined)
+                        : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _filtered.length,
                         itemBuilder: (context, index) {

@@ -4,6 +4,7 @@ import '../../models/customer.dart';
 import '../../services/customer_repository.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 import 'customer_form_screen.dart';
 
@@ -19,6 +20,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   List<Customer> _customers = [];
   bool _loading = true;
   String _search = '';
+  String? _error;
 
   @override
   void initState() {
@@ -27,12 +29,24 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final customers = await _repository.getAll(search: _search);
     setState(() {
-      _customers = customers;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final customers = await _repository.getAll(search: _search);
+      if (!mounted) return;
+      setState(() {
+        _customers = customers;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los clientes';
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _openForm([Customer? customer]) async {
@@ -79,9 +93,11 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             Expanded(
               child: _loading
                   ? const LoadingIndicator()
-                  : _customers.isEmpty
-                      ? const EmptyState(message: 'No hay clientes registrados', icon: Icons.people_outline)
-                      : ListView.builder(
+                  : _error != null
+                      ? ErrorState(message: _error!, onRetry: _load)
+                      : _customers.isEmpty
+                          ? const EmptyState(message: 'No hay clientes registrados', icon: Icons.people_outline)
+                          : ListView.builder(
                           itemCount: _customers.length,
                           itemBuilder: (context, index) {
                             final customer = _customers[index];
