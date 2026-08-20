@@ -535,3 +535,23 @@ sucursales/cajas" (ver más abajo) — dime si quieres que prioricemos eso.
 Cuando yo te agregue o corrija algo y lo suba a este repositorio, solo
 repites el Paso 4 (Actions compila sola) y el Paso 5 (descargar el nuevo
 .apk).
+
+## Arreglos recientes: Reportes colgado, menú y carrito
+
+- **Reportes se quedaba cargando para siempre**: a la tabla de ventas le
+  faltaba un índice para buscar por tienda y fecha — con historial grande
+  la consulta se volvía tan lenta que nunca terminaba. Se agregó el
+  índice, un límite de 15 segundos por consulta (si algo tarda de más, se
+  ve un error con botón "Reintentar" en vez de quedar colgado para
+  siempre) y ese mismo mensaje de error+reintentar en Recibos, Clientes,
+  Empleados, Reloj de entrada/salida, Catálogo global, Descuentos,
+  Modificadores y Turno. **Hace falta volver a correr `sql/schema.sql`**
+  en el editor SQL de Supabase para que se cree el índice nuevo (no borra
+  nada).
+- **Menú lateral no llegaba a "Configuración"**: se le agregó una barra de
+  desplazamiento visible, por si antes se podía bajar con el mouse pero no
+  se notaba.
+- **El botón "-" en un producto por peso o precio variable borraba la
+  línea del carrito sin avisar**: ahora pide confirmación antes de
+  quitarla (los productos normales se quitan igual que siempre, sin
+  preguntar).

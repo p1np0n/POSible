@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/reports_repository.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 
 enum ReportRange { today, week, month, custom }
@@ -26,6 +27,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<NamedTotal> _byEmployee = [];
   List<ModifierUsage> _byModifier = [];
   bool _loading = true;
+  String? _error;
 
   static const _paymentLabels = {
     'cash': 'Efectivo',
@@ -78,29 +80,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final from = _fromDate;
     final to = _toDate;
     final duration = to.difference(from);
     final previousTo = from.subtract(const Duration(seconds: 1));
     final previousFrom = previousTo.subtract(duration);
 
-    final results = await Future.wait([
-      _repository.getSummary(from: from, to: to),
-      _repository.getTotalSales(from: previousFrom, to: previousTo),
-      _repository.getByCategory(from: from, to: to),
-      _repository.getByEmployee(from: from, to: to),
-      _repository.getByModifier(from: from, to: to),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _summary = results[0] as SalesSummary;
-      _previousTotal = results[1] as double;
-      _byCategory = results[2] as List<NamedTotal>;
-      _byEmployee = results[3] as List<NamedTotal>;
-      _byModifier = results[4] as List<ModifierUsage>;
-      _loading = false;
-    });
+    try {
+      final results = await Future.wait([
+        _repository.getSummary(from: from, to: to),
+        _repository.getTotalSales(from: previousFrom, to: previousTo),
+        _repository.getByCategory(from: from, to: to),
+        _repository.getByEmployee(from: from, to: to),
+        _repository.getByModifier(from: from, to: to),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _summary = results[0] as SalesSummary;
+        _previousTotal = results[1] as double;
+        _byCategory = results[2] as List<NamedTotal>;
+        _byEmployee = results[3] as List<NamedTotal>;
+        _byModifier = results[4] as List<ModifierUsage>;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los reportes';
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -144,6 +157,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
           const SizedBox(height: 16),
           if (_loading)
             const LoadingIndicator(padding: EdgeInsets.all(32))
+          else if (_error != null)
+            ErrorState(message: _error!, onRetry: _load)
           else if (summary != null) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,

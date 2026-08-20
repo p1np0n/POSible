@@ -1,5 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/current_store.dart';
+import '../utils/query_timeout.dart';
+
 class TopProduct {
   final String name;
   final double quantity;
@@ -51,11 +54,17 @@ class ReportsRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<SalesSummary> getSummary({required DateTime from, required DateTime to}) async {
+    final storeId = CurrentStore.id;
+    if (storeId == null) {
+      return SalesSummary(totalSales: 0, transactionCount: 0, byPaymentMethod: {}, topProducts: [], dailyTotals: []);
+    }
     final sales = await _client
         .from('sales')
         .select('id, total, cash_amount, card_amount, other_amount, created_at')
+        .eq('store_id', storeId)
         .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String());
+        .lte('created_at', to.toIso8601String())
+        .withTimeout();
 
     final salesList = (sales as List).cast<Map<String, dynamic>>();
     final saleIds = salesList.map((s) => s['id'] as String).toList();
@@ -120,11 +129,15 @@ class ReportsRepository {
   /// Solo el total vendido en el período (para comparar contra el período
   /// anterior de igual duración, sin traer todo el detalle).
   Future<double> getTotalSales({required DateTime from, required DateTime to}) async {
+    final storeId = CurrentStore.id;
+    if (storeId == null) return 0;
     final sales = await _client
         .from('sales')
         .select('total')
+        .eq('store_id', storeId)
         .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String());
+        .lte('created_at', to.toIso8601String())
+        .withTimeout();
     return (sales as List).fold<double>(0, (sum, s) => sum + (s['total'] as num).toDouble());
   }
 
@@ -152,11 +165,15 @@ class ReportsRepository {
   }
 
   Future<List<String>> _saleIdsInRange(DateTime from, DateTime to) async {
+    final storeId = CurrentStore.id;
+    if (storeId == null) return [];
     final sales = await _client
         .from('sales')
         .select('id')
+        .eq('store_id', storeId)
         .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String());
+        .lte('created_at', to.toIso8601String())
+        .withTimeout();
     return (sales as List).map((s) => s['id'] as String).toList();
   }
 
@@ -200,11 +217,15 @@ class ReportsRepository {
   }
 
   Future<List<NamedTotal>> getByEmployee({required DateTime from, required DateTime to}) async {
+    final storeId = CurrentStore.id;
+    if (storeId == null) return [];
     final sales = await _client
         .from('sales')
         .select('user_id, total')
+        .eq('store_id', storeId)
         .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String());
+        .lte('created_at', to.toIso8601String())
+        .withTimeout();
     final salesList = (sales as List).cast<Map<String, dynamic>>();
 
     final totals = <String?, double>{};

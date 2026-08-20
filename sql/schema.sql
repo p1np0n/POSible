@@ -225,6 +225,10 @@ update sales set receipt_number = nextval('sales_receipt_seq') where receipt_num
 alter table sales alter column receipt_number set not null;
 alter table sales alter column receipt_number set default nextval('sales_receipt_seq');
 create unique index if not exists sales_receipt_number_idx on sales(receipt_number);
+-- Reportes filtra ventas por tienda y rango de fechas — sin este índice, en
+-- una tienda con historial grande esa consulta se vuelve tan lenta que
+-- puede no volver nunca (Reportes se quedaba cargando para siempre).
+create index if not exists sales_store_created_idx on sales(store_id, created_at);
 
 -- Pago dividido: permite cobrar una venta repartida entre efectivo, tarjeta
 -- y otro método (ej. mitad efectivo, mitad tarjeta). "payment_method" pasa
