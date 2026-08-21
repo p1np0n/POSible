@@ -695,6 +695,31 @@ class _PosScreenState extends State<PosScreen> {
       onRefresh: _loadData,
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: DropdownButtonFormField<String?>(
+              value: _selectedCategoryId,
+              decoration: const InputDecoration(
+                labelText: 'Categoría',
+                prefixIcon: Icon(Icons.category_outlined),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategoryId = value;
+                  _showTopSelling = false;
+                  _selectedPageId = null;
+                });
+                _refocusSearch();
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -777,9 +802,13 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  /// Pestañas de acceso rápido (Más vendidos, pestañas personalizadas y
-  /// categorías) en su propia barra al final de la pantalla, cerca de
-  /// donde se toca para vender, en vez de arriba junto al buscador.
+  /// Pestañas de acceso rápido (Más vendidos + pestañas personalizadas,
+  /// creadas a mano por el usuario con cualquier artículo que quiera para
+  /// venta rápida — no son categorías) en su propia barra al final de la
+  /// pantalla, cerca de donde se toca para vender, en vez de arriba junto
+  /// al buscador. El filtro por categoría real del catálogo es aparte
+  /// (dropdown "Categoría" arriba del mosaico), para no confundir una cosa
+  /// con la otra.
   Widget _buildQuickSaleBar() {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Material(
@@ -818,23 +847,6 @@ class _PosScreenState extends State<PosScreen> {
                         _selectedPageId = value ? page.id : null;
                         _showTopSelling = false;
                         if (value) _selectedCategoryId = null;
-                      });
-                      _refocusSearch();
-                    },
-                  ),
-                ],
-                // Un chip por categoría en la misma fila, en vez de un
-                // dropdown aparte — un solo lugar para filtrar, no dos.
-                for (final category in _categories) ...[
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(category.name),
-                    selected: _selectedCategoryId == category.id,
-                    onSelected: (value) {
-                      setState(() {
-                        _selectedCategoryId = value ? category.id : null;
-                        _showTopSelling = false;
-                        if (value) _selectedPageId = null;
                       });
                       _refocusSearch();
                     },

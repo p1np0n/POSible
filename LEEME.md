@@ -340,16 +340,23 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de un producto en el buscador de Ventas y presionas Enter (o lo escaneas
   con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
   tocarlo.
-- **Barra de arriba en Ventas**: título, menú (celular), pestañas y
-  buscador conviven en una sola línea, sobre el mismo fondo naranja (no
-  hay un AppBar aparte para esta pantalla). El buscador queda escondido
-  detrás de un ícono de lupa (toca para desplegarlo, y ahí sí ocupa el
-  espacio de las pestañas mientras se escribe) para que la pantalla se vea
-  limpia por defecto — salvo con el lector de código de barras USB
-  activado (Configuración), donde queda siempre visible porque lo
-  necesita. Los demás accesos (escanear con cámara, tickets en espera) son
-  íconos, y "Agregar producto" quedó en el menú de los tres puntos, para
-  no llenar la barra de botones que se usan menos seguido.
+- **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
+  sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
+  esta pantalla). El buscador queda escondido detrás de un ícono de lupa
+  (toca para desplegarlo) para que la pantalla se vea limpia por defecto —
+  salvo con el lector de código de barras USB activado (Configuración),
+  donde queda siempre visible porque lo necesita. Los demás accesos
+  (escanear con cámara, tickets en espera) son íconos, y "Agregar
+  producto" quedó en el menú de los tres puntos, para no llenar la barra
+  de botones que se usan menos seguido.
+- **Pestañas de venta rápida abajo, separadas del filtro de categoría**:
+  la barra de pestañas (Más vendidos + tus pestañas personalizadas) vive
+  al final de la pantalla, con ancho completo. Son **solo** para lo que
+  agregues a mano — nunca se mezclan con las categorías reales del
+  catálogo, para no confundir una cosa con la otra. Si quieres ver todos
+  los productos de una categoría (sin haberlos agregado antes a una
+  pestaña), usa el desplegable "Categoría" que está arriba del mosaico de
+  productos — es un filtro aparte, no una pestaña.
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para
