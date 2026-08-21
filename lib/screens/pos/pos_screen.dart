@@ -134,8 +134,26 @@ class _PosScreenState extends State<PosScreen> {
     for (final item in allItems) {
       grouped.putIfAbsent(item.pageId, () => []).add(item);
     }
+    var products = results[0] as List<Product>;
+    // Una pestaña puede tener agregado un producto que, por lo que sea, no
+    // quedó en este catálogo recién cargado (ej. se agregó desde otra
+    // pantalla justo antes) — sin esto, esa pestaña lo mostraría como
+    // "(eliminado)" aunque sí exista, y su tarjeta no aparecería en el
+    // mosaico.
+    final knownIds = products.map((p) => p.id).toSet();
+    final missingIds = allItems
+        .map((i) => i.productId)
+        .whereType<String>()
+        .where((id) => !knownIds.contains(id))
+        .toSet()
+        .toList();
+    if (missingIds.isNotEmpty) {
+      final missing = await _productRepository.getByIds(missingIds);
+      if (!mounted) return;
+      products = [...products, ...missing];
+    }
     setState(() {
-      _products = results[0] as List<Product>;
+      _products = products;
       _categories = results[1] as List<Category>;
       _modifiers = results[2] as List<Modifier>;
       _topSellingIds = results[3] as List<String>;
