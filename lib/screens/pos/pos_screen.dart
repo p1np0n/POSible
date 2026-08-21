@@ -444,7 +444,17 @@ class _PosScreenState extends State<PosScreen> {
       return;
     }
     final (customName, customPrice) = customized;
-    await _pageRepository.addProduct(pageId, selected.id, customName: customName, customPrice: customPrice);
+    try {
+      await _pageRepository.addProduct(pageId, selected.id, customName: customName, customPrice: customPrice);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo agregar: $e')),
+        );
+      }
+      _refocusSearch();
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${customName ?? selected.name} agregado a la pestaña')),

@@ -95,11 +95,23 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
     if (mounted) Navigator.of(context).pop(true);
   }
 
+  void _showError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('No se pudo guardar: $error')),
+    );
+  }
+
   Future<void> _addProduct(Product product) async {
     final customized = await showPageItemCustomizeDialog(context, product: product);
     if (customized == null || !mounted) return;
     final (customName, customPrice) = customized;
-    await _repository.addProduct(widget.page.id, product.id, customName: customName, customPrice: customPrice);
+    try {
+      await _repository.addProduct(widget.page.id, product.id, customName: customName, customPrice: customPrice);
+    } catch (e) {
+      _showError(e);
+      return;
+    }
     _changed = true;
     _productSearchController.clear();
     final items = await _repository.getAllItems();
@@ -116,7 +128,12 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
     );
     if (customized == null || !mounted) return;
     final (customName, customPrice) = customized;
-    await _repository.updateItem(item.id, customName: customName, customPrice: customPrice);
+    try {
+      await _repository.updateItem(item.id, customName: customName, customPrice: customPrice);
+    } catch (e) {
+      _showError(e);
+      return;
+    }
     _changed = true;
     final items = await _repository.getAllItems();
     if (!mounted) return;
@@ -127,7 +144,12 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
     final categoryId = _addingCategoryId;
     if (categoryId == null) return;
     if (_items.any((i) => i.categoryId == categoryId)) return;
-    await _repository.addCategory(widget.page.id, categoryId);
+    try {
+      await _repository.addCategory(widget.page.id, categoryId);
+    } catch (e) {
+      _showError(e);
+      return;
+    }
     _changed = true;
     final items = await _repository.getAllItems();
     if (!mounted) return;
