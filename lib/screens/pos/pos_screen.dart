@@ -320,26 +320,27 @@ class _PosScreenState extends State<PosScreen> {
     for (final p in _products) {
       if (p.categoryId != null) byCategory.putIfAbsent(p.categoryId!, () => []).add(p);
     }
+    // Cada producto agregado uno por uno es su propio botón — se muestra
+    // siempre, aunque el mismo producto esté agregado más de una vez (ej.
+    // "Huevos 5x1000" y "Huevos 4x1000" del mismo producto, con nombre y
+    // precio propios cada uno; o simplemente el mismo botón repetido sin
+    // querer, para no esconder en silencio algo que sí se guardó). Solo se
+    // evita que una categoría completa vuelva a mostrar un producto que ya
+    // tiene su propio botón directo, o que ya salió por otra categoría.
+    final directProductIds = items.where((i) => i.productId != null).map((i) => i.productId!).toSet();
     final result = <Product>[];
-    // Un producto agregado sin nombre/precio propio no debería repetirse
-    // (ej. agregado a mano y también incluido por una categoría), pero un
-    // botón de venta rápida CON nombre/precio propio sí puede repetir el
-    // mismo producto (ej. "Huevos 5x1000" y "Huevos 4x1000" del mismo
-    // producto), así que ese caso no se filtra.
-    final seenPlain = <String>{};
+    final seenFromCategory = <String>{};
     for (final item in items) {
       if (item.productId != null) {
         final p = byId[item.productId];
         if (p == null) continue;
         final hasCustom = item.customName != null || item.customPrice != null;
-        if (hasCustom) {
-          result.add(p.copyWith(name: item.customName, price: item.customPrice));
-        } else if (seenPlain.add(p.id)) {
-          result.add(p);
-        }
+        result.add(hasCustom ? p.copyWith(name: item.customName, price: item.customPrice) : p);
       } else if (item.categoryId != null) {
         for (final p in byCategory[item.categoryId] ?? const []) {
-          if (seenPlain.add(p.id)) result.add(p);
+          if (!directProductIds.contains(p.id) && seenFromCategory.add(p.id)) {
+            result.add(p);
+          }
         }
       }
     }
