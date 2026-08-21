@@ -65,6 +65,16 @@ class ProductRepository {
     return Product.fromMap(data);
   }
 
+  /// Trae productos puntuales por id, sin filtrar por activo — para
+  /// resolver productos que una pestaña personalizada referencia pero que
+  /// todavía no están en el catálogo cargado en memoria (ej. recién
+  /// agregados desde otra pantalla en la misma sesión).
+  Future<List<Product>> getByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final data = await _client.from('products').select().inFilter('id', ids);
+    return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   Future<Product> create(Product product) async {
     final data = await _client
         .from('products')
