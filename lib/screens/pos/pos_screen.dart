@@ -296,6 +296,19 @@ class _PosScreenState extends State<PosScreen> {
     return true;
   }
 
+  /// Maneja lo que llega al buscador (visible o el campo invisible del
+  /// lector USB) al presionar Enter — el lector manda el código y un Enter
+  /// automático, así que esto es lo que hace que escanear agregue el
+  /// producto solo, sin tocar la pantalla.
+  Future<void> _handleScanSubmit(String value) async {
+    final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
+    if (handled && mounted) {
+      _searchController.clear();
+      setState(() => _search = '');
+    }
+    _refocusSearch();
+  }
+
   bool _matchesSearch(Product product) {
     final search = _search.toLowerCase();
     return search.isEmpty ||
@@ -607,11 +620,14 @@ class _PosScreenState extends State<PosScreen> {
     // Barra de arriba de color (sigue el color primario del tema, como el
     // AppBar del menú, para que se vea como una sola barra continua): el
     // buscador queda escondido detrás de un ícono de lupa hasta que se
-    // toca, para que por defecto se vea limpia — salvo con el lector de
-    // código de barras USB activado, donde el campo tiene que quedar
-    // siempre visible y con foco (ver _refocusSearch).
+    // toca, para que por defecto se vea limpia. El lector de código de
+    // barras USB ya NO fuerza que este campo quede desplegado (eso tapaba
+    // el botón de menú) — en su lugar, mientras está colapsado se mantiene
+    // un campo de tamaño cero con el foco (ver más abajo), para que el
+    // lector siga escribiendo ahí y agregando al carrito solo, sin ocupar
+    // el lugar del buscador visible ni esconder el menú.
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
-    final searchExpanded = _searchExpanded || prefs.usbScannerModeEnabled;
+    final searchExpanded = _searchExpanded;
     // Todo (menú, título, pestañas, buscador e íconos) en una sola línea:
     // cuando el buscador está colapsado (el caso normal) deja ver el resto;
     // al desplegarlo, ocupa el espacio de las pestañas mientras se escribe.
@@ -625,17 +641,16 @@ class _PosScreenState extends State<PosScreen> {
           child: Row(
             children: [
               if (searchExpanded) ...[
-                if (!prefs.usbScannerModeEnabled)
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    color: onPrimary,
-                    tooltip: 'Cerrar buscador',
-                    onPressed: () => setState(() {
-                      _searchExpanded = false;
-                      _searchController.clear();
-                      _search = '';
-                    }),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  color: onPrimary,
+                  tooltip: 'Cerrar buscador',
+                  onPressed: () => setState(() {
+                    _searchExpanded = false;
+                    _searchController.clear();
+                    _search = '';
+                  }),
+                ),
                 Expanded(
                   child: TextField(
                     controller: _searchController,
@@ -651,14 +666,7 @@ class _PosScreenState extends State<PosScreen> {
                       border: InputBorder.none,
                     ),
                     onChanged: _onSearchChanged,
-                    onSubmitted: (value) async {
-                      final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
-                      if (handled && mounted) {
-                        _searchController.clear();
-                        setState(() => _search = '');
-                      }
-                      _refocusSearch();
-                    },
+                    onSubmitted: _handleScanSubmit,
                   ),
                 ),
               ] else ...[
@@ -670,6 +678,22 @@ class _PosScreenState extends State<PosScreen> {
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
                 const Expanded(child: SizedBox()),
+                // Campo invisible que solo existe para mantener el foco del
+                // lector USB mientras el buscador está colapsado — así el
+                // escaneo sigue agregando productos solo, sin necesitar que
+                // el usuario abra el buscador ni tocar la pantalla.
+                if (prefs.usbScannerModeEnabled)
+                  SizedBox(
+                    width: 0,
+                    height: 0,
+                    child: TextField(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      style: const TextStyle(fontSize: 0),
+                      decoration: const InputDecoration(border: InputBorder.none),
+                      onSubmitted: _handleScanSubmit,
+                    ),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.search),
                   color: onPrimary,
