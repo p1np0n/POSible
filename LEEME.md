@@ -343,9 +343,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa
-  (toca para desplegarlo) para que la pantalla se vea limpia por defecto —
-  salvo con el lector de código de barras USB activado (Configuración),
-  donde queda siempre visible porque lo necesita. Los demás accesos
+  (toca para desplegarlo) para que la pantalla se vea limpia por defecto,
+  y el ícono de menú (celular) siempre queda visible — incluso con el
+  lector de código de barras USB activado (Configuración): el buscador ya
+  no se fuerza a quedar desplegado por eso, así que nunca tapa el acceso a
+  las demás secciones. Los demás accesos
   (escanear con cámara, tickets en espera) son íconos, y "Agregar
   producto" quedó en el menú de los tres puntos, para no llenar la barra
   de botones que se usan menos seguido.
@@ -370,12 +372,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   desplazarte.
 - **Lector de código de barras USB**: si usas uno (funciona como un
   teclado que escribe el código y presiona Enter), activa **Configuración
-  → "Uso un lector de código de barras USB en Ventas"**. Con esto, el
-  buscador de Ventas recupera el foco solo después de cada acción (agregar
+  → "Uso un lector de código de barras USB en Ventas"**. Con esto, hay un
+  campo invisible que recupera el foco solo después de cada acción (agregar
   un producto, cerrar un cuadro de diálogo, cambiar de categoría, etc.), así
-  el lector siempre tiene dónde escribir sin que el cajero tenga que tocar
-  la pantalla entre un escaneo y otro. Queda apagado por defecto porque en
-  una pantalla táctil sin ese lector esto abriría el teclado en pantalla de
+  el lector siempre tiene dónde escribir y agrega el producto al carrito
+  solo, sin que el cajero tenga que tocar la pantalla ni abrir el buscador
+  entre un escaneo y otro — y sin tapar el menú de navegación, que se
+  mantiene visible todo el tiempo. Queda apagado por defecto porque en una
+  pantalla táctil sin ese lector esto abriría el teclado en pantalla de
   más — solo actívalo si realmente usas un lector físico.
 - **Recibos**: historial de ventas agrupado por día, con número de recibo,
   buscador y detalle de cada venta.
