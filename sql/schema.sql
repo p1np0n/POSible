@@ -771,3 +771,36 @@ begin
     end if;
   end if;
 end $$;
+
+-- ============================================================
+-- RETROACTIVO: las tiendas que ya existían antes de que handle_new_user()
+-- copiara el catálogo al crear una tienda (ver más arriba) se quedaron sin
+-- esa copia. Acá se les da, una sola vez, el mismo trato: a cada tienda
+-- (que no sea la principal) que hoy no tiene NINGÚN artículo propio, se le
+-- copian los artículos activos de la tienda principal. Es seguro volver a
+-- correr — apenas una tienda recibe su copia deja de estar "vacía", así
+-- que no se le vuelve a copiar nada en la próxima corrida.
+-- ============================================================
+do $$
+declare
+  v_main_store_id uuid;
+  v_store record;
+begin
+  select store_id into v_main_store_id from public.profiles where is_super_admin = true limit 1;
+  if v_main_store_id is not null then
+    for v_store in
+      select s.id from public.stores s
+      where s.id <> v_main_store_id
+        and not exists (select 1 from public.products p where p.store_id = s.id)
+    loop
+      insert into public.products (
+        name, category_id, price, cost, sku, barcode, image_url, track_stock,
+        active, store_id, low_stock_threshold, pricing_type, plu, target_margin_percent
+      )
+      select p.name, p.category_id, p.price, p.cost, p.sku, p.barcode, p.image_url, p.track_stock,
+             p.active, v_store.id, p.low_stock_threshold, p.pricing_type, p.plu, p.target_margin_percent
+      from public.products p
+      where p.store_id = v_main_store_id and p.active = true;
+    end loop;
+  end if;
+end $$;

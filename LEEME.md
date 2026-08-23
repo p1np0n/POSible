@@ -101,9 +101,10 @@ categoría, etc., pero con inventario en 0 — no copia tu stock, solo el
 catálogo), para que la Lista de artículos no empiece vacía; de ahí en
 adelante cada tienda administra su copia por separado (editar/eliminar un
 artículo en una no afecta a la otra). Esto pasa una sola vez, al crear la
-tienda — **requiere volver a correr `sql/schema.sql`** para que aplique a
-las tiendas que se creen de ahora en adelante (no afecta a las que ya
-existen).
+tienda — **requiere volver a correr `sql/schema.sql`**. También es
+**retroactivo**: al correrlo, cualquier tienda que ya existía y hoy no
+tiene ningún artículo propio recibe esa misma copia (si una tienda ya
+tiene aunque sea un artículo, no se le toca nada).
 
 **Cómo le activas funciones a una tienda**: entra a **Tiendas** en el menú
 (solo la ves tú, como administrador principal) y prende los interruptores
