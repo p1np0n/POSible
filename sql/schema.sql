@@ -479,12 +479,33 @@ declare
   v_store_code text := new.raw_user_meta_data ->> 'store_code';
   v_store_id uuid;
   v_approved boolean := false;
+  v_source_store_id uuid;
 begin
   if v_mode = 'new_store' then
     insert into public.stores (name, owner_id, owner_email, store_code, feature_reports, feature_customers, feature_employees)
     values (coalesce(nullif(trim(v_store_name), ''), 'Mi tienda'), new.id, new.email, public.generate_store_code(), false, false, false)
     returning id into v_store_id;
     v_approved := true;
+
+    -- Copia los artículos activos de la tienda del administrador principal
+    -- hacia la tienda nueva, para que no empiece con la Lista de artículos
+    -- vacía — de ahí en adelante cada tienda mantiene su propia copia
+    -- independiente (no comparten inventario). "category_id" se copia tal
+    -- cual porque las categorías SÍ son compartidas entre todas las
+    -- tiendas (ver política RLS más abajo), no hace falta duplicarlas. El
+    -- inventario (stock_quantity) arranca en 0, ya que copiar el stock de
+    -- otra tienda no representa mercadería real que la tienda nueva tenga.
+    select store_id into v_source_store_id from public.profiles where is_super_admin = true limit 1;
+    if v_source_store_id is not null then
+      insert into public.products (
+        name, category_id, price, cost, sku, barcode, image_url, track_stock,
+        active, store_id, low_stock_threshold, pricing_type, plu, target_margin_percent
+      )
+      select p.name, p.category_id, p.price, p.cost, p.sku, p.barcode, p.image_url, p.track_stock,
+             p.active, v_store_id, p.low_stock_threshold, p.pricing_type, p.plu, p.target_margin_percent
+      from public.products p
+      where p.store_id = v_source_store_id and p.active = true;
+    end if;
   elsif v_mode = 'join_store' and v_store_code is not null then
     select id into v_store_id from public.stores where store_code = upper(trim(v_store_code)) and active = true;
     v_approved := false;
