@@ -94,7 +94,16 @@ Categorías, Modificadores, Descuentos, Inventario y Configuración — pero
 **no** Reportes, Clientes ni Empleados, hasta que tú se los actives. Las
 categorías (a diferencia de modificadores y descuentos) se comparten entre
 todas tus tiendas — igual que el catálogo global — para que una tienda
-nueva no empiece sin ninguna para organizar sus artículos.
+nueva no empiece sin ninguna para organizar sus artículos. Además, la
+tienda nueva se crea con **una copia de todos los artículos activos de tu
+tienda principal** (mismo nombre, precio, costo, código de barras, SKU,
+categoría, etc., pero con inventario en 0 — no copia tu stock, solo el
+catálogo), para que la Lista de artículos no empiece vacía; de ahí en
+adelante cada tienda administra su copia por separado (editar/eliminar un
+artículo en una no afecta a la otra). Esto pasa una sola vez, al crear la
+tienda — **requiere volver a correr `sql/schema.sql`** para que aplique a
+las tiendas que se creen de ahora en adelante (no afecta a las que ya
+existen).
 
 **Cómo le activas funciones a una tienda**: entra a **Tiendas** en el menú
 (solo la ves tú, como administrador principal) y prende los interruptores
