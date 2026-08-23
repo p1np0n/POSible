@@ -331,7 +331,13 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   cargaste — **no se suma aparte**, porque el precio de tus artículos ya lo
   incluye — y solo sirve para mostrar el desglose en la venta y el ticket),
   pago en efectivo/tarjeta/otro o **dividido entre varios**
-  (ej. mitad efectivo, mitad tarjeta), "tickets abiertos" (dejar una venta en
+  (ej. mitad efectivo, mitad tarjeta). Con "Efectivo" elegido (y sin
+  dividir el pago), aparece "Recibe en efectivo" con montos rápidos
+  (+$2.000, +$5.000, +$10.000, +$20.000 — se van sumando si tocas más de
+  uno) y calcula el **vuelto** a entregar (o cuánto falta, en rojo, si el
+  efectivo ingresado es menor al total). Es solo una ayuda para el
+  cajero: no cambia lo que se registra en la venta, que siempre cobra el
+  total exacto. También hay "tickets abiertos" (dejar una venta en
   espera con el botón de recibo junto al buscador, para atender a otro
   cliente y retomarla después desde el mismo ícono, incluyendo el cliente
   y descuento que tenías elegidos), "anular venta" (botón rojo arriba del
@@ -347,10 +353,8 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   y el ícono de menú (celular) siempre queda visible — incluso con el
   lector de código de barras USB activado (Configuración): el buscador ya
   no se fuerza a quedar desplegado por eso, así que nunca tapa el acceso a
-  las demás secciones. Los demás accesos
-  (escanear con cámara, tickets en espera) son íconos, y "Agregar
-  producto" quedó en el menú de los tres puntos, para no llenar la barra
-  de botones que se usan menos seguido.
+  las demás secciones. Los demás accesos (escanear con cámara, tickets en
+  espera, **agregar producto**) son íconos sueltos, todos a la vista.
 - **Pestañas de venta rápida abajo, separadas del filtro de categoría**:
   la barra de pestañas (Más vendidos + tus pestañas personalizadas) vive
   al final de la pantalla, con ancho completo. Son **solo** para lo que
@@ -359,6 +363,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   los productos de una categoría (sin haberlos agregado antes a una
   pestaña), usa el desplegable "Categoría" que está arriba del mosaico de
   productos — es un filtro aparte, no una pestaña.
+- **Búsqueda sin distinguir tildes**: en el buscador de Ventas, en el
+  buscador de producto dentro del administrador de una pestaña (ícono de
+  engranaje) y en "Inventario bajo" de Lista de artículos, buscar "cafe"
+  encuentra "Café" y viceversa. (La búsqueda paginada principal de Lista
+  de artículos y el buscador que aparece al tocar "+" para agregar un
+  producto nuevo a una pestaña desde Ventas consultan directo a la base
+  de datos y por ahora siguen distinguiendo tildes — avisa si también los
+  necesitas así.)
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para

@@ -58,6 +58,11 @@ class _CartPanelState extends State<CartPanel> {
   final _cashAmountController = TextEditingController();
   final _cardAmountController = TextEditingController();
   final _otherAmountController = TextEditingController();
+  // Con cuánto efectivo paga el cliente, para calcular el vuelto — solo se
+  // usa como ayuda para el cajero, no cambia lo que se registra en la
+  // venta (siempre se cobra el total exacto).
+  final _cashReceivedController = TextEditingController();
+  static const List<double> _cashPresets = [2000, 5000, 10000, 20000];
 
   @override
   void initState() {
@@ -70,6 +75,7 @@ class _CartPanelState extends State<CartPanel> {
     _cashAmountController.dispose();
     _cardAmountController.dispose();
     _otherAmountController.dispose();
+    _cashReceivedController.dispose();
     super.dispose();
   }
 
@@ -99,6 +105,21 @@ class _CartPanelState extends State<CartPanel> {
   double get _splitOther => double.tryParse(_otherAmountController.text) ?? 0;
   double get _splitSum => _splitCash + _splitCard + _splitOther;
   bool get _splitValid => (_splitSum - _total).abs() < 0.01;
+
+  double? get _cashReceived => double.tryParse(_cashAmountReceivedText);
+  String get _cashAmountReceivedText => _cashReceivedController.text.trim();
+  double get _change => (_cashReceived ?? 0) - _total;
+
+  void _addCashPreset(double amount) {
+    final current = _cashReceived ?? 0;
+    setState(() => _cashReceivedController.text = (current + amount).round().toString());
+  }
+
+  void _clearCashReceived() {
+    if (_cashReceivedController.text.isNotEmpty) {
+      setState(() => _cashReceivedController.clear());
+    }
+  }
 
   void _toggleSplitPayment(bool value) {
     setState(() {
@@ -190,6 +211,7 @@ class _CartPanelState extends State<CartPanel> {
         setState(() {
           _splitPayment = false;
           _paymentMethod = 'cash';
+          _cashReceivedController.clear();
         });
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venta registrada')));
         widget.onSaleCompleted?.call();
@@ -284,7 +306,10 @@ class _CartPanelState extends State<CartPanel> {
       ),
     );
     if (confirmed != true) return;
-    if (mounted) context.read<CartProvider>().clear();
+    if (mounted) {
+      context.read<CartProvider>().clear();
+      _clearCashReceived();
+    }
   }
 
   /// Resumen chico (Subtotal / IVA incl. / Total) que va junto al título
@@ -445,8 +470,73 @@ class _CartPanelState extends State<CartPanel> {
               ButtonSegment(value: 'other', label: Text('Otro'), icon: Icon(Icons.more_horiz)),
             ],
             selected: {_paymentMethod},
-            onSelectionChanged: (value) => setState(() => _paymentMethod = value.first),
+            onSelectionChanged: (value) => setState(() {
+              _paymentMethod = value.first;
+              if (_paymentMethod != 'cash') _cashReceivedController.clear();
+            }),
           ),
+        if (!_splitPayment && _paymentMethod == 'cash') ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _cashReceivedController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Recibe en efectivo',
+                    prefixText: '\$',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              if (_cashAmountReceivedText.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  tooltip: 'Borrar',
+                  onPressed: _clearCashReceived,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _cashPresets
+                .map((amount) => ActionChip(
+                      label: Text('+${formatCurrencyCl(amount)}'),
+                      onPressed: () => _addCashPreset(amount),
+                    ))
+                .toList(),
+          ),
+          if (_cashAmountReceivedText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _change >= 0 ? 'Vuelto' : 'Falta',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: _change >= 0 ? Colors.green.shade700 : Colors.red,
+                  ),
+                ),
+                Text(
+                  formatCurrencyCl(_change.abs()),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: _change >= 0 ? Colors.green.shade700 : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

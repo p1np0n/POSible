@@ -8,6 +8,7 @@ import '../../services/category_repository.dart';
 import '../../services/csv_export_service.dart';
 import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
+import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_indicator.dart';
@@ -164,13 +165,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
   List<Product> get _visibleProducts {
     if (_stockFilter != _StockFilter.lowStock) return _products;
 
-    final search = _search.toLowerCase();
+    final search = normalizeForSearch(_search);
     final list = _products.where((p) {
       final matchesCategory = _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
       final matchesSearch = search.isEmpty ||
-          p.name.toLowerCase().contains(search) ||
-          (p.barcode?.toLowerCase().contains(search) ?? false) ||
-          (p.sku?.toLowerCase().contains(search) ?? false);
+          normalizeForSearch(p.name).contains(search) ||
+          (p.barcode != null && normalizeForSearch(p.barcode!).contains(search)) ||
+          (p.sku != null && normalizeForSearch(p.sku!).contains(search));
       return matchesCategory && matchesSearch && p.isLowStock;
     }).toList();
 

@@ -5,6 +5,7 @@ import '../../models/pos_page.dart';
 import '../../models/pos_page_item.dart';
 import '../../models/product.dart';
 import '../../services/pos_page_repository.dart';
+import '../../utils/search_normalize.dart';
 import 'page_item_customize_dialog.dart';
 
 /// Hoja para administrar una pestaña personalizada de Ventas: cambiarle el
@@ -167,12 +168,13 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final search = _productSearchController.text.trim().toLowerCase();
+    final search = normalizeForSearch(_productSearchController.text.trim());
     final searchResults = search.isEmpty
         ? const <Product>[]
         : widget.allProducts
             .where((p) =>
-                p.name.toLowerCase().contains(search) || (p.barcode?.toLowerCase().contains(search) ?? false))
+                normalizeForSearch(p.name).contains(search) ||
+                (p.barcode != null && normalizeForSearch(p.barcode!).contains(search)))
             .take(20)
             .toList();
 
