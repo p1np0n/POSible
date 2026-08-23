@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/discount.dart';
 import '../../services/discount_repository.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../utils/search_normalize.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
@@ -49,7 +50,7 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
   }
 
   List<Discount> get _filtered => _discounts
-      .where((d) => _search.isEmpty || d.name.toLowerCase().contains(_search.toLowerCase()))
+      .where((d) => _search.isEmpty || normalizeForSearch(d.name).contains(normalizeForSearch(_search)))
       .toList();
 
   Future<void> _add() async {

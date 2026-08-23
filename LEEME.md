@@ -363,14 +363,15 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   los productos de una categoría (sin haberlos agregado antes a una
   pestaña), usa el desplegable "Categoría" que está arriba del mosaico de
   productos — es un filtro aparte, no una pestaña.
-- **Búsqueda sin distinguir tildes**: en el buscador de Ventas, en el
-  buscador de producto dentro del administrador de una pestaña (ícono de
-  engranaje) y en "Inventario bajo" de Lista de artículos, buscar "cafe"
-  encuentra "Café" y viceversa. (La búsqueda paginada principal de Lista
-  de artículos y el buscador que aparece al tocar "+" para agregar un
-  producto nuevo a una pestaña desde Ventas consultan directo a la base
-  de datos y por ahora siguen distinguiendo tildes — avisa si también los
-  necesitas así.)
+- **Búsqueda sin distinguir tildes en toda la app**: buscar "cafe"
+  encuentra "Café" y viceversa, en cualquier buscador (Ventas, Lista de
+  artículos, pestañas personalizadas, Catálogo global, Clientes,
+  Categorías/Descuentos/Modificadores, movimientos de inventario). Las
+  búsquedas que consultan la base de datos directo (Lista de artículos,
+  Catálogo global, Clientes) usan una columna calculada con la extensión
+  de Postgres `unaccent` — **requiere volver a correr `sql/schema.sql`**
+  (agrega `create extension unaccent` y las funciones
+  `products_search_text`/`product_catalog_search_text`/`customers_search_text`).
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/modifier.dart';
 import '../../services/modifier_repository.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../utils/search_normalize.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
@@ -49,7 +50,7 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
   }
 
   List<Modifier> get _filtered => _modifiers
-      .where((m) => _search.isEmpty || m.name.toLowerCase().contains(_search.toLowerCase()))
+      .where((m) => _search.isEmpty || normalizeForSearch(m.name).contains(normalizeForSearch(_search)))
       .toList();
 
   Future<void> _add() async {

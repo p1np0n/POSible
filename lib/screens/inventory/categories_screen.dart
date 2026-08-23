@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/category.dart';
 import '../../services/category_repository.dart';
+import '../../utils/search_normalize.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -32,7 +33,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   List<Category> get _filtered => _categories
-      .where((c) => _search.isEmpty || c.name.toLowerCase().contains(_search.toLowerCase()))
+      .where((c) => _search.isEmpty || normalizeForSearch(c.name).contains(normalizeForSearch(_search)))
       .toList();
 
   Future<void> _add() async {

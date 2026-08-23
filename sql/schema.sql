@@ -4,6 +4,21 @@
 
 create extension if not exists pgcrypto;
 
+-- Búsqueda sin distinguir tildes/mayúsculas (ej. "cafe" encuentra "Café"):
+-- "unaccent" le saca los acentos a un texto, pero como depende de un
+-- diccionario externo Postgres la marca STABLE, no se puede usar directo
+-- en una columna calculada ni en un índice. Este envoltorio, fijando el
+-- diccionario "unaccent" a mano, es el patrón estándar para poder
+-- marcarla IMMUTABLE sin problema (el diccionario de acentos no cambia).
+create extension if not exists unaccent;
+create or replace function public.unaccent_immutable(text)
+returns text
+language sql
+immutable
+as $$
+  select unaccent('unaccent', $1)
+$$;
+
 -- ============================================================
 -- Multi-tienda: varias tiendas pueden compartir esta misma base de datos,
 -- cada una viendo solo sus propios datos. "stores" guarda cada tienda y
@@ -68,6 +83,20 @@ alter table products add column if not exists target_margin_percent numeric(5,2)
 drop index if exists products_plu_store_idx;
 create unique index products_plu_store_idx on products(store_id, plu) where plu is not null;
 
+-- Columna calculada (PostgREST la expone como si fuera una columna más de
+-- "products") para poder filtrar por nombre/código sin distinguir tildes:
+-- la app manda el término de búsqueda ya pasado por el mismo
+-- minúsculas+sin-tildes antes de comparar.
+create or replace function public.products_search_text(p products)
+returns text
+language sql
+immutable
+as $$
+  select lower(public.unaccent_immutable(
+    coalesce(p.name, '') || ' ' || coalesce(p.barcode, '') || ' ' || coalesce(p.sku, '')
+  ))
+$$;
+
 -- Catálogo global: UN SOLO catálogo compartido entre TODAS tus tiendas
 -- (no un proyecto aparte). Se alimenta solo con lo que cada tienda agrega a
 -- su propio inventario (con o sin código de barras), para sugerir nombre,
@@ -99,6 +128,15 @@ alter table product_catalog drop constraint if exists product_catalog_source_che
 alter table product_catalog add constraint product_catalog_source_check
   check (source in ('manual', 'openfoodfacts', 'shared', 'store', 'store_bootstrap'));
 
+-- Igual que "products_search_text", pero para el catálogo global.
+create or replace function public.product_catalog_search_text(pc product_catalog)
+returns text
+language sql
+immutable
+as $$
+  select lower(public.unaccent_immutable(coalesce(pc.name, '') || ' ' || coalesce(pc.barcode, '')))
+$$;
+
 -- Bucket de Storage para las fotos de productos (público para poder mostrarlas
 -- en la app sin complicaciones; solo usuarios aprobados pueden subir).
 insert into storage.buckets (id, name, public)
@@ -115,6 +153,15 @@ create table if not exists customers (
   created_at timestamptz not null default now()
 );
 alter table customers add column if not exists store_id uuid references stores(id);
+
+-- Igual que "products_search_text", pero para clientes (busca por nombre).
+create or replace function public.customers_search_text(c customers)
+returns text
+language sql
+immutable
+as $$
+  select lower(public.unaccent_immutable(coalesce(c.name, '')))
+$$;
 
 create table if not exists cash_sessions (
   id uuid primary key default gen_random_uuid(),
