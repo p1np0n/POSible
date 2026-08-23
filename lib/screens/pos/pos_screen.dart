@@ -21,6 +21,7 @@ import '../../services/open_ticket_repository.dart';
 import '../../services/pos_page_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
+import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/product_avatar.dart';
 import '../../widgets/status_badge.dart';
@@ -310,11 +311,11 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   bool _matchesSearch(Product product) {
-    final search = _search.toLowerCase();
+    final search = normalizeForSearch(_search);
     return search.isEmpty ||
-        product.name.toLowerCase().contains(search) ||
-        (product.barcode?.toLowerCase().contains(search) ?? false) ||
-        (product.sku?.toLowerCase().contains(search) ?? false);
+        normalizeForSearch(product.name).contains(search) ||
+        (product.barcode != null && normalizeForSearch(product.barcode!).contains(search)) ||
+        (product.sku != null && normalizeForSearch(product.sku!).contains(search));
   }
 
   void _onSearchChanged(String value) {
@@ -719,24 +720,11 @@ class _PosScreenState extends State<PosScreen> {
                   onPressed: cashSession.isOpen ? _openTicketsList : null,
                 ),
               ),
-              PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: onPrimary),
-                tooltip: 'Más',
-                onSelected: (value) {
-                  if (value == 'add_product') _addProduct();
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
-                    value: 'add_product',
-                    child: Row(
-                      children: [
-                        Icon(Icons.add_box_outlined),
-                        SizedBox(width: 12),
-                        Text('Agregar producto'),
-                      ],
-                    ),
-                  ),
-                ],
+              IconButton(
+                icon: const Icon(Icons.add_box_outlined),
+                color: onPrimary,
+                tooltip: 'Agregar producto',
+                onPressed: _addProduct,
               ),
             ],
           ),
