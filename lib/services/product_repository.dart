@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/current_store.dart';
 import '../models/product.dart';
 import '../utils/query_timeout.dart';
+import '../utils/search_normalize.dart';
 
 class ProductRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -36,8 +37,12 @@ class ProductRepository {
       query = query.eq('track_stock', true).lte('stock_quantity', 0);
     }
     if (search != null && search.isNotEmpty) {
-      final term = search.replaceAll(',', ' ');
-      query = query.or('name.ilike.%$term%,barcode.ilike.%$term%,sku.ilike.%$term%');
+      // "products_search_text" es una columna calculada (ver sql/schema.sql)
+      // que junta nombre+código+sku sin tildes/mayúsculas, para poder
+      // buscar "cafe" y encontrar "Café" — el término se normaliza igual
+      // acá antes de compararlo.
+      final term = normalizeForSearch(search.replaceAll(',', ' '));
+      query = query.ilike('products_search_text', '%$term%');
     }
     final data =
         await query.order(orderBy, ascending: ascending).range(offset, offset + pageSize - 1).withTimeout();

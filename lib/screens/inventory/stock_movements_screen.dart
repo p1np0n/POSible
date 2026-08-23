@@ -9,6 +9,7 @@ import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
 import '../../utils/date_format_es.dart';
+import '../../utils/search_normalize.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'invoice_scan_screen.dart';
 import 'product_form_screen.dart';
@@ -64,12 +65,12 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
 
   List<Product> get _filteredProducts {
     if (_search.trim().isEmpty) return const [];
-    final term = _search.toLowerCase();
+    final term = normalizeForSearch(_search);
     return _products
         .where((p) =>
-            p.name.toLowerCase().contains(term) ||
-            (p.barcode?.toLowerCase().contains(term) ?? false) ||
-            (p.sku?.toLowerCase().contains(term) ?? false))
+            normalizeForSearch(p.name).contains(term) ||
+            (p.barcode != null && normalizeForSearch(p.barcode!).contains(term)) ||
+            (p.sku != null && normalizeForSearch(p.sku!).contains(term)))
         .take(20)
         .toList();
   }

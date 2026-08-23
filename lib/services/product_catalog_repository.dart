@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/catalog_entry.dart';
+import '../utils/search_normalize.dart';
 
 /// Catálogo global de productos: es UNO SOLO, compartido entre todas tus
 /// tiendas (vive en la misma base de datos, no en un proyecto aparte). Se
@@ -21,10 +22,11 @@ class ProductCatalogRepository {
   /// cargados por otras tiendas al crear uno nuevo.
   Future<List<CatalogEntry>> search(String query) async {
     if (query.trim().isEmpty) return [];
+    final term = normalizeForSearch(query);
     final data = await _client
         .from('product_catalog')
         .select()
-        .or('name.ilike.%$query%,barcode.ilike.%$query%')
+        .ilike('product_catalog_search_text', '%$term%')
         .order('name')
         .limit(20);
     return (data as List).map((e) => CatalogEntry.fromMap(e as Map<String, dynamic>)).toList();
@@ -35,7 +37,7 @@ class ProductCatalogRepository {
   Future<List<CatalogEntry>> getAll({String? search}) async {
     var query = _client.from('product_catalog').select();
     if (search != null && search.trim().isNotEmpty) {
-      query = query.or('name.ilike.%$search%,barcode.ilike.%$search%');
+      query = query.ilike('product_catalog_search_text', '%${normalizeForSearch(search)}%');
     }
     final data = await query.order('name');
     return (data as List).map((e) => CatalogEntry.fromMap(e as Map<String, dynamic>)).toList();

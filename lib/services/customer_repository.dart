@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/customer.dart';
+import '../utils/search_normalize.dart';
 
 class CustomerRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -9,7 +10,7 @@ class CustomerRepository {
   Future<List<Customer>> getAll({String? search}) async {
     var query = _client.from('customers').select();
     if (search != null && search.isNotEmpty) {
-      query = query.ilike('name', '%$search%');
+      query = query.ilike('customers_search_text', '%${normalizeForSearch(search)}%');
     }
     final data = await query.order('name');
     return (data as List).map((e) => Customer.fromMap(e as Map<String, dynamic>)).toList();
