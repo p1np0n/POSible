@@ -98,6 +98,51 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     }
   }
 
+  /// Recuadro de guía centrado, con la proporción típica de un código de
+  /// barras (más ancho que alto) — acerca el código hasta llenarlo ayuda a
+  /// que la cámara le encuentre foco y lo lea, en vez de intentar leerlo
+  /// desde toda la imagen.
+  Rect _scanWindow(Size size) {
+    final width = size.width * 0.82;
+    final height = width * 0.45;
+    return Rect.fromCenter(center: size.center(Offset.zero), width: width, height: height);
+  }
+
+  /// Solo se dibuja mientras la cámara realmente está mostrando imagen —
+  /// si algo falla después de arrancar (ej. se revoca el permiso a mitad
+  /// de sesión), no queda el recuadro guía flotando sobre el mensaje de
+  /// error de MobileScanner.
+  Widget _buildScanGuide(Size size) {
+    return IgnorePointer(
+      child: ValueListenableBuilder<MobileScannerState>(
+        valueListenable: _controller,
+        builder: (context, value, child) {
+          if (!value.isInitialized || !value.isRunning || value.error != null) {
+            return const SizedBox.shrink();
+          }
+          return child!;
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(size: size, painter: _ScanWindowPainter(_scanWindow(size))),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 32, left: 24, right: 24),
+                child: Text(
+                  'Acerca el código de barras hasta que quede dentro del recuadro',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,11 +152,52 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _startErrorMessage != null
               ? _buildMessage(_startErrorMessage!)
-              : MobileScanner(
-                  controller: _controller,
-                  onDetect: _onDetect,
-                  errorBuilder: (context, error, child) => _buildMessage(_cameraErrorMessage(error)),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = constraints.biggest;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        MobileScanner(
+                          controller: _controller,
+                          onDetect: _onDetect,
+                          scanWindow: _scanWindow(size),
+                          errorBuilder: (context, error, child) =>
+                              _buildMessage(_cameraErrorMessage(error)),
+                        ),
+                        _buildScanGuide(size),
+                      ],
+                    );
+                  },
                 ),
     );
   }
+}
+
+/// Oscurece todo menos el recuadro de guía, y le dibuja un borde rojo —
+/// como en la mayoría de apps de escaneo, para que sea obvio dónde poner
+/// el código.
+class _ScanWindowPainter extends CustomPainter {
+  _ScanWindowPainter(this.scanWindow);
+
+  final Rect scanWindow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final backgroundPath = Path()..addRect(Rect.largest);
+    final cutoutPath = Path()..addRRect(RRect.fromRectAndRadius(scanWindow, const Radius.circular(12)));
+    final backgroundWithCutout = Path.combine(PathOperation.difference, backgroundPath, cutoutPath);
+    canvas.drawPath(backgroundWithCutout, Paint()..color = Colors.black.withOpacity(0.55));
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(scanWindow, const Radius.circular(12)),
+      Paint()
+        ..color = Colors.red
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanWindowPainter oldDelegate) => oldDelegate.scanWindow != scanWindow;
 }

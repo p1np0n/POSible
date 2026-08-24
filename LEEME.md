@@ -390,7 +390,9 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   librería se sirve desde la propia app (`vendor/zxing.min.js`), y además
   el escáner tiene un límite de espera: si la cámara no responde en 12
   segundos, muestra un mensaje claro con un botón "Reintentar" en vez de
-  quedarse en negro.
+  quedarse en negro. También tiene un recuadro guía con borde rojo — acerca
+  el código de barras hasta que quede adentro para que la cámara le
+  encuentre foco más fácil.
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para
