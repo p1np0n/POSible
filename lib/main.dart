@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -25,21 +24,6 @@ Future<void> main() async {
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
-  if (kIsWeb) {
-    // El escaneo por cámara en la web carga una librería de terceros
-    // (ZXing) desde un CDN externo (unpkg.com) por defecto. Si esa red
-    // está bloqueada o inaccesible (redes de tienda restrictivas,
-    // bloqueadores de contenido, etc.) el escáner se queda esperando para
-    // siempre, sin ningún error — pantalla en negro. Sirviéndola como
-    // asset propio (vendor/zxing.min.js, declarado en pubspec.yaml —
-    // copiado del paquete oficial en npm, MIT license, ver
-    // vendor/LICENSE-zxing.txt) el escáner no depende de ningún servidor
-    // externo. Flutter Web sirve los assets bajo "assets/<ruta declarada
-    // en pubspec.yaml>", de ahí el prefijo acá.
-    MobileScannerPlatform.instance.setBarcodeLibraryScriptUrl(
-      Uri.base.resolve('assets/vendor/zxing.min.js').toString(),
-    );
-  }
   runApp(const PosibleApp());
 }
 

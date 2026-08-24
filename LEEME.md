@@ -382,23 +382,36 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de Postgres `unaccent` — **requiere volver a correr `sql/schema.sql`**
   (agrega `create extension unaccent` y las funciones
   `products_search_text`/`product_catalog_search_text`/`customers_search_text`).
-- **Escanear con la cámara (web) ya no depende de un servidor externo**:
-  antes, la primera vez que se usaba el escáner de cámara en el panel web,
-  cargaba una librería de terceros desde `unpkg.com` — si esa red estaba
-  bloqueada (wifi de la tienda, bloqueador de contenido, etc.), la pantalla
-  del escáner se quedaba en negro para siempre, sin ningún aviso. Ahora esa
-  librería se sirve desde la propia app (`vendor/zxing.min.js`), y además
-  el escáner tiene un límite de espera: si la cámara no responde en 12
-  segundos, muestra un mensaje claro con un botón "Reintentar" en vez de
-  quedarse en negro. También tiene un recuadro guía con borde rojo — acerca
-  el código de barras hasta que quede adentro para que la cámara le
-  encuentre foco más fácil — y suena un beep al leer un código con éxito.
-  Solo reconoce los formatos que usa la tienda (códigos de barra EAN-13/
-  EAN-8/UPC-A/UPC-E/Code128/Code39/ITF y QR); menos formatos por probar en
-  cada cuadro significa más intentos por segundo, lo que ayuda a que
-  agarre un código bien enfocado. Si tu dispositivo tiene linterna, aparece
-  un ícono para prenderla/apagarla (solo en la app instalada — en la web
-  el navegador no deja controlar el flash).
+- **Escanear con la cámara, mucho más confiable**: se actualizó el paquete
+  que lee los códigos (`mobile_scanner`) de la versión 5 a la 7, que trae
+  mejoras de fondo que antes no existían:
+  - **En la web, usa la cámara nativa del navegador** (`BarcodeDetector`,
+    disponible en Chrome/Edge 83+ y Safari 17+) en vez de una librería de
+    terceros — no depende de ningún servidor externo, y lee códigos de
+    barra mucho mejor (es el mismo motor de detección del sistema, no uno
+    hecho en JavaScript). En navegadores sin esa API (Firefox, versiones
+    viejas) cae automático a una librería de respaldo (`zxing-wasm`,
+    cargada desde jsDelivr — ese caso puntual sí depende de esa red).
+  - **Enfoque, exposición y balance de blancos automáticos** en la web
+    cuando el navegador lo permite (antes la cámara arrancaba sin pedir
+    ningún ajuste, a veces quedando desenfocada).
+  - El escáner tiene un límite de espera: si la cámara no responde en 12
+    segundos (cualquiera sea la causa), muestra un mensaje claro con botón
+    "Reintentar" en vez de quedarse en pantalla negra para siempre.
+  - Recuadro guía con borde rojo — acerca el código hasta que quede
+    adentro — y ahora si funciona como filtro real (antes en la web era
+    solo decorativo). Suena un beep al leer un código con éxito.
+  - Solo reconoce los formatos que usa la tienda (EAN-13/EAN-8/UPC-A/
+    UPC-E/Code128/Code39/ITF y QR) en vez de todos los que existen —
+    menos formatos por probar en cada cuadro significa más intentos por
+    segundo.
+  - Si el dispositivo tiene linterna, aparece un ícono para prenderla/
+    apagarla (solo en la app instalada — la web no deja controlar el
+    flash).
+  - Si aun así un código sigue sin leer bien por cámara, la alternativa
+    más confiable para el mostrador es un lector de código de barras
+    USB/Bluetooth físico (Configuración → "Uso un lector de código de
+    barras USB"), que no depende de ninguna cámara.
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para
