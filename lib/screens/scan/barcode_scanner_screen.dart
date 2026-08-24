@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -16,7 +17,28 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   // y la cámara nunca contesta (permiso nunca resuelto, librería externa
   // que no carga, etc.), la pantalla se queda en negro para siempre sin
   // ningún aviso.
-  final MobileScannerController _controller = MobileScannerController(autoStart: false);
+  //
+  // "formats" se limita a los tipos de código que de verdad se usan acá
+  // (de barras + QR) en vez de dejarlo en todos los que existen — cada
+  // tipo de más que el lector prueba por cuadro es tiempo que no usa para
+  // reintentar, así que menos tipos = más intentos por segundo = más
+  // chances de pescar un cuadro bien enfocado. "noDuplicates" además saca
+  // la pausa de 250ms entre intentos que trae el modo por defecto.
+  final MobileScannerController _controller = MobileScannerController(
+    autoStart: false,
+    formats: const [
+      BarcodeFormat.ean13,
+      BarcodeFormat.ean8,
+      BarcodeFormat.upcA,
+      BarcodeFormat.upcE,
+      BarcodeFormat.code128,
+      BarcodeFormat.code39,
+      BarcodeFormat.itf,
+      BarcodeFormat.qrCode,
+    ],
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  final AudioPlayer _beepPlayer = AudioPlayer();
   bool _handled = false;
   bool _starting = true;
   String? _startErrorMessage;
@@ -53,12 +75,14 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     final value = barcodes.first.rawValue;
     if (value == null || value.isEmpty) return;
     _handled = true;
+    unawaited(_beepPlayer.play(AssetSource('sounds/beep.wav')));
     Navigator.of(context).pop(value);
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _beepPlayer.dispose();
     super.dispose();
   }
 
@@ -143,11 +167,31 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     );
   }
 
+  /// El flash solo funciona en la app instalada (Android/iOS) — en la web
+  /// no hay forma de controlarlo desde el navegador, así que este ícono
+  /// directamente no aparece ahí (torchState queda "unavailable").
+  Widget _buildTorchButton() {
+    return ValueListenableBuilder<MobileScannerState>(
+      valueListenable: _controller,
+      builder: (context, value, child) {
+        if (value.torchState == TorchState.unavailable) return const SizedBox.shrink();
+        return IconButton(
+          icon: Icon(value.torchState == TorchState.on ? Icons.flash_on : Icons.flash_off),
+          tooltip: 'Linterna',
+          onPressed: () => _controller.toggleTorch(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(title: const Text('Escanear código de barras')),
+      appBar: AppBar(
+        title: const Text('Escanear código de barras'),
+        actions: [_buildTorchButton()],
+      ),
       body: _starting
           ? const Center(child: CircularProgressIndicator())
           : _startErrorMessage != null

@@ -392,7 +392,13 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   segundos, muestra un mensaje claro con un botón "Reintentar" en vez de
   quedarse en negro. También tiene un recuadro guía con borde rojo — acerca
   el código de barras hasta que quede adentro para que la cámara le
-  encuentre foco más fácil.
+  encuentre foco más fácil — y suena un beep al leer un código con éxito.
+  Solo reconoce los formatos que usa la tienda (códigos de barra EAN-13/
+  EAN-8/UPC-A/UPC-E/Code128/Code39/ITF y QR); menos formatos por probar en
+  cada cuadro significa más intentos por segundo, lo que ayuda a que
+  agarre un código bien enfocado. Si tu dispositivo tiene linterna, aparece
+  un ícono para prenderla/apagarla (solo en la app instalada — en la web
+  el navegador no deja controlar el flash).
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para
