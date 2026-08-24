@@ -382,6 +382,15 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de Postgres `unaccent` — **requiere volver a correr `sql/schema.sql`**
   (agrega `create extension unaccent` y las funciones
   `products_search_text`/`product_catalog_search_text`/`customers_search_text`).
+- **Escanear con la cámara (web) ya no depende de un servidor externo**:
+  antes, la primera vez que se usaba el escáner de cámara en el panel web,
+  cargaba una librería de terceros desde `unpkg.com` — si esa red estaba
+  bloqueada (wifi de la tienda, bloqueador de contenido, etc.), la pantalla
+  del escáner se quedaba en negro para siempre, sin ningún aviso. Ahora esa
+  librería se sirve desde la propia app (`vendor/zxing.min.js`), y además
+  el escáner tiene un límite de espera: si la cámara no responde en 12
+  segundos, muestra un mensaje claro con un botón "Reintentar" en vez de
+  quedarse en negro.
 - **Carrito plegable en pantallas angostas** (celular, tablet en vertical):
   el carrito se docka arriba, justo debajo del buscador, mostrando solo el
   total y los botones **Guardar**/**Cobrar** — toca la flechita para

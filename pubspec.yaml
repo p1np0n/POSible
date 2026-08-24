@@ -26,3 +26,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # ZXing (usada por mobile_scanner para escanear con la cámara en la web)
+  # servida como asset propio en vez de cargarla desde un CDN externo —
+  # ver el comentario junto a setBarcodeLibraryScriptUrl en lib/main.dart.
+  assets:
+    - vendor/zxing.min.js
