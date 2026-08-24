@@ -13,7 +13,7 @@ dependencies:
   provider: ^6.1.2
   cupertino_icons: ^1.0.6
   shared_preferences: ^2.3.2
-  mobile_scanner: ^5.2.3
+  mobile_scanner: ^7.4.0
   http: ^1.2.2
   image_picker: ^1.1.2
   csv: ^8.0.0
@@ -27,9 +27,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # ZXing (usada por mobile_scanner para escanear con la cámara en la web)
-  # servida como asset propio en vez de cargarla desde un CDN externo —
-  # ver el comentario junto a setBarcodeLibraryScriptUrl en lib/main.dart.
   assets:
-    - vendor/zxing.min.js
     - assets/sounds/beep.wav

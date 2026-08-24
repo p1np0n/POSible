@@ -206,8 +206,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                           controller: _controller,
                           onDetect: _onDetect,
                           scanWindow: _scanWindow(size),
-                          errorBuilder: (context, error, child) =>
-                              _buildMessage(_cameraErrorMessage(error)),
+                          errorBuilder: (context, error) => _buildMessage(_cameraErrorMessage(error)),
                         ),
                         _buildScanGuide(size),
                       ],
