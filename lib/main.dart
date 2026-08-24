@@ -26,16 +26,28 @@ Future<void> main() async {
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
   if (kIsWeb) {
-    // El escaneo por cámara en la web carga una librería de terceros
-    // (ZXing) desde un CDN externo (unpkg.com) por defecto. Si esa red
-    // está bloqueada o inaccesible (redes de tienda restrictivas,
+    // El escaneo por cámara en la web carga una librería de terceros para
+    // decodificar el código. Desde mobile_scanner 7.x el backend por
+    // defecto es "auto": usa la API nativa BarcodeDetector si el navegador
+    // la soporta, y si no, cae a "zxing-wasm" — un paquete distinto al que
+    // tenemos vendorizado, que además trae su propio .wasm y por defecto
+    // lo baja de un CDN externo (jsdelivr). O sea que el fallback de
+    // "auto" reintroduce el mismo problema que ya se arregló acá: si esa
+    // red está bloqueada o inaccesible (redes de tienda restrictivas,
     // bloqueadores de contenido, etc.) el escáner se queda esperando para
-    // siempre, sin ningún error — pantalla en negro. Sirviéndola como
-    // asset propio (vendor/zxing.min.js, declarado en pubspec.yaml —
-    // copiado del paquete oficial en npm, MIT license, ver
-    // vendor/LICENSE-zxing.txt) el escáner no depende de ningún servidor
-    // externo. Flutter Web sirve los assets bajo "assets/<ruta declarada
-    // en pubspec.yaml>", de ahí el prefijo acá.
+    // siempre, sin ningún error — pantalla en negro.
+    //
+    // Por eso se fija el backend en el lector legado "zxing-js" (el que
+    // corresponde a @zxing/library, la librería que sí tenemos
+    // vendorizada) en vez de dejar "auto" — así el comportamiento es el
+    // mismo en todos los navegadores, sin depender de ningún servidor
+    // externo. Servida como asset propio (vendor/zxing.min.js, declarado
+    // en pubspec.yaml — copiado del paquete oficial en npm,
+    // @zxing/library@0.23.0 —la versión que mobile_scanner 7.x espera para
+    // este backend—, Apache-2.0, ver vendor/LICENSE-zxing.txt). Flutter Web
+    // sirve los assets bajo "assets/<ruta declarada en pubspec.yaml>", de
+    // ahí el prefijo acá.
+    MobileScannerPlatform.instance.setWebBarcodeReader(WebBarcodeReader.zxingJs);
     MobileScannerPlatform.instance.setBarcodeLibraryScriptUrl(
       Uri.base.resolve('assets/vendor/zxing.min.js').toString(),
     );
