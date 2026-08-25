@@ -381,6 +381,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   ventana muestra "Venta registrada" con el total cobrado y un botón
   **Nueva venta** para volver a Ventas y empezar el siguiente cliente,
   en vez de cerrarse sola.
+- **Total del carrito y stock editable desde Ventas**: debajo de "Carrito"
+  (junto a la cantidad de artículos, en celular) ahora se ve el total de la
+  venta en curso, en letra grande. En el popup de Cobrar, cuando pagas en
+  efectivo y escribes el monto recibido, el Vuelto (o Falta) se muestra al
+  lado del Total, en el mismo tamaño de letra. Además, cada mosaico de
+  producto que controla inventario muestra ahora su stock disponible (junto
+  al precio) — tócalo para editarlo ahí mismo desde un popup, sin salir de
+  Ventas ni ir a Lista de artículos.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa

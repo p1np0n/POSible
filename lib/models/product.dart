@@ -76,9 +76,10 @@ class Product {
   /// Copia este producto reemplazando el precio (ej. al pedirle al cajero
   /// el precio de un artículo de precio variable antes de agregarlo al
   /// carrito), la foto (ej. al encontrarla automáticamente por código de
-  /// barras) y/o el nombre (ej. el nombre propio de un botón de venta
-  /// rápida en una pestaña, distinto del nombre real del producto).
-  Product copyWith({String? name, double? price, String? imageUrl}) => Product(
+  /// barras), el nombre (ej. el nombre propio de un botón de venta rápida
+  /// en una pestaña, distinto del nombre real del producto) y/o el stock
+  /// (ej. al editarlo rápido desde el mosaico de Ventas).
+  Product copyWith({String? name, double? price, String? imageUrl, double? stockQuantity}) => Product(
         id: id,
         name: name ?? this.name,
         categoryId: categoryId,
@@ -87,7 +88,7 @@ class Product {
         sku: sku,
         barcode: barcode,
         imageUrl: imageUrl ?? this.imageUrl,
-        stockQuantity: stockQuantity,
+        stockQuantity: stockQuantity ?? this.stockQuantity,
         trackStock: trackStock,
         active: active,
         lowStockThreshold: lowStockThreshold,
