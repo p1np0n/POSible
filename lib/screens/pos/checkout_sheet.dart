@@ -241,6 +241,51 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
     );
   }
 
+  /// El Total siempre se ve grande y centrado. Cuando hay vuelto o falta
+  /// que mostrar (pago en efectivo con un monto recibido escrito), el
+  /// Vuelto/Falta aparece al lado en el mismo tamaño de letra — así el
+  /// cajero ve ambos números de un vistazo sin tener que comparar tamaños
+  /// distintos.
+  Widget _buildTotalAndChange(BuildContext context) {
+    final totalColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: CurrencyText(
+            _total,
+            bold: true,
+            style: TextStyle(fontSize: 56, color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+      ],
+    );
+
+    final showChange = !_splitPayment && _paymentMethod == 'cash' && _cashAmountReceivedText.isNotEmpty;
+    if (!showChange) return totalColumn;
+
+    final changeColor = _change >= 0 ? Colors.green.shade700 : Colors.red;
+    final changeColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(_change >= 0 ? 'Vuelto' : 'Falta', textAlign: TextAlign.center, style: TextStyle(color: changeColor)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: CurrencyText(_change.abs(), bold: true, style: TextStyle(fontSize: 56, color: changeColor)),
+        ),
+      ],
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: totalColumn),
+        Expanded(child: changeColumn),
+      ],
+    );
+  }
+
   Widget _buildForm(BuildContext context) {
     final cart = context.watch<CartProvider>();
     return SingleChildScrollView(
@@ -370,40 +415,9 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                       ))
                   .toList(),
             ),
-            if (_cashAmountReceivedText.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _change >= 0 ? 'Vuelto' : 'Falta',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: _change >= 0 ? Colors.green.shade700 : Colors.red,
-                    ),
-                  ),
-                  Text(
-                    formatCurrencyCl(_change.abs()),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: _change >= 0 ? Colors.green.shade700 : Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
           const SizedBox(height: 16),
-          const Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: CurrencyText(
-              _total,
-              bold: true,
-              style: TextStyle(fontSize: 56, color: Theme.of(context).colorScheme.primary),
-            ),
-          ),
+          _buildTotalAndChange(context),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
