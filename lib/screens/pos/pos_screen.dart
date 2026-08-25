@@ -395,20 +395,19 @@ class _PosScreenState extends State<PosScreen> {
       return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
     }
     if (_selectedPageId != null) {
-      // Mientras no se busque nada, se muestra solo lo que se agregó a
-      // mano a esta pestaña — pero en cuanto se escribe algo, se busca en
-      // TODO el catálogo (no solo en lo ya agregado), para poder vender
-      // cualquier producto sin salir de la pestaña ni tener que agregarlo
-      // a ella primero.
+      // Con una pestaña marcada, la búsqueda se acota a lo que ya se
+      // agregó a esa pestaña (no a todo el catálogo) — así "buscar" dentro
+      // de una pestaña realmente filtra sus artículos, en vez de traer
+      // productos que no están ahí.
+      final pageProducts = _productsForPage(_selectedPageId!);
       if (_search.trim().isNotEmpty) {
-        return _products.where(_matchesSearch).toList();
+        return pageProducts.where(_matchesSearch).toList();
       }
-      return _productsForPage(_selectedPageId!).toList();
+      return pageProducts;
     }
-    // Mismo criterio que en una pestaña: con una categoría específica
-    // elegida, en cuanto se escribe algo en el buscador se busca en todo
-    // el catálogo (no solo en esa categoría), para no dejar productos
-    // "escondidos" solo porque están en otra categoría.
+    // A diferencia de una pestaña, con una categoría del catálogo elegida
+    // la búsqueda sigue mirando todo el catálogo (no solo esa categoría),
+    // para no dejar productos "escondidos" solo porque están en otra.
     if (_search.trim().isNotEmpty) {
       return _products.where(_matchesSearch).toList();
     }
@@ -847,6 +846,7 @@ class _PosScreenState extends State<PosScreen> {
             _loadData();
             _refreshOpenTicketCount();
           },
+          onCheckoutClosed: _refocusSearch,
         );
         // Pantalla ancha (tablet horizontal, computador): el carrito va
         // siempre lado a lado, completo, a la derecha, y las pestañas de
@@ -914,16 +914,17 @@ class _PosScreenState extends State<PosScreen> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                FilterChip(
-                  avatar: const Icon(Icons.trending_up, size: 18),
-                  label: const Text('Más vendidos'),
+                _quickTabButton(
+                  label: 'Más vendidos',
+                  icon: Icons.trending_up,
                   selected: _showTopSelling,
-                  onSelected: (value) {
+                  onTap: () {
+                    final value = !_showTopSelling;
                     setState(() {
                       _showTopSelling = value;
                       if (value) {
@@ -936,10 +937,11 @@ class _PosScreenState extends State<PosScreen> {
                 ),
                 for (final page in _pages) ...[
                   const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(page.name),
+                  _quickTabButton(
+                    label: page.name,
                     selected: _selectedPageId == page.id,
-                    onSelected: (value) {
+                    onTap: () {
+                      final value = _selectedPageId != page.id;
                       setState(() {
                         _selectedPageId = value ? page.id : null;
                         _showTopSelling = false;
@@ -967,6 +969,51 @@ class _PosScreenState extends State<PosScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Botón cuadrado (esquinas apenas redondeadas, no en píldora) y más
+  /// grande que un Chip normal de Material — para que "Más vendidos" y cada
+  /// pestaña personalizada sean fáciles de tocar y de leer de un vistazo
+  /// mientras se vende.
+  Widget _quickTabButton({
+    required String label,
+    IconData? icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bg = selected ? colorScheme.primary : colorScheme.surfaceContainerHighest;
+    final fg = selected ? colorScheme.onPrimary : colorScheme.onSurface;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 88, minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: selected ? null : Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 20, color: fg),
+              const SizedBox(height: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 14),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

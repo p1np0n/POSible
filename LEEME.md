@@ -389,6 +389,24 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   producto que controla inventario muestra ahora su stock disponible (junto
   al precio) — tócalo para editarlo ahí mismo desde un popup, sin salir de
   Ventas ni ir a Lista de artículos.
+- **Pestañas rápidas más grandes y cuadradas**: "Más vendidos" y cada
+  pestaña personalizada, en la barra de abajo del mosaico, ahora son
+  botones cuadrados (esquinas apenas redondeadas) más grandes, en vez de
+  las píldoras chicas de antes — más fáciles de tocar y de leer mientras
+  vendes.
+- **Buscar dentro de una pestaña ahora busca solo ahí**: con una pestaña
+  personalizada marcada, escribir algo en el buscador filtra los artículos
+  ya agregados a esa pestaña — antes buscaba en todo el catálogo, lo que
+  hacía aparecer productos que no estaban en la pestaña. Sin ninguna
+  pestaña marcada, la búsqueda sigue mirando todo el catálogo, como
+  siempre.
+- **Se corrigió: el lector de código de barras USB dejaba de agregar solo
+  después de usar Cobrar**: al abrir el popup de Cobrar (una ventana
+  modal) se le quitaba el foco al buscador invisible que recibe lo que
+  escanea el lector, y no se le devolvía al cerrarse — así que después de
+  la primera venta, escanear ya no agregaba nada hasta tocar la pantalla a
+  mano. Ahora el foco vuelve solo apenas se cierra el popup, se haya
+  completado la venta o no.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa
