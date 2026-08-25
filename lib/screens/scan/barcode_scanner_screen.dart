@@ -46,7 +46,12 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   @override
   void initState() {
     super.initState();
-    _start();
+    // mobile_scanner 7 exige que el widget MobileScanner ya esté montado
+    // (y haya "adjuntado" el controlador) antes de llamar a start() a
+    // mano — si no, tira MobileScannerErrorCode.controllerNotAttached. En
+    // vez de arrancar la cámara desde acá (initState corre ANTES de que
+    // build() monte el widget), se espera al primer frame ya dibujado.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
   }
 
   Future<void> _start() async {
@@ -192,27 +197,32 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
         title: const Text('Escanear código de barras'),
         actions: [_buildTorchButton()],
       ),
-      body: _starting
-          ? const Center(child: CircularProgressIndicator())
-          : _startErrorMessage != null
-              ? _buildMessage(_startErrorMessage!)
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size = constraints.biggest;
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        MobileScanner(
-                          controller: _controller,
-                          onDetect: _onDetect,
-                          scanWindow: _scanWindow(size),
-                          errorBuilder: (context, error) => _buildMessage(_cameraErrorMessage(error)),
-                        ),
-                        _buildScanGuide(size),
-                      ],
-                    );
-                  },
-                ),
+      // MobileScanner queda SIEMPRE montado (nunca se saca del árbol) —
+      // mobile_scanner 7 necesita que el widget ya esté adjunto al
+      // controlador antes de llamar a start(), así que no se puede
+      // condicionar su presencia a _starting/_startErrorMessage. Mientras
+      // arranca o si algo falla, se tapa con una capa encima en vez de
+      // reemplazarlo.
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              MobileScanner(
+                controller: _controller,
+                onDetect: _onDetect,
+                scanWindow: _scanWindow(size),
+                errorBuilder: (context, error) => _buildMessage(_cameraErrorMessage(error)),
+              ),
+              _buildScanGuide(size),
+              if (_starting) const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator())),
+              if (!_starting && _startErrorMessage != null)
+                ColoredBox(color: Colors.black, child: _buildMessage(_startErrorMessage!)),
+            ],
+          );
+        },
+      ),
     );
   }
 }
