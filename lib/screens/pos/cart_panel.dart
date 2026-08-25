@@ -203,6 +203,13 @@ class _CartPanelState extends State<CartPanel> {
     showCheckoutSheet(context, taxRatePercent: _taxRatePercent, onSaleCompleted: widget.onSaleCompleted);
   }
 
+  /// Lo que se le cobra al cliente: el subtotal del carrito menos el
+  /// descuento elegido (el IVA ya va incluido en el precio de cada
+  /// artículo, así que no se resta aparte) — misma fórmula que
+  /// checkout_sheet.dart usa para su Total.
+  double _cartTotal(CartProvider cart) =>
+      cart.total - (cart.selectedDiscount?.amountFor(cart.total) ?? 0);
+
   Widget _buildActionButtons(CartProvider cart) {
     return Row(
       children: [
@@ -242,16 +249,29 @@ class _CartPanelState extends State<CartPanel> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
-                if (cart.items.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: _holding ? null : _voidCart,
-                    icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                    label: const Text('Anular', style: TextStyle(color: Colors.red)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
+                    if (cart.items.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: _holding ? null : _voidCart,
+                        icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                        label: const Text('Anular', style: TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+                if (cart.items.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  CurrencyText(
+                    _cartTotal(cart),
+                    bold: true,
+                    style: TextStyle(fontSize: 26, color: Theme.of(context).colorScheme.primary),
                   ),
+                ],
               ],
             ),
           ),
@@ -335,6 +355,13 @@ class _CartPanelState extends State<CartPanel> {
                 if (!hasItems) ...[
                   const SizedBox(height: 2),
                   const Text('El carrito está vacío', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ] else ...[
+                  const SizedBox(height: 2),
+                  CurrencyText(
+                    _cartTotal(cart),
+                    bold: true,
+                    style: TextStyle(fontSize: 24, color: Theme.of(context).colorScheme.primary),
+                  ),
                 ],
                 const SizedBox(height: 10),
                 _buildActionButtons(cart),
