@@ -400,7 +400,16 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   escanea el lector, y no se le devolvía al cerrarse — así que después de
   la primera venta, escanear ya no agregaba nada hasta tocar la pantalla a
   mano. Ahora el foco vuelve solo apenas se cierra el popup, se haya
-  completado la venta o no.
+  completado la venta o no. Además, se agregó un chequeo cada 400ms que
+  recupera el foco del buscador solo si se pierde sin que nada más lo esté
+  usando a propósito — así el lector USB no se puede quedar "roto" en
+  silencio por algún otro caso que se nos haya escapado.
+- **Artículo no encontrado al escanear en Ventas**: si el código escaneado
+  (o tecleado en el buscador) tiene forma de código de barras pero no
+  coincide con ningún producto, ahora avisa "Artículo no encontrado" con un
+  botón para agregarlo al toque — pide nombre y precio, guarda el código
+  escaneado como su código de barras y lo agrega de inmediato al carrito,
+  sin tener que ir a Lista de artículos ni escanear una segunda vez.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa
