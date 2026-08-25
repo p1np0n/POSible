@@ -401,6 +401,54 @@ class _PosScreenState extends State<PosScreen> {
     return _products.where((p) => _selectedCategoryId == null || p.categoryId == _selectedCategoryId).toList();
   }
 
+  /// Editar el stock de un producto directo desde su mosaico en Ventas
+  /// (toque en el badge de stock, no en el resto del mosaico — eso sigue
+  /// agregando el producto al carrito). Se guarda como un ajuste (delta)
+  /// contra el valor actual, con el mismo RPC que usa Inventario, y se
+  /// actualiza el mosaico en memoria sin recargar todo el catálogo.
+  Future<void> _editStock(Product product) async {
+    final controller = TextEditingController(
+      text: product.isSoldByWeight
+          ? product.stockQuantity.toStringAsFixed(3)
+          : product.stockQuantity.toStringAsFixed(0),
+    );
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(product.name),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+          decoration: const InputDecoration(labelText: 'Stock disponible', border: OutlineInputBorder()),
+          onSubmitted: (_) => Navigator.of(context).pop(true),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    _refocusSearch();
+    if (saved != true) return;
+    final newStock = double.tryParse(controller.text);
+    if (newStock == null || newStock == product.stockQuantity) return;
+
+    try {
+      await _productRepository.adjustStock(product.id, newStock - product.stockQuantity);
+      if (!mounted) return;
+      setState(() {
+        _products = _products
+            .map((p) => p.id == product.id ? p.copyWith(stockQuantity: newStock) : p)
+            .toList();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al actualizar el stock: $e')));
+      }
+    }
+  }
+
   Future<void> _createPage() async {
     final controller = TextEditingController();
     final name = await showDialog<String>(
@@ -1014,6 +1062,35 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
+  /// Solo aparece si el producto controla inventario (igual que "Agotado").
+  /// Tocarlo abre el popup para editar el stock (ver _editStock) — el resto
+  /// del mosaico sigue agregando el producto al carrito con normalidad.
+  Widget _stockBadge(Product product, {required bool overlay}) {
+    if (!product.trackStock) return const SizedBox.shrink();
+    final label = product.isSoldByWeight
+        ? product.stockQuantity.toStringAsFixed(3)
+        : product.stockQuantity.toStringAsFixed(0);
+    final fg = overlay ? Colors.white : Colors.black87;
+    return GestureDetector(
+      onTap: () => _editStock(product),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: overlay ? Colors.black.withOpacity(0.6) : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 12, color: fg),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Foto a pantalla completa, precio arriba en una etiqueta y el nombre en
   /// una franja oscura abajo.
   Widget _photoTile(Product product, bool outOfStock) {
@@ -1057,6 +1134,11 @@ class _PosScreenState extends State<PosScreen> {
             alignment: Alignment.center,
             child: const StatusBadge(label: 'AGOTADO', tone: StatusBadgeTone.danger),
           ),
+        Positioned(
+          top: 6,
+          right: 6,
+          child: _stockBadge(product, overlay: true),
+        ),
       ],
     );
   }
@@ -1070,7 +1152,13 @@ class _PosScreenState extends State<PosScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Align(alignment: Alignment.topLeft, child: _priceBadge(product, overlay: false)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _priceBadge(product, overlay: false),
+              _stockBadge(product, overlay: false),
+            ],
+          ),
           Expanded(
             child: Center(
               child: ProductAvatar(name: product.name, categoryId: product.categoryId, radius: 28),
