@@ -287,12 +287,6 @@ class _PosScreenState extends State<PosScreen> {
       );
       return true;
     }
-    if (product.trackStock && product.stockQuantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${product.name} está sin stock')),
-      );
-      return true;
-    }
     await _addToCart(product);
     return true;
   }
@@ -993,9 +987,12 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Widget _buildTile(Product product, CashSessionProvider cashSession) {
+    // "Agotado" es solo informativo (el badge de abajo) — se puede seguir
+    // vendiendo igual, y el stock queda en negativo (se avisa antes de
+    // cobrar, ver _confirmNegativeStock en cart_panel.dart).
     final outOfStock = product.trackStock && product.stockQuantity <= 0;
     final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
-    final canTap = !outOfStock && cashSession.isOpen;
+    final canTap = cashSession.isOpen;
 
     return _ProductTile(
       cardColor: hasImage ? null : Colors.grey.shade50,
@@ -1111,7 +1108,7 @@ class _PosScreenState extends State<PosScreen> {
                   ? Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}')
                   : null,
           trailing: _priceLabel(product, bold: true),
-          enabled: !outOfStock && cashSession.isOpen,
+          enabled: cashSession.isOpen,
           onTap: () => _addToCart(product),
         );
       },

@@ -322,7 +322,7 @@ class _CartPanelState extends State<CartPanel> {
         Text(
           '$label: ',
           style: TextStyle(
-            fontSize: emphasize ? 13 : 12,
+            fontSize: emphasize ? 15 : 14,
             color: emphasize ? null : Colors.grey.shade600,
           ),
         ),
@@ -330,7 +330,7 @@ class _CartPanelState extends State<CartPanel> {
           amount,
           bold: emphasize,
           style: TextStyle(
-            fontSize: emphasize ? 15 : 12,
+            fontSize: emphasize ? 18 : 14,
             color: emphasize ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
           ),
         ),
@@ -370,8 +370,8 @@ class _CartPanelState extends State<CartPanel> {
       dense: true,
       title: Text(item.product.name),
       subtitle: item.modifiersLabel.isEmpty
-          ? CurrencyText(item.unitPrice)
-          : Text('${item.modifiersLabel} · ${formatCurrencyCl(item.unitPrice)}'),
+          ? CurrencyText(item.unitPrice, style: const TextStyle(fontSize: 14))
+          : Text('${item.modifiersLabel} · ${formatCurrencyCl(item.unitPrice)}', style: const TextStyle(fontSize: 14)),
       leading: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -379,14 +379,17 @@ class _CartPanelState extends State<CartPanel> {
             icon: const Icon(Icons.remove_circle_outline),
             onPressed: () => _decrementOrConfirmRemove(item),
           ),
-          Text(item.product.isSoldByWeight ? item.quantity.toStringAsFixed(3) : item.quantity.toStringAsFixed(0)),
+          Text(
+            item.product.isSoldByWeight ? item.quantity.toStringAsFixed(3) : item.quantity.toStringAsFixed(0),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: () => context.read<CartProvider>().incrementItem(item),
           ),
         ],
       ),
-      trailing: CurrencyText(item.subtotal, bold: true),
+      trailing: CurrencyText(item.subtotal, bold: true, style: const TextStyle(fontSize: 18)),
     );
   }
 

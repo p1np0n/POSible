@@ -356,6 +356,16 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   de un producto en el buscador de Ventas y presionas Enter (o lo escaneas
   con la cámara), se agrega solo al carrito, sin tener que buscarlo ni
   tocarlo.
+- **Se puede vender sin stock disponible**: un producto marcado "Agotado"
+  (stock en 0 o negativo) se puede seguir tocando/escaneando para
+  agregarlo al carrito igual que cualquier otro — la etiqueta "Agotado" es
+  solo informativa. Al cobrar, si algún artículo del carrito queda con más
+  cantidad de la que hay en stock, se pide confirmar antes ("¿Vender
+  igual?"); si confirmas, el stock de ese producto queda en negativo.
+- **Números del carrito más grandes**: la cantidad, el precio unitario y
+  el subtotal de cada artículo, y el resumen Subtotal/IVA/Total de arriba
+  del carrito, se ven en un tamaño de letra más grande — antes eran
+  chicos y costaba leerlos de un vistazo.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa
