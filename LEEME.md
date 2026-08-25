@@ -404,6 +404,14 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   recupera el foco del buscador solo si se pierde sin que nada más lo esté
   usando a propósito — así el lector USB no se puede quedar "roto" en
   silencio por algún otro caso que se nos haya escapado.
+- **Se corrigió: había que tocar el buscador para que el lector USB
+  empezara a funcionar**: el campo invisible que recibe el escaneo cuando
+  el buscador está colapsado tenía tamaño 0x0 — en la app web, un tamaño
+  cero puede impedir que ese campo realmente reciba el foco del teclado, y
+  el lector solo empezaba a agregar solo después de tocar el buscador una
+  vez (lo que sí crea un campo de tamaño normal). Ahora ese campo invisible
+  usa un tamaño chico pero real (sigue sin verse, oculto con transparencia)
+  para que el foco funcione desde que entras a Ventas, sin tocar nada.
 - **Artículo no encontrado al escanear en Ventas**: si el código escaneado
   (o tecleado en el buscador) tiene forma de código de barras pero no
   coincide con ningún producto, ahora avisa "Artículo no encontrado" con un

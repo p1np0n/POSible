@@ -870,17 +870,28 @@ class _PosScreenState extends State<PosScreen> {
                 // Campo invisible que solo existe para mantener el foco del
                 // lector USB mientras el buscador está colapsado — así el
                 // escaneo sigue agregando productos solo, sin necesitar que
-                // el usuario abra el buscador ni tocar la pantalla.
+                // el usuario abra el buscador ni tocar la pantalla. Un
+                // tamaño 0x0 (como tenía antes) puede impedir que el campo
+                // realmente reciba el foco del teclado en Flutter Web —
+                // por eso usa un tamaño chico pero real, oculto con
+                // Opacity(0) e IgnorePointer (para que no se pueda tocar
+                // sin querer) en vez de tamaño cero.
                 if (prefs.usbScannerModeEnabled)
                   SizedBox(
-                    width: 0,
-                    height: 0,
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      style: const TextStyle(fontSize: 0),
-                      decoration: const InputDecoration(border: InputBorder.none),
-                      onSubmitted: _handleScanSubmit,
+                    width: 36,
+                    height: 36,
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: 0,
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          autofocus: true,
+                          decoration: const InputDecoration(border: InputBorder.none),
+                          onChanged: _onSearchChanged,
+                          onSubmitted: _handleScanSubmit,
+                        ),
+                      ),
                     ),
                   ),
                 IconButton(
