@@ -394,12 +394,6 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   botones cuadrados (esquinas apenas redondeadas) más grandes, en vez de
   las píldoras chicas de antes — más fáciles de tocar y de leer mientras
   vendes.
-- **Buscar dentro de una pestaña ahora busca solo ahí**: con una pestaña
-  personalizada marcada, escribir algo en el buscador filtra los artículos
-  ya agregados a esa pestaña — antes buscaba en todo el catálogo, lo que
-  hacía aparecer productos que no estaban en la pestaña. Sin ninguna
-  pestaña marcada, la búsqueda sigue mirando todo el catálogo, como
-  siempre.
 - **Se corrigió: el lector de código de barras USB dejaba de agregar solo
   después de usar Cobrar**: al abrir el popup de Cobrar (una ventana
   modal) se le quitaba el foco al buscador invisible que recibe lo que

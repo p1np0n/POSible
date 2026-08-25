@@ -395,19 +395,20 @@ class _PosScreenState extends State<PosScreen> {
       return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
     }
     if (_selectedPageId != null) {
-      // Con una pestaña marcada, la búsqueda se acota a lo que ya se
-      // agregó a esa pestaña (no a todo el catálogo) — así "buscar" dentro
-      // de una pestaña realmente filtra sus artículos, en vez de traer
-      // productos que no están ahí.
-      final pageProducts = _productsForPage(_selectedPageId!);
+      // Mientras no se busque nada, se muestra solo lo que se agregó a
+      // mano a esta pestaña — pero en cuanto se escribe algo, se busca en
+      // TODO el catálogo (no solo en lo ya agregado), para poder vender
+      // cualquier producto sin salir de la pestaña ni tener que agregarlo
+      // a ella primero.
       if (_search.trim().isNotEmpty) {
-        return pageProducts.where(_matchesSearch).toList();
+        return _products.where(_matchesSearch).toList();
       }
-      return pageProducts;
+      return _productsForPage(_selectedPageId!).toList();
     }
-    // A diferencia de una pestaña, con una categoría del catálogo elegida
-    // la búsqueda sigue mirando todo el catálogo (no solo esa categoría),
-    // para no dejar productos "escondidos" solo porque están en otra.
+    // Mismo criterio que en una pestaña: con una categoría específica
+    // elegida, en cuanto se escribe algo en el buscador se busca en todo
+    // el catálogo (no solo en esa categoría), para no dejar productos
+    // "escondidos" solo porque están en otra categoría.
     if (_search.trim().isNotEmpty) {
       return _products.where(_matchesSearch).toList();
     }
