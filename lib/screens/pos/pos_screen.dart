@@ -175,8 +175,18 @@ class _PosScreenState extends State<PosScreen> {
         if (price == null || !mounted) return;
         effective = product.copyWith(price: price);
       }
+      // Un artículo de precio variable puede tener un precio distinto cada
+      // vez que se agrega (ej. dos servicios del mismo tipo pero cobrados
+      // distinto) — addProduct() combinaría ambos en una sola línea por
+      // compartir el mismo product.id, perdiendo el segundo precio.
+      // addVariableItem() siempre agrega una línea nueva, como ya se hace
+      // con los artículos por peso.
       if (_modifiers.isEmpty) {
-        context.read<CartProvider>().addProduct(effective);
+        if (product.isVariablePrice) {
+          context.read<CartProvider>().addVariableItem(effective);
+        } else {
+          context.read<CartProvider>().addProduct(effective);
+        }
         return;
       }
       final selected = await showModalBottomSheet<List<Modifier>>(
@@ -185,7 +195,11 @@ class _PosScreenState extends State<PosScreen> {
         builder: (_) => ModifierPickerSheet(product: effective, modifiers: _modifiers),
       );
       if (selected != null && mounted) {
-        context.read<CartProvider>().addProduct(effective, modifiers: selected);
+        if (product.isVariablePrice) {
+          context.read<CartProvider>().addVariableItem(effective, modifiers: selected);
+        } else {
+          context.read<CartProvider>().addProduct(effective, modifiers: selected);
+        }
       }
     } finally {
       _refocusSearch();
