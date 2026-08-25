@@ -370,6 +370,17 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   se achica solo si el monto tiene muchos dígitos para que nunca se corte
   en una pantalla angosta — Subtotal/Descuento/IVA quedan chicos debajo,
   como apoyo.
+- **Carrito simplificado + ventana de Cobrar**: el carrito ahora solo
+  muestra la lista de artículos agregados (con sus botones +/- y el botón
+  Anular arriba). Elegir cliente, elegir descuento, forma de pago (con
+  división de pago), efectivo recibido/vuelto y el desglose
+  Subtotal/Descuento/IVA/Total se movieron a una ventana que se abre al
+  presionar **Cobrar**, junto con el botón final para confirmar la venta.
+  Cliente y descuento elegidos se mantienen igual que antes (por ejemplo,
+  al retomar un ticket en espera). Al confirmar el cobro, esa misma
+  ventana muestra "Venta registrada" con el total cobrado y un botón
+  **Nueva venta** para volver a Ventas y empezar el siguiente cliente,
+  en vez de cerrarse sola.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa

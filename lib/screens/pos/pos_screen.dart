@@ -989,7 +989,7 @@ class _PosScreenState extends State<PosScreen> {
   Widget _buildTile(Product product, CashSessionProvider cashSession) {
     // "Agotado" es solo informativo (el badge de abajo) — se puede seguir
     // vendiendo igual, y el stock queda en negativo (se avisa antes de
-    // cobrar, ver _confirmNegativeStock en cart_panel.dart).
+    // cobrar, ver _confirmNegativeStock en checkout_sheet.dart).
     final outOfStock = product.trackStock && product.stockQuantity <= 0;
     final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
     final canTap = cashSession.isOpen;

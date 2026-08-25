@@ -1,36 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../config/app_config.dart';
 import '../../models/cart_item.dart';
-import '../../models/customer.dart';
-import '../../models/discount.dart';
 import '../../models/open_ticket.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
-import '../../providers/store_provider.dart';
-import '../../services/customer_repository.dart';
 import '../../services/open_ticket_repository.dart';
-import '../../services/sales_repository.dart';
 import '../../services/settings_repository.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
-import '../customers/customer_picker_dialog.dart';
-import 'discount_picker_dialog.dart';
+import 'checkout_sheet.dart';
 
 /// El carrito de Ventas, siempre visible (no es un modal): vive al lado o
-/// debajo de la búsqueda de productos, según el tamaño de pantalla. El
-/// cliente y descuento elegidos se guardan en CartProvider (no aquí), para
-/// que sobrevivan si se retoma un ticket en espera desde otra parte de la
-/// pantalla.
+/// debajo de la búsqueda de productos, según el tamaño de pantalla. Solo
+/// muestra los artículos agregados — cliente, descuento, forma de pago y
+/// el desglose de montos viven en la hoja que se abre al presionar
+/// "Cobrar" (ver checkout_sheet.dart). El cliente y descuento elegidos se
+/// guardan en CartProvider (no aquí), para que sobrevivan si se retoma un
+/// ticket en espera desde otra parte de la pantalla.
 ///
 /// [compact]: cuando la pantalla no alcanza para mostrar productos y
 /// carrito lado a lado (celular, tablet vertical), el carrito se docka
-/// abajo con la lista de artículos y el detalle de pago plegados detrás de
-/// una flechita — así el mosaico de productos aprovecha casi toda la
-/// pantalla, y solo se despliega el detalle cuando el cajero lo pide. El
-/// total y los botones Guardar/Cobrar quedan siempre visibles, plegado o
-/// no.
+/// abajo con la lista de artículos plegada detrás de una flechita — así
+/// el mosaico de productos aprovecha casi toda la pantalla, y solo se
+/// despliega la lista cuando el cajero lo pide. Los botones Guardar/
+/// Cobrar quedan siempre visibles, plegado o no.
 class CartPanel extends StatefulWidget {
   final VoidCallback? onSaleCompleted;
   final VoidCallback? onTicketHeld;
@@ -43,40 +37,18 @@ class CartPanel extends StatefulWidget {
 }
 
 class _CartPanelState extends State<CartPanel> {
-  final SalesRepository _salesRepository = SalesRepository();
   final SettingsRepository _settingsRepository = SettingsRepository();
   final OpenTicketRepository _openTicketRepository = OpenTicketRepository();
-  String _paymentMethod = 'cash';
   double _taxRatePercent = 0;
-  bool _processing = false;
   bool _holding = false;
-  bool _splitPayment = false;
-  // Solo aplica en modo compacto (widget.compact): si el detalle (lista de
-  // artículos, cliente/descuento, forma de pago, desglose) está desplegado
-  // o plegado detrás de la flechita.
+  // Solo aplica en modo compacto (widget.compact): si la lista de
+  // artículos está desplegada o plegada detrás de la flechita.
   bool _detailsExpanded = false;
-  final _cashAmountController = TextEditingController();
-  final _cardAmountController = TextEditingController();
-  final _otherAmountController = TextEditingController();
-  // Con cuánto efectivo paga el cliente, para calcular el vuelto — solo se
-  // usa como ayuda para el cajero, no cambia lo que se registra en la
-  // venta (siempre se cobra el total exacto).
-  final _cashReceivedController = TextEditingController();
-  static const List<double> _cashPresets = [2000, 5000, 10000, 20000];
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
-  }
-
-  @override
-  void dispose() {
-    _cashAmountController.dispose();
-    _cardAmountController.dispose();
-    _otherAmountController.dispose();
-    _cashReceivedController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -85,143 +57,6 @@ class _CartPanelState extends State<CartPanel> {
       if (mounted) setState(() => _taxRatePercent = settings.taxRatePercent);
     } catch (_) {
       // Si no hay configuración todavía, seguimos con 0% de impuesto.
-    }
-  }
-
-  double get _subtotal => context.read<CartProvider>().total;
-  double get _discountAmount =>
-      context.read<CartProvider>().selectedDiscount?.amountFor(_subtotal) ?? 0;
-  double get _taxableAmount => _subtotal - _discountAmount;
-  // El precio de cada artículo YA incluye el IVA — nunca se suma aparte. La
-  // tasa configurada solo sirve para calcular qué parte de ese precio es
-  // impuesto, para mostrarlo desglosado (como pide la ley), no para
-  // agregarlo al total.
-  double get _taxAmount =>
-      _taxRatePercent <= 0 ? 0 : _taxableAmount - (_taxableAmount / (1 + _taxRatePercent / 100));
-  double get _total => _taxableAmount;
-
-  double get _splitCash => double.tryParse(_cashAmountController.text) ?? 0;
-  double get _splitCard => double.tryParse(_cardAmountController.text) ?? 0;
-  double get _splitOther => double.tryParse(_otherAmountController.text) ?? 0;
-  double get _splitSum => _splitCash + _splitCard + _splitOther;
-  bool get _splitValid => (_splitSum - _total).abs() < 0.01;
-
-  double? get _cashReceived => double.tryParse(_cashAmountReceivedText);
-  String get _cashAmountReceivedText => _cashReceivedController.text.trim();
-  double get _change => (_cashReceived ?? 0) - _total;
-
-  void _addCashPreset(double amount) {
-    final current = _cashReceived ?? 0;
-    setState(() => _cashReceivedController.text = (current + amount).round().toString());
-  }
-
-  void _clearCashReceived() {
-    if (_cashReceivedController.text.isNotEmpty) {
-      setState(() => _cashReceivedController.clear());
-    }
-  }
-
-  void _toggleSplitPayment(bool value) {
-    setState(() {
-      _splitPayment = value;
-      if (value) {
-        _cashAmountController.text = _total.round().toString();
-        _cardAmountController.text = '0';
-        _otherAmountController.text = '0';
-      }
-    });
-  }
-
-  Future<void> _pickCustomer() async {
-    final customer = await showDialog<Customer>(
-      context: context,
-      builder: (_) => const CustomerPickerDialog(),
-    );
-    if (customer != null && mounted) context.read<CartProvider>().setCustomer(customer);
-  }
-
-  Future<void> _pickDiscount() async {
-    final discount = await showDialog<Discount>(
-      context: context,
-      builder: (_) => const DiscountPickerDialog(),
-    );
-    if (discount != null && mounted) {
-      context.read<CartProvider>().setDiscount(discount.isNone ? null : discount);
-    }
-  }
-
-  Future<bool> _confirmNegativeStock(CartProvider cart) async {
-    final shortItems = cart.items
-        .where((item) => item.product.trackStock && item.quantity > item.product.stockQuantity);
-    if (shortItems.isEmpty) return true;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Stock insuficiente'),
-        content: Text(
-          'Estos productos no tienen suficiente inventario y quedarían en negativo:\n\n'
-          '${shortItems.map((item) => '• ${item.product.name} (stock: ${item.product.stockQuantity.toStringAsFixed(0)}, vendes: ${item.quantity.toStringAsFixed(0)})').join('\n')}'
-          '\n\n¿Quieres continuar con la venta de todas formas?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Vender igual')),
-        ],
-      ),
-    );
-    return confirmed == true;
-  }
-
-  Future<void> _checkout() async {
-    final cart = context.read<CartProvider>();
-    final cashSession = context.read<CashSessionProvider>();
-    if (cart.items.isEmpty || cashSession.current == null) return;
-    if (_splitPayment && !_splitValid) return;
-    if (!await _confirmNegativeStock(cart)) return;
-
-    setState(() => _processing = true);
-    try {
-      final total = _total;
-      final customer = cart.selectedCustomer;
-      final pointsEarned = (total * AppConfig.loyaltyPointsPerCurrencyUnit).floor();
-      await _salesRepository.createSale(
-        items: cart.items,
-        cashSessionId: cashSession.current!.id,
-        customerId: customer?.id,
-        discountId: cart.selectedDiscount?.id,
-        discountAmount: _discountAmount,
-        taxAmount: _taxAmount,
-        cashAmount: _splitPayment ? _splitCash : (_paymentMethod == 'cash' ? total : 0),
-        cardAmount: _splitPayment ? _splitCard : (_paymentMethod == 'card' ? total : 0),
-        otherAmount: _splitPayment ? _splitOther : (_paymentMethod == 'other' ? total : 0),
-        loyaltyPointsEarned: customer != null ? pointsEarned : 0,
-      );
-
-      if (customer != null) {
-        await CustomerRepository().addPointsAndSpend(
-          customer.id,
-          pointsDelta: pointsEarned,
-          spendDelta: total,
-        );
-      }
-
-      cart.clear();
-      if (mounted) {
-        setState(() {
-          _splitPayment = false;
-          _paymentMethod = 'cash';
-          _cashReceivedController.clear();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venta registrada')));
-        widget.onSaleCompleted?.call();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrar la venta: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _processing = false);
     }
   }
 
@@ -306,36 +141,7 @@ class _CartPanelState extends State<CartPanel> {
       ),
     );
     if (confirmed != true) return;
-    if (mounted) {
-      context.read<CartProvider>().clear();
-      _clearCashReceived();
-    }
-  }
-
-  /// Resumen chico (Subtotal / IVA incl. / Total) que va junto al título
-  /// "Carrito", siempre visible aunque haya que desplazarse por la lista de
-  /// artículos o el resto del panel.
-  Widget _headerAmount(String label, double amount, {bool emphasize = false}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontSize: emphasize ? 15 : 14,
-            color: emphasize ? null : Colors.grey.shade600,
-          ),
-        ),
-        CurrencyText(
-          amount,
-          bold: emphasize,
-          style: TextStyle(
-            fontSize: emphasize ? 18 : 14,
-            color: emphasize ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
-          ),
-        ),
-      ],
-    );
+    if (mounted) context.read<CartProvider>().clear();
   }
 
   /// Quitar un producto por peso o de precio variable con un solo toque en
@@ -393,201 +199,8 @@ class _CartPanelState extends State<CartPanel> {
     );
   }
 
-  /// Cliente/descuento, forma de pago (o pago dividido) y el desglose
-  /// Subtotal/Descuento/IVA/Total — todo lo "fino" que no hace falta ver
-  /// para cobrar rápido con Efectivo, así que en modo compacto queda
-  /// plegado detrás de la flechita.
-  Widget _buildPaymentAndBreakdown(CartProvider cart) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (context.watch<StoreProvider>().showCustomers)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: Text(cart.selectedCustomer?.name ?? 'Sin cliente (opcional)'),
-            leading: const Icon(Icons.person_outline),
-            trailing: TextButton(onPressed: _pickCustomer, child: const Text('Elegir')),
-          ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          title: Text(cart.selectedDiscount?.name ?? 'Sin descuento'),
-          leading: const Icon(Icons.sell_outlined),
-          trailing: TextButton(onPressed: _pickDiscount, child: const Text('Elegir')),
-        ),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          title: const Text('Dividir pago'),
-          subtitle: const Text('Ej. una parte en efectivo y otra con tarjeta'),
-          value: _splitPayment,
-          onChanged: _toggleSplitPayment,
-        ),
-        if (_splitPayment) ...[
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _cashAmountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration:
-                      const InputDecoration(labelText: 'Efectivo', border: OutlineInputBorder(), isDense: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _cardAmountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration:
-                      const InputDecoration(labelText: 'Tarjeta', border: OutlineInputBorder(), isDense: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _otherAmountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Otro', border: OutlineInputBorder(), isDense: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _splitValid
-                ? 'Cuadra con el total ✓'
-                : 'Suma: ${formatCurrencyCl(_splitSum)} — falta ${formatCurrencyCl(_total - _splitSum)}',
-            style: TextStyle(color: _splitValid ? Colors.green : Colors.red, fontSize: 12),
-          ),
-        ] else
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'cash', label: Text('Efectivo'), icon: Icon(Icons.payments)),
-              ButtonSegment(value: 'card', label: Text('Tarjeta'), icon: Icon(Icons.credit_card)),
-              ButtonSegment(value: 'other', label: Text('Otro'), icon: Icon(Icons.more_horiz)),
-            ],
-            selected: {_paymentMethod},
-            onSelectionChanged: (value) => setState(() {
-              _paymentMethod = value.first;
-              if (_paymentMethod != 'cash') _cashReceivedController.clear();
-            }),
-          ),
-        if (!_splitPayment && _paymentMethod == 'cash') ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _cashReceivedController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Recibe en efectivo',
-                    prefixText: '\$',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              if (_cashAmountReceivedText.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  tooltip: 'Borrar',
-                  onPressed: _clearCashReceived,
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _cashPresets
-                .map((amount) => ActionChip(
-                      label: Text('+${formatCurrencyCl(amount)}'),
-                      onPressed: () => _addCashPreset(amount),
-                    ))
-                .toList(),
-          ),
-          if (_cashAmountReceivedText.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _change >= 0 ? 'Vuelto' : 'Falta',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: _change >= 0 ? Colors.green.shade700 : Colors.red,
-                  ),
-                ),
-                Text(
-                  formatCurrencyCl(_change.abs()),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: _change >= 0 ? Colors.green.shade700 : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-        const SizedBox(height: 16),
-        // El total es lo que más le importa ver al cajero de un vistazo —
-        // va como número principal, grande y centrado (se achica solo con
-        // FittedBox si el monto tiene muchos dígitos, para que nunca se
-        // corte en una pantalla angosta). El desglose (subtotal,
-        // descuento, IVA) queda chico debajo, de apoyo.
-        const Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: CurrencyText(
-            _total,
-            bold: true,
-            style: TextStyle(fontSize: 56, color: Theme.of(context).colorScheme.primary),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Subtotal', style: TextStyle(fontSize: 13, color: Colors.grey)),
-            CurrencyText(cart.total, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          ],
-        ),
-        if (_discountAmount > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Descuento', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                Text('-${formatCurrencyCl(_discountAmount)}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              ],
-            ),
-          ),
-        if (_taxAmount > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('IVA incluido (${_taxRatePercent.toStringAsFixed(1)}%)',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                CurrencyText(_taxAmount, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              ],
-            ),
-          ),
-      ],
-    );
+  void _openCheckout() {
+    showCheckoutSheet(context, taxRatePercent: _taxRatePercent, onSaleCompleted: widget.onSaleCompleted);
   }
 
   Widget _buildActionButtons(CartProvider cart) {
@@ -595,7 +208,7 @@ class _CartPanelState extends State<CartPanel> {
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: (_holding || _processing || cart.items.isEmpty) ? null : _holdTicket,
+            onPressed: (_holding || cart.items.isEmpty) ? null : _holdTicket,
             icon: _holding
                 ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.pause_circle_outline),
@@ -606,12 +219,8 @@ class _CartPanelState extends State<CartPanel> {
         Expanded(
           flex: 2,
           child: FilledButton(
-            onPressed: (_processing || _holding || cart.items.isEmpty || (_splitPayment && !_splitValid))
-                ? null
-                : _checkout,
-            child: _processing
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Cobrar'),
+            onPressed: (_holding || cart.items.isEmpty) ? null : _openCheckout,
+            child: const Text('Cobrar'),
           ),
         ),
       ],
@@ -633,39 +242,20 @@ class _CartPanelState extends State<CartPanel> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
-                    if (cart.items.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: (_processing || _holding) ? null : _voidCart,
-                        icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                        label: const Text('Anular', style: TextStyle(color: Colors.red)),
-                      ),
-                  ],
-                ),
-                if (cart.items.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 2,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _headerAmount('Subtotal', _taxableAmount),
-                      if (_taxAmount > 0) _headerAmount('IVA incl.', _taxAmount),
-                      _headerAmount('Total', _total, emphasize: true),
-                    ],
+                Text('Carrito', style: Theme.of(context).textTheme.titleLarge),
+                if (cart.items.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: _holding ? null : _voidCart,
+                    icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                    label: const Text('Anular', style: TextStyle(color: Colors.red)),
                   ),
-                ],
               ],
             ),
           ),
           Expanded(
-            flex: 3,
             child: cart.items.isEmpty
                 ? const Center(
                     child: Text('El carrito está vacío', style: TextStyle(color: Colors.grey)),
@@ -676,24 +266,9 @@ class _CartPanelState extends State<CartPanel> {
                   ),
           ),
           const Divider(height: 1),
-          // Flexible (no un simple SingleChildScrollView suelto) para que
-          // nunca empuje el botón "Cobrar" fuera de la pantalla: si el
-          // carrito tiene muchos artículos y queda poco espacio, esta franja
-          // se achica y scrollea dentro de lo que le toca, en vez de
-          // desbordarse por debajo del panel (donde quedaba invisible).
-          Flexible(
-            flex: 2,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildPaymentAndBreakdown(cart),
-                  const SizedBox(height: 12),
-                  _buildActionButtons(cart),
-                ],
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildActionButtons(cart),
           ),
         ],
       ),
@@ -702,13 +277,12 @@ class _CartPanelState extends State<CartPanel> {
 
   /// Panel compacto (celular, tablet vertical): el carrito se docka abajo
   /// del mosaico de productos con solo una franja fija siempre visible
-  /// (total y los botones Guardar/Cobrar); la lista de artículos y el
-  /// detalle de pago quedan plegados detrás de la flechita, para que el
-  /// mosaico de productos aproveche casi toda la pantalla mientras se
-  /// vende. "mainAxisSize: min" es la clave: sin eso, esta columna
-  /// ocuparía todo el alto que le da el ConstrainedBox de pos_screen.dart
-  /// aunque esté plegada, dejando un hueco vacío en vez de devolverle el
-  /// espacio al mosaico.
+  /// (los botones Guardar/Cobrar); la lista de artículos queda plegada
+  /// detrás de la flechita, para que el mosaico de productos aproveche
+  /// casi toda la pantalla mientras se vende. "mainAxisSize: min" es la
+  /// clave: sin eso, esta columna ocuparía todo el alto que le da el
+  /// ConstrainedBox de pos_screen.dart aunque esté plegada, dejando un
+  /// hueco vacío en vez de devolverle el espacio al mosaico.
   Widget _buildCompactPanel(BuildContext context, CartProvider cart) {
     final hasItems = cart.items.isNotEmpty;
     return Material(
@@ -746,11 +320,11 @@ class _CartPanelState extends State<CartPanel> {
                             icon: const Icon(Icons.cancel_outlined, color: Colors.red),
                             tooltip: 'Anular',
                             visualDensity: VisualDensity.compact,
-                            onPressed: (_processing || _holding) ? null : _voidCart,
+                            onPressed: _holding ? null : _voidCart,
                           ),
                           IconButton(
                             icon: Icon(_detailsExpanded ? Icons.expand_less : Icons.expand_more),
-                            tooltip: _detailsExpanded ? 'Ocultar detalle' : 'Ver detalle',
+                            tooltip: _detailsExpanded ? 'Ocultar artículos' : 'Ver artículos',
                             visualDensity: VisualDensity.compact,
                             onPressed: () => setState(() => _detailsExpanded = !_detailsExpanded),
                           ),
@@ -758,19 +332,7 @@ class _CartPanelState extends State<CartPanel> {
                       ),
                   ],
                 ),
-                if (hasItems) ...[
-                  const SizedBox(height: 2),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 2,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _headerAmount('Subtotal', _taxableAmount),
-                      if (_taxAmount > 0) _headerAmount('IVA incl.', _taxAmount),
-                      _headerAmount('Total', _total, emphasize: true),
-                    ],
-                  ),
-                ] else ...[
+                if (!hasItems) ...[
                   const SizedBox(height: 2),
                   const Text('El carrito está vacío', style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
@@ -782,19 +344,9 @@ class _CartPanelState extends State<CartPanel> {
           if (hasItems && _detailsExpanded) ...[
             const Divider(height: 1),
             Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ...cart.items.map(_buildItemTile),
-                    const Divider(height: 1),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: _buildPaymentAndBreakdown(cart),
-                    ),
-                  ],
-                ),
+              child: ListView(
+                shrinkWrap: true,
+                children: cart.items.map(_buildItemTile).toList(),
               ),
             ),
           ],
