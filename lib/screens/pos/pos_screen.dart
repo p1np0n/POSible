@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -19,6 +21,7 @@ import '../../services/discount_repository.dart';
 import '../../services/modifier_repository.dart';
 import '../../services/open_ticket_repository.dart';
 import '../../services/pos_page_repository.dart';
+import '../../services/product_catalog_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../utils/search_normalize.dart';
@@ -54,6 +57,7 @@ class PosScreen extends StatefulWidget {
 
 class _PosScreenState extends State<PosScreen> {
   final ProductRepository _productRepository = ProductRepository();
+  final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final ModifierRepository _modifierRepository = ModifierRepository();
   final OpenTicketRepository _openTicketRepository = OpenTicketRepository();
@@ -84,6 +88,12 @@ class _PosScreenState extends State<PosScreen> {
   // Si el buscador está desplegado (mostrando el campo de texto) o
   // escondido detrás del ícono de lupa — ver la barra de arriba en build().
   bool _searchExpanded = false;
+  // Además de devolverle el foco al buscador explícitamente después de
+  // cada interacción conocida (_refocusSearch), este timer revisa cada
+  // tanto si el foco se perdió sin que nada más lo esté usando a propósito
+  // (ej. un caso que no contemplamos) y lo recupera solo — así el lector
+  // USB no puede quedar "roto" en silencio por un hueco que se nos escapó.
+  Timer? _scannerFocusWatchdog;
 
   @override
   void initState() {
@@ -94,6 +104,15 @@ class _PosScreenState extends State<PosScreen> {
       _refocusSearch();
     });
     _loadData();
+    _scannerFocusWatchdog = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (!mounted) return;
+      if (!context.read<AppPreferencesProvider>().usbScannerModeEnabled) return;
+      if (_searchFocusNode.hasFocus) return;
+      // Si otra cosa tiene el foco a propósito (un diálogo abierto, un
+      // campo de texto de otra pantalla), no se lo quitamos.
+      if (FocusManager.instance.primaryFocus != null) return;
+      _searchFocusNode.requestFocus();
+    });
   }
 
   /// Le devuelve el foco al campo de búsqueda (el que recibe lo que
@@ -113,6 +132,7 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   void dispose() {
+    _scannerFocusWatchdog?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -305,17 +325,129 @@ class _PosScreenState extends State<PosScreen> {
     return true;
   }
 
+  /// Un código de barras real es solo dígitos (EAN-13, EAN-8, UPC-A, los
+  /// numéricos de balanza, etc.) — se usa para distinguir "esto se escaneó
+  /// o se tecleó como código" de una búsqueda de texto común que
+  /// simplemente no encontró nada, y así no ofrecer "crear producto" ante
+  /// cualquier búsqueda sin resultados.
+  bool _looksLikeBarcode(String value) => RegExp(r'^\d{6,}$').hasMatch(value);
+
   /// Maneja lo que llega al buscador (visible o el campo invisible del
   /// lector USB) al presionar Enter — el lector manda el código y un Enter
   /// automático, así que esto es lo que hace que escanear agregue el
-  /// producto solo, sin tocar la pantalla.
+  /// producto solo, sin tocar la pantalla. Si el código tiene forma de
+  /// código de barras pero no coincide con ningún producto, ofrece crearlo
+  /// al toque (ver _offerCreateProductForBarcode).
   Future<void> _handleScanSubmit(String value) async {
     final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
-    if (handled && mounted) {
-      _searchController.clear();
-      setState(() => _search = '');
+    final trimmed = value.trim();
+    if (handled || _looksLikeBarcode(trimmed)) {
+      if (mounted) {
+        _searchController.clear();
+        setState(() => _search = '');
+      }
+    }
+    if (!handled && _looksLikeBarcode(trimmed) && mounted) {
+      await _offerCreateProductForBarcode(trimmed);
     }
     _refocusSearch();
+  }
+
+  /// Avisa que no existe ningún producto con ese código de barras y ofrece
+  /// crearlo al toque, sin tener que ir a Lista de artículos ni escanear
+  /// una segunda vez.
+  Future<void> _offerCreateProductForBarcode(String barcode) async {
+    final create = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Artículo no encontrado'),
+        content: Text('No hay ningún producto con el código de barras $barcode.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cerrar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar producto')),
+        ],
+      ),
+    );
+    if (create == true && mounted) {
+      await _quickCreateProductFromBarcode(barcode);
+    }
+  }
+
+  /// Crea el producto con el código de barras ya escaneado (pidiendo solo
+  /// nombre y precio, lo mínimo para poder cobrarlo) y lo agrega de
+  /// inmediato al carrito — así el flujo completo (escanear algo que no
+  /// existe → crearlo → venderlo) no necesita una segunda pasada.
+  Future<void> _quickCreateProductFromBarcode(String barcode) async {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Agregar artículo nuevo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Código de barras: $barcode', style: TextStyle(color: Colors.grey.shade700)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: priceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar')),
+        ],
+      ),
+    );
+    if (saved != true || !mounted) return;
+    final name = nameController.text.trim();
+    final price = double.tryParse(priceController.text);
+    if (name.isEmpty || price == null || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa un nombre y un precio válido')),
+      );
+      return;
+    }
+    if (!context.read<CashSessionProvider>().isOpen) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Abre la caja antes de vender')),
+      );
+      return;
+    }
+    try {
+      final created = await _productRepository.create(Product(
+        id: '',
+        name: name,
+        price: price,
+        stockQuantity: 0,
+        trackStock: false,
+        active: true,
+        barcode: barcode,
+      ));
+      if (!mounted) return;
+      setState(() => _products = [..._products, created]);
+      try {
+        await _catalogRepository.upsert(barcode: barcode, name: name, suggestedPrice: price, source: 'store');
+      } catch (_) {
+        // Aporte al catálogo global es "mejor esfuerzo" — el producto ya
+        // quedó guardado en el inventario propio de todas formas.
+      }
+      await _addToCart(created);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al crear el producto: $e')));
+      }
+    }
   }
 
   bool _matchesSearch(Product product) {
