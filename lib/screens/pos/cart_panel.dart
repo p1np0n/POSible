@@ -540,10 +540,28 @@ class _CartPanelState extends State<CartPanel> {
             ),
           ],
         ],
+        const SizedBox(height: 16),
+        // El total es lo que más le importa ver al cajero de un vistazo —
+        // va como número principal, grande y centrado (se achica solo con
+        // FittedBox si el monto tiene muchos dígitos, para que nunca se
+        // corte en una pantalla angosta). El desglose (subtotal,
+        // descuento, IVA) queda chico debajo, de apoyo.
+        const Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: CurrencyText(
+            _total,
+            bold: true,
+            style: TextStyle(fontSize: 56, color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [const Text('Subtotal'), CurrencyText(cart.total)],
+          children: [
+            const Text('Subtotal', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            CurrencyText(cart.total, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          ],
         ),
         if (_discountAmount > 0)
           Padding(
@@ -551,8 +569,8 @@ class _CartPanelState extends State<CartPanel> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Descuento'),
-                Text('-${formatCurrencyCl(_discountAmount)}'),
+                const Text('Descuento', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                Text('-${formatCurrencyCl(_discountAmount)}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
               ],
             ),
           ),
@@ -562,19 +580,12 @@ class _CartPanelState extends State<CartPanel> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('IVA incluido (${_taxRatePercent.toStringAsFixed(1)}%)'),
-                CurrencyText(_taxAmount),
+                Text('IVA incluido (${_taxRatePercent.toStringAsFixed(1)}%)',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                CurrencyText(_taxAmount, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               ],
             ),
           ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Total', style: TextStyle(fontSize: 18)),
-            CurrencyText(_total, bold: true, style: const TextStyle(fontSize: 20)),
-          ],
-        ),
       ],
     );
   }
