@@ -7,6 +7,7 @@ import '../../services/cash_movement_repository.dart';
 import '../../services/receipts_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/number_pad_dialog.dart';
 
 /// Detalle de tesorería de un turno: cuánto debería haber en la caja
 /// (efectivo teórico) y el resumen de ventas por método de pago, como en
@@ -221,8 +222,18 @@ class _MovementDialogState extends State<_MovementDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            readOnly: true,
             decoration: const InputDecoration(labelText: 'Monto', border: OutlineInputBorder()),
+            onTap: () async {
+              final amount = await showNumberPadDialog(
+                context,
+                title: 'Monto',
+                initialValue: double.tryParse(_amountController.text),
+                prefixText: '\$',
+                minValue: 1,
+              );
+              if (amount != null) setState(() => _amountController.text = amount.round().toString());
+            },
           ),
           const SizedBox(height: 12),
           TextField(

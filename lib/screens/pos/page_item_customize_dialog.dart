@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/product.dart';
+import '../../widgets/number_pad_dialog.dart';
 
 /// Diálogo para ponerle nombre y precio propios a un botón de venta rápida
 /// (ej. "Huevos 5x1000") antes de agregarlo a una pestaña, o para editar
@@ -38,8 +39,18 @@ Future<(String?, double?)?> showPageItemCustomizeDialog(
             const SizedBox(height: 12),
             TextField(
               controller: priceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              readOnly: true,
               decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
+              onTap: () async {
+                final price = await showNumberPadDialog(
+                  context,
+                  title: 'Precio',
+                  initialValue: double.tryParse(priceController.text),
+                  prefixText: '\$',
+                  minValue: 1,
+                );
+                if (price != null) priceController.text = price.round().toString();
+              },
             ),
           ],
         ],

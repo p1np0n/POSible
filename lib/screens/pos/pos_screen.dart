@@ -26,6 +26,7 @@ import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/number_pad_dialog.dart';
 import '../../widgets/product_avatar.dart';
 import '../../widgets/status_badge.dart';
 import '../inventory/product_form_screen.dart';
@@ -240,32 +241,13 @@ class _PosScreenState extends State<PosScreen> {
 
   /// Pide el precio de un artículo de precio variable antes de agregarlo al
   /// carrito (ej. un servicio o algo sin precio fijo en el catálogo).
-  Future<double?> _askVariablePrice(Product product) async {
-    final controller = TextEditingController(
-      text: product.price > 0 ? product.price.round().toString() : '',
-    );
-    return showDialog<double>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(product.name),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () {
-              final price = double.tryParse(controller.text);
-              if (price == null || price <= 0) return;
-              Navigator.of(context).pop(price);
-            },
-            child: const Text('Agregar'),
-          ),
-        ],
-      ),
+  Future<double?> _askVariablePrice(Product product) {
+    return showNumberPadDialog(
+      context,
+      title: product.name,
+      initialValue: product.price > 0 ? product.price : null,
+      prefixText: '\$',
+      minValue: 1,
     );
   }
 
@@ -392,33 +374,47 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _quickCreateProductFromBarcode(String barcode) async {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
+    Future<void> pickPrice(StateSetter setState) async {
+      final price = await showNumberPadDialog(
+        context,
+        title: 'Precio',
+        initialValue: double.tryParse(priceController.text),
+        prefixText: '\$',
+        minValue: 1,
+      );
+      if (price != null) setState(() => priceController.text = price.round().toString());
+    }
+
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Agregar artículo nuevo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Código de barras: $barcode', style: TextStyle(color: Colors.grey.shade700)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: priceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
-            ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Agregar artículo nuevo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Código de barras: $barcode', style: TextStyle(color: Colors.grey.shade700)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceController,
+                readOnly: true,
+                decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
+                onTap: () => pickPrice(setState),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar')),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar')),
-        ],
       ),
     );
     if (saved != true || !mounted) return;
@@ -565,31 +561,13 @@ class _PosScreenState extends State<PosScreen> {
   /// contra el valor actual, con el mismo RPC que usa Inventario, y se
   /// actualiza el mosaico en memoria sin recargar todo el catálogo.
   Future<void> _editStock(Product product) async {
-    final controller = TextEditingController(
-      text: product.isSoldByWeight
-          ? product.stockQuantity.toStringAsFixed(3)
-          : product.stockQuantity.toStringAsFixed(0),
-    );
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(product.name),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: const InputDecoration(labelText: 'Stock disponible', border: OutlineInputBorder()),
-          onSubmitted: (_) => Navigator.of(context).pop(true),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Guardar')),
-        ],
-      ),
+    final newStock = await showNumberPadDialog(
+      context,
+      title: product.name,
+      initialValue: product.stockQuantity,
+      allowDecimal: product.isSoldByWeight,
     );
     _refocusSearch();
-    if (saved != true) return;
-    final newStock = double.tryParse(controller.text);
     if (newStock == null || newStock == product.stockQuantity) return;
 
     try {

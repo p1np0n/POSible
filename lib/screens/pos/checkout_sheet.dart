@@ -11,6 +11,7 @@ import '../../services/customer_repository.dart';
 import '../../services/sales_repository.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/number_pad_dialog.dart';
 import '../customers/customer_picker_dialog.dart';
 import 'discount_picker_dialog.dart';
 
@@ -100,6 +101,19 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
     if (_cashReceivedController.text.isNotEmpty) {
       setState(() => _cashReceivedController.clear());
     }
+  }
+
+  /// Abre el teclado numérico propio de la app (en vez del teclado del
+  /// dispositivo, que puede tapar el resto de este popup) para cargar un
+  /// monto en cualquiera de los campos de pago.
+  Future<void> _pickAmount(TextEditingController controller, {required String title}) async {
+    final amount = await showNumberPadDialog(
+      context,
+      title: title,
+      initialValue: double.tryParse(controller.text),
+      prefixText: '\$',
+    );
+    if (amount != null) setState(() => controller.text = amount.round().toString());
   }
 
   void _toggleSplitPayment(bool value) {
@@ -330,29 +344,29 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                 Expanded(
                   child: TextField(
                     controller: _cashAmountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    readOnly: true,
                     decoration:
                         const InputDecoration(labelText: 'Efectivo', border: OutlineInputBorder(), isDense: true),
-                    onChanged: (_) => setState(() {}),
+                    onTap: () => _pickAmount(_cashAmountController, title: 'Efectivo'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _cardAmountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    readOnly: true,
                     decoration:
                         const InputDecoration(labelText: 'Tarjeta', border: OutlineInputBorder(), isDense: true),
-                    onChanged: (_) => setState(() {}),
+                    onTap: () => _pickAmount(_cardAmountController, title: 'Tarjeta'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _otherAmountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    readOnly: true,
                     decoration: const InputDecoration(labelText: 'Otro', border: OutlineInputBorder(), isDense: true),
-                    onChanged: (_) => setState(() {}),
+                    onTap: () => _pickAmount(_otherAmountController, title: 'Otro'),
                   ),
                 ),
               ],
@@ -384,14 +398,14 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                 Expanded(
                   child: TextField(
                     controller: _cashReceivedController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    readOnly: true,
                     decoration: const InputDecoration(
                       labelText: 'Recibe en efectivo',
                       prefixText: '\$',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onTap: () => _pickAmount(_cashReceivedController, title: 'Recibe en efectivo'),
                   ),
                 ),
                 if (_cashAmountReceivedText.isNotEmpty) ...[
