@@ -28,9 +28,21 @@ import 'checkout_sheet.dart';
 class CartPanel extends StatefulWidget {
   final VoidCallback? onSaleCompleted;
   final VoidCallback? onTicketHeld;
+  // Se llama al cerrarse el popup de Cobrar, se haya completado una venta o
+  // no — el popup es una hoja modal, así que le roba el foco al buscador
+  // (clave para que el lector de código de barras USB siga agregando solo
+  // al escanear); esto le avisa a quien contenga el carrito que le
+  // devuelva el foco.
+  final VoidCallback? onCheckoutClosed;
   final bool compact;
 
-  const CartPanel({super.key, this.onSaleCompleted, this.onTicketHeld, this.compact = false});
+  const CartPanel({
+    super.key,
+    this.onSaleCompleted,
+    this.onTicketHeld,
+    this.onCheckoutClosed,
+    this.compact = false,
+  });
 
   @override
   State<CartPanel> createState() => _CartPanelState();
@@ -199,8 +211,9 @@ class _CartPanelState extends State<CartPanel> {
     );
   }
 
-  void _openCheckout() {
-    showCheckoutSheet(context, taxRatePercent: _taxRatePercent, onSaleCompleted: widget.onSaleCompleted);
+  Future<void> _openCheckout() async {
+    await showCheckoutSheet(context, taxRatePercent: _taxRatePercent, onSaleCompleted: widget.onSaleCompleted);
+    widget.onCheckoutClosed?.call();
   }
 
   /// Lo que se le cobra al cliente: el subtotal del carrito menos el
