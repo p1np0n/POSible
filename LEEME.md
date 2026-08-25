@@ -652,3 +652,9 @@ repites el Paso 4 (Actions compila sola) y el Paso 5 (descargar el nuevo
   línea del carrito sin avisar**: ahora pide confirmación antes de
   quitarla (los productos normales se quitan igual que siempre, sin
   preguntar).
+- **Un producto de precio variable se sumaba a la misma línea del
+  carrito**: al agregarlo una segunda vez con un precio distinto, se
+  combinaba con la línea anterior y se perdía el precio nuevo (quedaba
+  todo cobrado al primer precio). Ahora cada vez que agregas un producto
+  de precio variable se crea una línea nueva en el carrito, con su propio
+  precio — igual que ya pasaba con los productos por peso.
