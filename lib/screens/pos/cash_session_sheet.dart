@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/cash_session_provider.dart';
+import '../../widgets/number_pad_dialog.dart';
 
 class CashSessionSheet extends StatefulWidget {
   const CashSessionSheet({super.key});
@@ -72,11 +73,20 @@ class _CashSessionSheetState extends State<CashSessionSheet> {
           const SizedBox(height: 16),
           TextField(
             controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            readOnly: true,
             decoration: InputDecoration(
               labelText: isOpen ? 'Monto de cierre (efectivo contado)' : 'Monto de apertura',
               border: const OutlineInputBorder(),
             ),
+            onTap: () async {
+              final amount = await showNumberPadDialog(
+                context,
+                title: isOpen ? 'Monto de cierre' : 'Monto de apertura',
+                initialValue: double.tryParse(_amountController.text),
+                prefixText: '\$',
+              );
+              if (amount != null) setState(() => _amountController.text = amount.round().toString());
+            },
           ),
           if (isOpen) ...[
             const SizedBox(height: 12),

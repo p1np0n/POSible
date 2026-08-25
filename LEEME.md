@@ -423,6 +423,16 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   botón para agregarlo al toque — pide nombre y precio, guarda el código
   escaneado como su código de barras y lo agrega de inmediato al carrito,
   sin tener que ir a Lista de artículos ni escanear una segunda vez.
+- **Teclado numérico propio en vez del teclado del dispositivo**: en Ventas,
+  cualquier campo donde se escribe un número (precio de un artículo de
+  precio variable, editar stock desde el mosaico, agregar un producto
+  nuevo al escanear un código no encontrado, montos del popup de Cobrar —
+  efectivo/tarjeta/otro y "Recibe en efectivo", abrir/cerrar caja, depósito
+  o retiro de un turno, y el precio de un botón de venta rápida) ahora abre
+  un teclado numérico propio de la app en vez del teclado del celular — el
+  teclado del dispositivo podía tapar el resto del popup o de la pantalla;
+  este teclado siempre queda visible completo, sin importar el tamaño de
+  pantalla.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa
