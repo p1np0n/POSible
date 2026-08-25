@@ -412,6 +412,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   vez (lo que sí crea un campo de tamaño normal). Ahora ese campo invisible
   usa un tamaño chico pero real (sigue sin verse, oculto con transparencia)
   para que el foco funcione desde que entras a Ventas, sin tocar nada.
+- **El buscador se limpia solo al agregar un producto**: al tocar un
+  artículo del mosaico (o de la lista, o escanearlo) para agregarlo al
+  carrito, el buscador queda listo para el siguiente — antes había que
+  borrar a mano lo que buscaste para encontrarlo antes de poder buscar el
+  próximo.
 - **Artículo no encontrado al escanear en Ventas**: si el código escaneado
   (o tecleado en el buscador) tiene forma de código de barras pero no
   coincide con ningún producto, ahora avisa "Artículo no encontrado" con un

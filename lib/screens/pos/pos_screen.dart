@@ -207,6 +207,7 @@ class _PosScreenState extends State<PosScreen> {
         } else {
           context.read<CartProvider>().addProduct(effective);
         }
+        _clearSearch();
         return;
       }
       final selected = await showModalBottomSheet<List<Modifier>>(
@@ -220,10 +221,21 @@ class _PosScreenState extends State<PosScreen> {
         } else {
           context.read<CartProvider>().addProduct(effective, modifiers: selected);
         }
+        _clearSearch();
       }
     } finally {
       _refocusSearch();
     }
+  }
+
+  /// Deja el buscador listo para el siguiente artículo apenas se agrega
+  /// uno al carrito (desde el mosaico, la lista, o un escaneo) — así no
+  /// hay que borrar a mano lo que se buscó para encontrar el que se acaba
+  /// de agregar antes de buscar el próximo.
+  void _clearSearch() {
+    if (_search.isEmpty && _searchController.text.isEmpty) return;
+    _searchController.clear();
+    setState(() => _search = '');
   }
 
   /// Pide el precio de un artículo de precio variable antes de agregarlo al
