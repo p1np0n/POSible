@@ -365,7 +365,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Números del carrito más grandes**: la cantidad, el precio unitario y
   el subtotal de cada artículo, y el resumen Subtotal/IVA/Total de arriba
   del carrito, se ven en un tamaño de letra más grande — antes eran
-  chicos y costaba leerlos de un vistazo.
+  chicos y costaba leerlos de un vistazo. Además, el **Total** (al final
+  del desglose de pago) ahora es el número principal: grande, centrado, y
+  se achica solo si el monto tiene muchos dígitos para que nunca se corte
+  en una pantalla angosta — Subtotal/Descuento/IVA quedan chicos debajo,
+  como apoyo.
 - **Barra de arriba en Ventas**: menú (celular) y buscador conviven en una
   sola línea, sobre el mismo fondo naranja (no hay un AppBar aparte para
   esta pantalla). El buscador queda escondido detrás de un ícono de lupa
