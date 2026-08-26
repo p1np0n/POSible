@@ -46,6 +46,15 @@ class SettingsRepository {
     }, onConflict: 'store_id');
   }
 
+  Future<void> updateGoogleSearchConfig({required String? apiKey, required String? engineId}) async {
+    await _client.from('store_settings').upsert({
+      'store_id': CurrentStore.id,
+      'google_search_api_key': apiKey,
+      'google_search_engine_id': engineId,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'store_id');
+  }
+
   /// Llama a la Edge Function "notify-low-stock" (ver LEEME.md para
   /// activarla) para revisar el inventario y enviar la alerta por correo
   /// ahora mismo. Devuelve un mensaje para mostrarle al usuario.

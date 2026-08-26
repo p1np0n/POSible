@@ -20,6 +20,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _marginController = TextEditingController();
   final _notifyEmailController = TextEditingController();
   final _ocrApiKeyController = TextEditingController();
+  final _googleSearchApiKeyController = TextEditingController();
+  final _googleSearchEngineIdController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _loading = true;
@@ -28,6 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingNotifyEmail = false;
   bool _sendingTest = false;
   bool _savingOcrApiKey = false;
+  bool _savingGoogleSearchConfig = false;
   bool _changingPassword = false;
   bool _fillingPhotos = false;
 
@@ -44,6 +47,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _marginController.text = settings.defaultMarginPercent.toStringAsFixed(2);
       _notifyEmailController.text = settings.lowStockNotifyEmail ?? '';
       _ocrApiKeyController.text = settings.ocrApiKey ?? '';
+      _googleSearchApiKeyController.text = settings.googleSearchApiKey ?? '';
+      _googleSearchEngineIdController.text = settings.googleSearchEngineId ?? '';
     } catch (_) {
       _taxRateController.text = '0';
       _marginController.text = '30';
@@ -82,6 +87,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _savingOcrApiKey = false);
+    }
+  }
+
+  Future<void> _saveGoogleSearchConfig() async {
+    setState(() => _savingGoogleSearchConfig = true);
+    try {
+      final apiKey = _googleSearchApiKeyController.text.trim();
+      final engineId = _googleSearchEngineIdController.text.trim();
+      await _repository.updateGoogleSearchConfig(
+        apiKey: apiKey.isEmpty ? null : apiKey,
+        engineId: engineId.isEmpty ? null : engineId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Configuración de Google actualizada')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingGoogleSearchConfig = false);
     }
   }
 
@@ -174,6 +201,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _marginController.dispose();
     _notifyEmailController.dispose();
     _ocrApiKeyController.dispose();
+    _googleSearchApiKeyController.dispose();
+    _googleSearchEngineIdController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -311,6 +340,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: _fillingPhotos
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Buscar fotos faltantes ahora'),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'La búsqueda de fotos por código de barras revisa, en orden, el catálogo '
+                'global, Open Food Facts, Open Beauty Facts, Open Products Facts y '
+                'UPCitemdb — todo gratis, sin configurar nada. Si ninguna encuentra una '
+                'foto, y pones tu propia clave de Google Custom Search acá abajo, se '
+                'intenta también ahí como último recurso.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _googleSearchApiKeyController,
+                decoration: const InputDecoration(
+                  labelText: 'Clave de Google Custom Search (opcional)',
+                  helperText: 'Gratis hasta 100 búsquedas/día. Créala en console.cloud.google.com '
+                      '(API "Custom Search API").',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _googleSearchEngineIdController,
+                decoration: const InputDecoration(
+                  labelText: 'ID del motor de búsqueda (opcional)',
+                  helperText: 'Créalo en programmablesearchengine.google.com, activando '
+                      '"Búsqueda de imágenes" y "Buscar en toda la red".',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _savingGoogleSearchConfig ? null : _saveGoogleSearchConfig,
+                child: _savingGoogleSearchConfig
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Guardar'),
               ),
               const SizedBox(height: 32),
               const Divider(),
