@@ -27,8 +27,15 @@ Future<void> main() async {
   runApp(const PosibleApp());
 }
 
+/// [title] y [home] permiten reutilizar esta misma app (login, providers,
+/// tema) para un punto de entrada distinto — ver lib/main_info_admin.dart,
+/// que compila un APK aparte con solo InfoAdminShell como pantalla
+/// principal, sin duplicar todo el flujo de autenticación.
 class PosibleApp extends StatelessWidget {
-  const PosibleApp({super.key});
+  final String title;
+  final Widget home;
+
+  const PosibleApp({super.key, this.title = 'POSible', this.home = const HomeShell()});
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +49,12 @@ class PosibleApp extends StatelessWidget {
       child: Consumer<AppPreferencesProvider>(
         builder: (context, prefs, _) {
           return MaterialApp(
-            title: 'POSible',
+            title: title,
             debugShowCheckedModeBanner: false,
             themeMode: prefs.darkMode ? ThemeMode.dark : ThemeMode.light,
             theme: buildAppTheme(Brightness.light),
             darkTheme: buildAppTheme(Brightness.dark),
-            home: const AuthGate(),
+            home: AuthGate(home: home),
           );
         },
       ),
@@ -56,7 +63,9 @@ class PosibleApp extends StatelessWidget {
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+  final Widget home;
+
+  const AuthGate({super.key, required this.home});
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -67,6 +76,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<EmployeeProfile?>? _profileFuture;
   String? _profileForUserId;
   bool _passwordRecovery = false;
+  bool _storeLoadRequested = false;
 
   @override
   void initState() {
@@ -118,9 +128,21 @@ class _AuthGateState extends State<AuthGate> {
             }
             final profile = profileSnapshot.data;
             if (profile != null && profile.approved) {
+              // CurrentStore.id (usado por varios repositorios, ej. los
+              // reportes) se llena recién acá — antes solo lo pedía
+              // HomeShell, así que un "home" distinto (ver
+              // lib/main_info_admin.dart) se quedaba sin tienda asignada.
+              final store = context.watch<StoreProvider>();
+              if (!store.loaded) {
+                if (!_storeLoadRequested) {
+                  _storeLoadRequested = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) => context.read<StoreProvider>().load());
+                }
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
               // El bloqueo automático (pedir PIN de nuevo) también es solo
               // para Android, ya que depende del login con PIN.
-              return kIsWeb ? const HomeShell() : const LockGate(child: HomeShell());
+              return kIsWeb ? widget.home : LockGate(child: widget.home);
             }
             return PendingApprovalScreen(
               onRetry: () => setState(() => _loadProfile(session.user.id)),
