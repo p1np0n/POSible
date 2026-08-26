@@ -111,10 +111,9 @@ class _StoresScreenState extends State<StoresScreen> {
   }
 
   void _showEmployees(Store store) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      builder: (_) => _StoreEmployeesSheet(store: store, profileRepository: _profileRepository),
+      builder: (_) => _StoreEmployeesDialog(store: store, profileRepository: _profileRepository),
     );
   }
 
@@ -365,21 +364,22 @@ class _ResetPinDialogState extends State<_ResetPinDialog> {
   }
 }
 
-/// Bottom sheet con los empleados de una tienda (administrador principal
-/// solamente) y un botón para restablecer el PIN de cualquiera de ellos —
-/// no permite aprobar ni quitar empleados de otra tienda, eso sigue siendo
-/// solo del dueño de esa tienda.
-class _StoreEmployeesSheet extends StatefulWidget {
+/// Popup centrado (no un bottom sheet de ancho completo, que se veía
+/// enorme y pegado abajo en pantallas anchas) con los empleados de una
+/// tienda (administrador principal solamente) y un botón para restablecer
+/// el PIN de cualquiera de ellos — no permite aprobar ni quitar empleados
+/// de otra tienda, eso sigue siendo solo del dueño de esa tienda.
+class _StoreEmployeesDialog extends StatefulWidget {
   final Store store;
   final ProfileRepository profileRepository;
 
-  const _StoreEmployeesSheet({required this.store, required this.profileRepository});
+  const _StoreEmployeesDialog({required this.store, required this.profileRepository});
 
   @override
-  State<_StoreEmployeesSheet> createState() => _StoreEmployeesSheetState();
+  State<_StoreEmployeesDialog> createState() => _StoreEmployeesDialogState();
 }
 
-class _StoreEmployeesSheetState extends State<_StoreEmployeesSheet> {
+class _StoreEmployeesDialogState extends State<_StoreEmployeesDialog> {
   List<EmployeeProfile>? _employees;
   String? _error;
   String _search = '';
@@ -427,66 +427,85 @@ class _StoreEmployeesSheetState extends State<_StoreEmployeesSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.6,
-      builder: (context, scrollController) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Empleados de ${widget.store.name}', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              if (_employees != null && _employees!.length > 5) ...[
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Buscar empleado',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (value) => setState(() => _search = value),
+    final maxHeight = (MediaQuery.of(context).size.height * 0.7).clamp(320.0, 560.0);
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: SizedBox(
+          height: maxHeight,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Empleados de ${widget.store.name}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Cerrar',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                if (_employees != null && _employees!.length > 5) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar empleado',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (value) => setState(() => _search = value),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _error != null
+                      ? ErrorState(message: 'No se pudieron cargar los empleados', onRetry: _load)
+                      : _employees == null
+                          ? const LoadingIndicator()
+                          : _employees!.isEmpty
+                              ? const EmptyState(
+                                  message: 'Esta tienda todavía no tiene empleados',
+                                  icon: Icons.badge_outlined,
+                                )
+                              : _filtered.isEmpty
+                                  ? EmptyState(
+                                      message: 'Ningún empleado coincide con "$_search"',
+                                      icon: Icons.search_off,
+                                    )
+                                  : ListView.builder(
+                                      itemCount: _filtered.length,
+                                      itemBuilder: (context, index) {
+                                        final profile = _filtered[index];
+                                        return ListTile(
+                                          leading: Icon(
+                                            profile.approved ? Icons.check_circle : Icons.hourglass_top,
+                                            color: profile.approved ? Colors.green : Colors.orange,
+                                          ),
+                                          title: Text(profile.email.isEmpty ? '(sin correo)' : profile.email),
+                                          subtitle: Text(profile.approved ? 'Aprobado' : 'Pendiente de aprobación'),
+                                          trailing: IconButton(
+                                            icon: const Icon(Icons.password_outlined),
+                                            tooltip: 'Restablecer PIN',
+                                            onPressed: () => _resetPin(profile),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                ),
               ],
-              Expanded(
-                child: _error != null
-                    ? ErrorState(message: 'No se pudieron cargar los empleados', onRetry: _load)
-                    : _employees == null
-                        ? const LoadingIndicator()
-                        : _employees!.isEmpty
-                            ? const EmptyState(
-                                message: 'Esta tienda todavía no tiene empleados',
-                                icon: Icons.badge_outlined,
-                              )
-                            : _filtered.isEmpty
-                                ? EmptyState(message: 'Ningún empleado coincide con "$_search"', icon: Icons.search_off)
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    itemCount: _filtered.length,
-                                    itemBuilder: (context, index) {
-                                      final profile = _filtered[index];
-                                      return ListTile(
-                                        leading: Icon(
-                                          profile.approved ? Icons.check_circle : Icons.hourglass_top,
-                                          color: profile.approved ? Colors.green : Colors.orange,
-                                        ),
-                                        title: Text(profile.email.isEmpty ? '(sin correo)' : profile.email),
-                                        subtitle: Text(profile.approved ? 'Aprobado' : 'Pendiente de aprobación'),
-                                        trailing: IconButton(
-                                          icon: const Icon(Icons.password_outlined),
-                                          tooltip: 'Restablecer PIN',
-                                          onPressed: () => _resetPin(profile),
-                                        ),
-                                      );
-                                    },
-                                  ),
-              ),
-            ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
