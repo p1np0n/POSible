@@ -4,6 +4,7 @@ import '../../models/employee_profile.dart';
 import '../../models/store.dart';
 import '../../services/profile_repository.dart';
 import '../../services/store_repository.dart';
+import '../../widgets/pin_entry_dialog.dart';
 
 /// Solo la ve el administrador principal (ver StoreProvider.isSuperAdmin):
 /// lista todas las tiendas, permite activarles Reportes, Clientes y
@@ -163,9 +164,10 @@ class _StoresScreenState extends State<StoresScreen> {
   }
 }
 
-/// Pide una contraseña/PIN nueva (dos veces, para confirmar) y la devuelve
-/// al cerrar. Genérico: sirve tanto para el administrador de una tienda
-/// como para cualquiera de sus empleados.
+/// Pide una contraseña nueva (dos veces, para confirmar) y la devuelve al
+/// cerrar — solo para el administrador de una tienda, que puede tener
+/// contraseña alfanumérica. Para el PIN de un empleado se usa
+/// showPinEntryDialog (teclado propio, siempre 4 dígitos).
 class _ResetPinDialog extends StatefulWidget {
   final String title;
   final String subtitle;
@@ -211,7 +213,6 @@ class _ResetPinDialogState extends State<_ResetPinDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _passwordController,
-              autofocus: true,
               obscureText: true,
               decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
               validator: (value) => (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
@@ -269,12 +270,10 @@ class _StoreEmployeesSheetState extends State<_StoreEmployeesSheet> {
   }
 
   Future<void> _resetPin(EmployeeProfile profile) async {
-    final newPin = await showDialog<String>(
-      context: context,
-      builder: (_) => _ResetPinDialog(
-        title: 'Restablecer PIN',
-        subtitle: profile.email.isEmpty ? '(sin correo)' : profile.email,
-      ),
+    final newPin = await showPinEntryDialog(
+      context,
+      title: 'Restablecer PIN',
+      subtitle: profile.email.isEmpty ? '(sin correo)' : profile.email,
     );
     if (newPin == null || !mounted) return;
     final error = await widget.profileRepository.resetPin(userId: profile.id, newPin: newPin);
