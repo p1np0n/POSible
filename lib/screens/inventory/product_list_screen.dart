@@ -22,6 +22,10 @@ enum _StockFilter { all, lowStock, outOfStock }
 
 const int _pageSize = 50;
 
+/// Valor especial para el filtro de categoría: "Sin categoría" — distinto
+/// de `null`, que significa "todas las categorías" (sin filtrar).
+const String _uncategorizedFilter = '__sin_categoria__';
+
 /// Debajo de este ancho, la barra de herramientas agrupa ordenar/
 /// seleccionar/exportar en un solo menú — a este ancho no caben como
 /// íconos sueltos junto al buscador sin apretarlo demasiado.
@@ -113,7 +117,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final page = await _productRepository.getPage(
       offset: 0,
       pageSize: _pageSize,
-      categoryId: _selectedCategoryId,
+      categoryId: _selectedCategoryId == _uncategorizedFilter ? null : _selectedCategoryId,
+      onlyUncategorized: _selectedCategoryId == _uncategorizedFilter,
       search: _search,
       onlyOutOfStock: _stockFilter == _StockFilter.outOfStock,
       orderBy: orderBy,
@@ -134,7 +139,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final page = await _productRepository.getPage(
       offset: _products.length,
       pageSize: _pageSize,
-      categoryId: _selectedCategoryId,
+      categoryId: _selectedCategoryId == _uncategorizedFilter ? null : _selectedCategoryId,
+      onlyUncategorized: _selectedCategoryId == _uncategorizedFilter,
       search: _search,
       onlyOutOfStock: _stockFilter == _StockFilter.outOfStock,
       orderBy: orderBy,
@@ -162,7 +168,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
     final search = normalizeForSearch(_search);
     final list = _products.where((p) {
-      final matchesCategory = _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
+      final matchesCategory = _selectedCategoryId == null
+          ? true
+          : _selectedCategoryId == _uncategorizedFilter
+              ? p.categoryId == null
+              : p.categoryId == _selectedCategoryId;
       final matchesSearch = search.isEmpty ||
           normalizeForSearch(p.name).contains(search) ||
           (p.barcode != null && normalizeForSearch(p.barcode!).contains(search)) ||
@@ -316,21 +326,27 @@ class _ProductListScreenState extends State<ProductListScreen> {
     _resetAndLoad();
   }
 
-  Future<void> _bulkChangeCategory() async {
-    String? newCategoryId;
+  /// Popup con un dropdown de categorías (más "Sin categoría"); devuelve
+  /// la categoría elegida, o `(false, null)` si se canceló — el `bool`
+  /// distingue "canceló" de "eligió Sin categoría" (que también es `null`).
+  Future<(bool confirmed, String? categoryId)> _pickCategoryDialog({
+    required String title,
+    String? initial,
+  }) async {
+    String? picked = initial;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Cambiar categoría (${_selectedIds.length} producto(s))'),
+          title: Text(title),
           content: DropdownButtonFormField<String?>(
-            value: newCategoryId,
-            decoration: const InputDecoration(labelText: 'Nueva categoría', border: OutlineInputBorder()),
+            value: picked,
+            decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
             items: [
               const DropdownMenuItem(value: null, child: Text('Sin categoría')),
               ..._categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
             ],
-            onChanged: (value) => setDialogState(() => newCategoryId = value),
+            onChanged: (value) => setDialogState(() => picked = value),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
@@ -339,34 +355,51 @@ class _ProductListScreenState extends State<ProductListScreen> {
         ),
       ),
     );
-    if (confirmed != true) return;
+    return (confirmed == true, picked);
+  }
+
+  Product _withCategory(Product product, String? categoryId) => Product(
+        id: product.id,
+        name: product.name,
+        categoryId: categoryId,
+        price: product.price,
+        cost: product.cost,
+        sku: product.sku,
+        barcode: product.barcode,
+        imageUrl: product.imageUrl,
+        stockQuantity: product.stockQuantity,
+        trackStock: product.trackStock,
+        active: product.active,
+        lowStockThreshold: product.lowStockThreshold,
+        pricingType: product.pricingType,
+        plu: product.plu,
+        targetMarginPercent: product.targetMarginPercent,
+      );
+
+  Future<void> _bulkChangeCategory() async {
+    final (confirmed, newCategoryId) =
+        await _pickCategoryDialog(title: 'Cambiar categoría (${_selectedIds.length} producto(s))');
+    if (!confirmed) return;
     final selected = _products.where((p) => _selectedIds.contains(p.id));
     for (final product in selected) {
-      await _productRepository.update(
-        product.id,
-        Product(
-          id: product.id,
-          name: product.name,
-          categoryId: newCategoryId,
-          price: product.price,
-          cost: product.cost,
-          sku: product.sku,
-          barcode: product.barcode,
-          imageUrl: product.imageUrl,
-          stockQuantity: product.stockQuantity,
-          trackStock: product.trackStock,
-          active: product.active,
-          lowStockThreshold: product.lowStockThreshold,
-          pricingType: product.pricingType,
-          plu: product.plu,
-          targetMarginPercent: product.targetMarginPercent,
-        ),
-      );
+      await _productRepository.update(product.id, _withCategory(product, newCategoryId));
     }
     setState(() {
       _selectionMode = false;
       _selectedIds.clear();
     });
+    _resetAndLoad();
+  }
+
+  /// Cambia la categoría de un solo producto sin tener que abrirlo (ícono
+  /// junto a la categoría, en la fila) — mismo popup que el cambio en lote.
+  Future<void> _quickChangeCategory(Product product) async {
+    final (confirmed, newCategoryId) = await _pickCategoryDialog(
+      title: 'Cambiar categoría — ${product.name}',
+      initial: product.categoryId,
+    );
+    if (!confirmed || newCategoryId == product.categoryId) return;
+    await _productRepository.update(product.id, _withCategory(product, newCategoryId));
     _resetAndLoad();
   }
 
@@ -522,6 +555,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       ),
                       items: [
                         const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+                        const DropdownMenuItem(value: _uncategorizedFilter, child: Text('Sin categoría')),
                         ..._categories
                             .map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
                       ],
@@ -593,7 +627,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(_categoryName(product.categoryId)),
+                                  InkWell(
+                                    onTap: _selectionMode ? null : () => _quickChangeCategory(product),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(_categoryName(product.categoryId)),
+                                        if (!_selectionMode) ...[
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.edit_outlined, size: 13, color: Colors.grey),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
                                   Wrap(
                                     spacing: 8,
@@ -627,7 +673,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        CurrencyText(product.price, bold: true),
+                                        CurrencyText(product.price, bold: true, style: const TextStyle(fontSize: 18)),
                                         IconButton(
                                           icon: const Icon(Icons.edit_outlined, size: 20),
                                           tooltip: 'Editar precio/costo rápido',

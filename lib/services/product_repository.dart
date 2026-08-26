@@ -24,13 +24,16 @@ class ProductRepository {
     required int offset,
     required int pageSize,
     String? categoryId,
+    bool onlyUncategorized = false,
     String? search,
     bool onlyOutOfStock = false,
     String orderBy = 'name',
     bool ascending = true,
   }) async {
     var query = _client.from('products').select().eq('active', true);
-    if (categoryId != null) {
+    if (onlyUncategorized) {
+      query = query.isFilter('category_id', null);
+    } else if (categoryId != null) {
       query = query.eq('category_id', categoryId);
     }
     if (onlyOutOfStock) {
