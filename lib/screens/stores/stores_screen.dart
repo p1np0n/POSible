@@ -295,7 +295,7 @@ class _StoreCard extends StatelessWidget {
 /// Pide una contraseña nueva (dos veces, para confirmar) y la devuelve al
 /// cerrar — solo para el administrador de una tienda, que puede tener
 /// contraseña alfanumérica. Para el PIN de un empleado se usa
-/// showPinEntryDialog (teclado propio, siempre 4 dígitos).
+/// showPinEntryDialog (teclado propio, siempre pinLength dígitos).
 class _ResetPinDialog extends StatefulWidget {
   final String title;
   final String subtitle;
