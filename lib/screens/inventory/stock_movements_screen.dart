@@ -34,6 +34,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   List<Category> _categories = [];
   List<StockMovement> _movements = [];
   String _search = '';
+  String? _selectedCategoryId;
   bool _loading = true;
 
   @override
@@ -63,16 +64,29 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
     });
   }
 
-  List<Product> get _filteredProducts {
-    if (_search.trim().isEmpty) return const [];
-    final term = normalizeForSearch(_search);
-    return _products
-        .where((p) =>
-            normalizeForSearch(p.name).contains(term) ||
-            (p.barcode != null && normalizeForSearch(p.barcode!).contains(term)) ||
-            (p.sku != null && normalizeForSearch(p.sku!).contains(term)))
-        .take(20)
-        .toList();
+  List<Product> get _articleTabProducts {
+    var list = _products;
+    if (_selectedCategoryId != null) {
+      list = list.where((p) => p.categoryId == _selectedCategoryId).toList();
+    }
+    if (_search.trim().isNotEmpty) {
+      final term = normalizeForSearch(_search);
+      list = list
+          .where((p) =>
+              normalizeForSearch(p.name).contains(term) ||
+              (p.barcode != null && normalizeForSearch(p.barcode!).contains(term)) ||
+              (p.sku != null && normalizeForSearch(p.sku!).contains(term)))
+          .toList();
+    }
+    return list;
+  }
+
+  String? _categoryName(String? categoryId) {
+    if (categoryId == null) return null;
+    for (final c in _categories) {
+      if (c.id == categoryId) return c.name;
+    }
+    return null;
   }
 
   Future<void> _scanBarcode() async {
@@ -227,7 +241,35 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: const TabBar(
+              tabs: [
+                Tab(text: 'Artículos'),
+                Tab(text: 'Movimientos'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildArticlesTab(),
+                _buildMovementsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArticlesTab() {
     final cameraEnabled = context.watch<AppPreferencesProvider>().cameraScanEnabled;
+    final products = _articleTabProducts;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -240,7 +282,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    labelText: 'Buscar o escanear producto',
+                    labelText: 'Buscar artículo',
                     prefixIcon: const Icon(Icons.search),
                     border: const OutlineInputBorder(),
                     isDense: true,
@@ -262,30 +304,75 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _importInvoice,
-            icon: const Icon(Icons.receipt_long_outlined),
-            label: const Text('Importar factura (foto)'),
-          ),
-          if (_search.trim().isNotEmpty)
-            Card(
-              margin: const EdgeInsets.only(top: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: _filteredProducts.isEmpty
-                    ? [const ListTile(title: Text('No se encontró ningún producto'))]
-                    : _filteredProducts
-                        .map((p) => ListTile(
-                              title: Text(p.name),
-                              subtitle: Text(p.trackStock ? 'Stock: ${p.stockQuantity.toStringAsFixed(0)}' : ''),
-                              onTap: () => _promptMovement(p),
-                            ))
-                        .toList(),
-              ),
+          DropdownButtonFormField<String?>(
+            value: _selectedCategoryId,
+            decoration: const InputDecoration(
+              labelText: 'Categoría',
+              prefixIcon: Icon(Icons.category_outlined),
+              border: OutlineInputBorder(),
+              isDense: true,
             ),
-          const SizedBox(height: 24),
-          Text('Movimientos recientes', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
+              ..._categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+            ],
+            onChanged: (value) => setState(() => _selectedCategoryId = value),
+          ),
+          const SizedBox(height: 16),
+          if (_loading)
+            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+          else if (products.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('No hay artículos que coincidan'),
+            )
+          else
+            ...products.map((p) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(p.name),
+                    subtitle: Text(_categoryName(p.categoryId) ?? 'Sin categoría'),
+                    trailing: p.trackStock
+                        ? Text(
+                            p.stockQuantity.toStringAsFixed(p.stockQuantity == p.stockQuantity.roundToDouble() ? 0 : 2),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: p.isLowStock ? Colors.orange : null,
+                            ),
+                          )
+                        : const Text('No controla stock', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    onTap: () => _promptMovement(p),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMovementsTab() {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _importInvoice,
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Importar factura (foto)'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner),
+                tooltip: 'Escanear para registrar movimiento',
+                onPressed: _scanBarcode,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           if (_loading)
             const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
           else if (_movements.isEmpty)
