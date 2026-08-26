@@ -6,6 +6,8 @@ import '../../services/profile_repository.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
+import '../../widgets/pin_entry_dialog.dart';
+import '../../widgets/pin_pad.dart' show pinLength;
 
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
@@ -97,12 +99,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Future<void> _resetPin(EmployeeProfile profile) async {
-    final result = await showDialog<_EmployeeCredentials>(
-      context: context,
-      builder: (_) => _EmployeeFormDialog(fixedEmail: profile.email),
-    );
-    if (result == null) return;
-    final error = await _repository.resetPin(userId: profile.id, newPin: result.pin);
+    final pin = await showPinEntryDialog(context, title: 'Restablecer PIN', subtitle: profile.email);
+    if (pin == null || !mounted) return;
+    final error = await _repository.resetPin(userId: profile.id, newPin: pin);
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $error')));
@@ -197,9 +196,7 @@ class _EmployeeCredentials {
 }
 
 class _EmployeeFormDialog extends StatefulWidget {
-  final String? fixedEmail;
-
-  const _EmployeeFormDialog({this.fixedEmail});
+  const _EmployeeFormDialog();
 
   @override
   State<_EmployeeFormDialog> createState() => _EmployeeFormDialogState();
@@ -207,35 +204,33 @@ class _EmployeeFormDialog extends StatefulWidget {
 
 class _EmployeeFormDialogState extends State<_EmployeeFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _emailController;
-  final _pinController = TextEditingController();
-
-  bool get _isReset => widget.fixedEmail != null;
-
-  @override
-  void initState() {
-    super.initState();
-    _emailController = TextEditingController(text: widget.fixedEmail ?? '');
-  }
+  final _emailController = TextEditingController();
+  String _pin = '';
 
   @override
   void dispose() {
     _emailController.dispose();
-    _pinController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPin() async {
+    final pin = await showPinEntryDialog(context, title: 'PIN del empleado');
+    if (pin != null && mounted) setState(() => _pin = pin);
   }
 
   void _confirm() {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pop(
-      _EmployeeCredentials(email: _emailController.text.trim(), pin: _pinController.text),
-    );
+    if (_pin.length != pinLength) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Elige un PIN de 4 dígitos')));
+      return;
+    }
+    Navigator.of(context).pop(_EmployeeCredentials(email: _emailController.text.trim(), pin: _pin));
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isReset ? 'Restablecer PIN' : 'Nuevo empleado'),
+      title: const Text('Nuevo empleado'),
       content: Form(
         key: _formKey,
         child: Column(
@@ -243,31 +238,24 @@ class _EmployeeFormDialogState extends State<_EmployeeFormDialog> {
           children: [
             TextFormField(
               controller: _emailController,
-              enabled: !_isReset,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(labelText: 'Correo', border: OutlineInputBorder()),
               validator: (value) => (value == null || value.trim().isEmpty) ? 'Ingresa un correo' : null,
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _pinController,
-              autofocus: _isReset,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: _isReset ? 'PIN nuevo' : 'PIN',
-                helperText: 'Recomendado: 4 dígitos numéricos',
-                border: const OutlineInputBorder(),
+            InkWell(
+              onTap: _pickPin,
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: 'PIN', border: OutlineInputBorder()),
+                child: Text(_pin.isEmpty ? 'Toca para elegir un PIN de 4 dígitos' : '•' * _pin.length),
               ),
-              validator: (value) => (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
-              onFieldSubmitted: (_) => _confirm(),
             ),
           ],
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-        FilledButton(onPressed: _confirm, child: Text(_isReset ? 'Guardar' : 'Crear')),
+        FilledButton(onPressed: _confirm, child: const Text('Crear')),
       ],
     );
   }

@@ -163,7 +163,10 @@ En **Configuración → Empleados** (panel web) puedes:
 - **Nuevo empleado**: crear una cuenta directamente tú, con correo y PIN —
   queda aprobada de inmediato, sin que el empleado tenga que registrarse.
 - **Restablecer PIN** (ícono de llave junto a cada empleado): le pones un
-  PIN nuevo en cualquier momento, por ejemplo si lo olvidó.
+  PIN nuevo en cualquier momento, por ejemplo si lo olvidó. Se elige con el
+  teclado numérico propio de la app (igual al de "Login rápido"), no con el
+  teclado del dispositivo — así el popup siempre se ve completo y centrado,
+  sin que el teclado lo empuje fuera de lugar.
 - **Quitar**: le saca el acceso (como ya funcionaba antes).
 
 Como administrador principal, en **Tiendas** también puedes **restablecer
