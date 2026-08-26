@@ -138,25 +138,18 @@ numérico, más rápido que escribir todo de nuevo.
 
 Por dentro, el PIN sigue siendo tu contraseña normal de Supabase — para
 que funcione bien, cuando crees tu contraseña (Paso 3, o cuando un
-empleado se registra) **usa 4 dígitos numéricos** (ej. `4819`) en vez de
-una contraseña con letras. Si alguien usa una contraseña con letras, no
+empleado se registra) **usa 8 dígitos numéricos** (ej. `48192736`) en vez
+de una contraseña con letras. Si alguien usa una contraseña con letras, no
 pasa nada grave: solo no le va a servir el teclado numérico, y puede
 tocar "Usar otra cuenta" para entrar con el formulario normal.
 
-⚠️ **Paso extra en Supabase para permitir contraseñas de 4 dígitos**: por
-defecto, Supabase exige contraseñas de mínimo 6 caracteres, así que crear
-una cuenta (o restablecer un PIN) con 4 dígitos fallaría con un error de
-"contraseña muy corta". Para permitirlo:
-1. Ve a **Authentication** → pestaña **Sign In / Providers** (a veces
-   solo dice "Providers").
-2. En la lista de proveedores, toca la fila **Email** para desplegarla.
-3. Busca **"Minimum password length"**, cámbialo de `6` a `4` y guarda
-   (botón "Save" de esa misma fila).
-Si no la encuentras ahí, usa la lupa de búsqueda del panel de Supabase (o
-`Cmd/Ctrl+K`) y escribe "password length" — te lleva directo a la opción
-sin importar en qué pestaña esté en tu versión del panel. Si prefieres no
-tocarla, no pasa nada: solo usa contraseñas/PIN de 6 dígitos en vez de 4
-(igual funciona, solo que escribes 2 números más).
+El PIN es de **8 dígitos** (no 4) a propósito: Supabase exige por defecto
+contraseñas de mínimo 6 caracteres, y ese mínimo no se puede bajar más
+allá de cierto punto desde el panel en algunos proyectos — 8 queda
+cómodamente por encima, así que **no hace falta tocar ninguna
+configuración de Supabase** para que funcione. Si tu proyecto sí te deja
+bajar el mínimo y prefieres un PIN más corto, puedes cambiar `pinLength`
+en `lib/widgets/pin_pad.dart` (un solo lugar, se aplica a toda la app).
 
 ### Bloqueo automático (pedir el PIN de nuevo) — solo en el APK
 En **Configuración → Seguridad → "Bloqueo automático"** (solo aparece en el

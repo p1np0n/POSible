@@ -221,7 +221,8 @@ class _EmployeeFormDialogState extends State<_EmployeeFormDialog> {
   void _confirm() {
     if (!_formKey.currentState!.validate()) return;
     if (_pin.length != pinLength) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Elige un PIN de 4 dígitos')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Elige un PIN de $pinLength dígitos')));
       return;
     }
     Navigator.of(context).pop(_EmployeeCredentials(email: _emailController.text.trim(), pin: _pin));
@@ -247,7 +248,7 @@ class _EmployeeFormDialogState extends State<_EmployeeFormDialog> {
               onTap: _pickPin,
               child: InputDecorator(
                 decoration: const InputDecoration(labelText: 'PIN', border: OutlineInputBorder()),
-                child: Text(_pin.isEmpty ? 'Toca para elegir un PIN de 4 dígitos' : '•' * _pin.length),
+                child: Text(_pin.isEmpty ? 'Toca para elegir un PIN de $pinLength dígitos' : '•' * _pin.length),
               ),
             ),
           ],

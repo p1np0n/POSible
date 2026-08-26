@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
+import '../../widgets/pin_pad.dart' show pinLength;
 import 'create_store_screen.dart';
 
 // URL del panel publicado en GitHub Pages — se usa como destino del enlace
@@ -150,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Contraseña',
                       helperText: kIsWeb
                           ? null
-                          : 'Usa 4 dígitos numéricos para poder entrar rápido con PIN después',
+                          : 'Usa $pinLength dígitos numéricos para poder entrar rápido con PIN después',
                       border: const OutlineInputBorder(),
                     ),
                     validator: (value) =>

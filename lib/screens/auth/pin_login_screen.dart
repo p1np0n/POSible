@@ -12,7 +12,7 @@ import 'login_screen.dart';
 ///
 /// Por dentro sigue siendo un inicio de sesión normal de Supabase — el
 /// "PIN" es la contraseña de la cuenta. Para que funcione, la contraseña
-/// del empleado debe ser numérica de 4 dígitos (ver LEEME.md).
+/// del empleado debe ser numérica, del mismo largo que [pinLength].
 class PinLoginScreen extends StatefulWidget {
   const PinLoginScreen({super.key});
 
