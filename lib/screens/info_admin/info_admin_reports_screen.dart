@@ -5,9 +5,10 @@ import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 
-/// "Reportes" de Info Admin: solo el total vendido hoy, hasta el momento en
-/// que se actualiza — sin rangos de fecha ni desgloses, para revisar de un
-/// vistazo cómo va el día sin entrar al panel completo.
+/// "Reportes" de Info Admin: el total vendido hoy, hasta el momento en que
+/// se actualiza, más cuánto se pagó con efectivo/tarjeta/otro y cuánto se
+/// vendió por categoría — sin rangos de fecha ni el resto de los desgloses
+/// del panel completo, para revisar de un vistazo cómo va el día.
 class InfoAdminReportsScreen extends StatefulWidget {
   const InfoAdminReportsScreen({super.key});
 
@@ -18,9 +19,16 @@ class InfoAdminReportsScreen extends StatefulWidget {
 class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
   final ReportsRepository _repository = ReportsRepository();
   SalesSummary? _summary;
+  List<NamedTotal> _byCategory = [];
   DateTime? _updatedAt;
   bool _loading = true;
   String? _error;
+
+  static const _paymentLabels = {
+    'cash': 'Efectivo',
+    'card': 'Tarjeta',
+    'other': 'Otro',
+  };
 
   @override
   void initState() {
@@ -36,10 +44,14 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
     final now = DateTime.now();
     final from = DateTime(now.year, now.month, now.day);
     try {
-      final summary = await _repository.getSummary(from: from, to: now);
+      final results = await Future.wait([
+        _repository.getSummary(from: from, to: now),
+        _repository.getByCategory(from: from, to: now),
+      ]);
       if (!mounted) return;
       setState(() {
-        _summary = summary;
+        _summary = results[0] as SalesSummary;
+        _byCategory = results[1] as List<NamedTotal>;
         _updatedAt = DateTime.now();
         _loading = false;
       });
@@ -96,6 +108,38 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
             ],
           ),
           const SizedBox(height: 32),
+          Text('Por método de pago', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (summary.byPaymentMethod.isEmpty)
+            const Text('Sin ventas todavía', style: TextStyle(color: Colors.grey))
+          else
+            ...summary.byPaymentMethod.entries.map((entry) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_paymentLabels[entry.key] ?? entry.key),
+                      CurrencyText(entry.value, bold: true),
+                    ],
+                  ),
+                )),
+          const SizedBox(height: 24),
+          Text('Por categoría', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (_byCategory.isEmpty)
+            const Text('Sin ventas todavía', style: TextStyle(color: Colors.grey))
+          else
+            ..._byCategory.map((c) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(c.name),
+                      CurrencyText(c.total, bold: true),
+                    ],
+                  ),
+                )),
+          const SizedBox(height: 24),
           if (_updatedAt != null)
             Text(
               'Actualizado a las ${_formatTime(_updatedAt!)}',

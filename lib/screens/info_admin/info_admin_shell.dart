@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'info_admin_inventory_screen.dart';
-import 'info_admin_products_screen.dart';
+import '../inventory/product_list_screen.dart';
+import '../inventory/stock_movements_screen.dart';
 import 'info_admin_reports_screen.dart';
 
-/// Pantalla principal de "Info Admin": una versión chica de POSible, solo
-/// para consultar (nada de vender ni editar), con 3 secciones elegidas con
-/// un menú abajo — Inventario (movimientos de stock), Reportes (ventas de
-/// hoy) y Lista de artículos. Usa el mismo login que la app completa (ver
-/// lib/main_info_admin.dart), así que cualquier empleado con cuenta en
+/// Pantalla principal de "Info Admin": una versión chica de POSible (sin
+/// Ventas ni Turno/Reloj), con 3 secciones elegidas con un menú abajo —
+/// Inventario y Lista de artículos son las mismas pantallas completas del
+/// panel (crear, editar, escanear, todo igual); Reportes es una versión
+/// propia enfocada en el día de hoy. Usa el mismo login que la app completa
+/// (ver lib/main_info_admin.dart), así que cualquier empleado con cuenta en
 /// POSible puede entrar acá también.
 class InfoAdminShell extends StatefulWidget {
   const InfoAdminShell({super.key});
@@ -23,9 +24,9 @@ class _InfoAdminShellState extends State<InfoAdminShell> {
 
   static const _titles = ['Inventario', 'Reportes', 'Lista de artículos'];
   static const _screens = [
-    InfoAdminInventoryScreen(),
+    StockMovementsScreen(),
     InfoAdminReportsScreen(),
-    InfoAdminProductsScreen(),
+    ProductListScreen(),
   ];
 
   @override

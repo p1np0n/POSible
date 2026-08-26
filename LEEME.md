@@ -298,14 +298,15 @@ Admin**. Usa el mismo correo/contraseña que ya tienes (es la misma cuenta,
 la misma base de datos), pero solo muestra 3 secciones elegidas con un menú
 abajo:
 
-- **Inventario**: el historial de movimientos de stock (entradas/salidas),
-  solo para ver — no se puede escanear ni registrar movimientos desde acá.
+- **Inventario**: la misma pantalla completa de movimientos de stock del
+  panel — escanear, registrar entradas/salidas, todo igual que en POSible.
 - **Reportes**: el total vendido **hoy**, hasta el momento en que tocas
-  "Actualizar" — sin rangos de fecha ni desgloses, para revisar de un
-  vistazo cómo va el día.
-- **Lista de artículos**: buscar y ver el catálogo (nombre, precio, stock),
-  solo para consultar — no se puede crear, editar ni borrar productos desde
-  acá.
+  "Actualizar", más el desglose por **método de pago** (efectivo/tarjeta/
+  otro) y por **categoría** — sin rangos de fecha ni el resto de los
+  desgloses del panel completo, para revisar de un vistazo cómo va el día.
+- **Lista de artículos**: la misma pantalla completa del catálogo — crear,
+  editar, borrar, escanear, selección múltiple, exportar, todo igual que en
+  POSible.
 
 Para compilarlo: pestaña **Actions** → **"Build APK Info Admin"** → **Run
 workflow**, igual que el APK normal. El artifact se llama **info-admin-apk**.
