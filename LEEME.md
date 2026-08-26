@@ -578,19 +578,17 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
 - **Artículos** (en el APK y en el panel web): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
-  (en el catálogo global y en Open Food Facts si no lo tiene). El botón
-  **"Buscar fotos por código de barras"** (ícono de lupa sobre una foto, en
-  Lista de artículos) revisa todos los productos que tienen código de
-  barras pero no tienen foto todavía, y les busca la foto automáticamente
-  (mismas fuentes: catálogo global, Open Food Facts, UPCitemdb) — así no
-  hace falta entrar producto por producto. Es de mejor esfuerzo: no todos
-  los códigos de barras tienen foto disponible en esas bases de datos. Al
-  crear un producto también puedes buscarlo por nombre en el catálogo global (ícono
-  de lupa junto a "Nombre") para reutilizar lo que ya cargó otra de tus
-  tiendas — nunca copia el precio automáticamente, solo lo muestra como
-  precio sugerido. Si tienes modificadores activos (ej. "Extra queso"), al
-  tocar un producto en Ventas te deja elegirlos antes de agregarlo al
-  carrito, y quedan reflejados en el recibo.
+  al escanear o crear un producto — revisa, en orden, el catálogo global,
+  Open Food Facts, Open Beauty Facts, Open Products Facts y UPCitemdb (las
+  cuatro últimas gratis y sin configurar nada), y si ninguna encuentra
+  foto, Google Custom Search como último recurso (si pusiste tu propia
+  clave en Configuración). Al crear un producto también puedes buscarlo
+  por nombre en el catálogo global (ícono de lupa junto a "Nombre") para
+  reutilizar lo que ya cargó otra de tus tiendas — nunca copia el precio
+  automáticamente, solo lo muestra como precio sugerido. Si tienes
+  modificadores activos (ej. "Extra queso"), al tocar un producto en
+  Ventas te deja elegirlos antes de agregarlo al carrito, y quedan
+  reflejados en el recibo.
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
@@ -605,7 +603,15 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   y precio al crear un producto nuevo en cualquiera de tus tiendas. Se
   alimenta solo, automáticamente, con cada producto que cualquier tienda
   agrega a su propio inventario (con o sin código de barras); desde aquí
-  puedes además agregar, editar o borrar entradas a mano.
+  puedes además agregar, editar o borrar entradas a mano. El botón
+  **"Buscar fotos por código de barras"** (ícono de lupa sobre una foto)
+  revisa todas las entradas del catálogo que tienen código de barras pero
+  no tienen foto todavía, y les busca la foto automáticamente (catálogo
+  global, Open Food Facts, Open Beauty Facts, Open Products Facts,
+  UPCitemdb y, si la configuraste, Google) — así no hace falta entrar
+  entrada por entrada. Nunca toca el nombre ni la marca ya guardados, solo
+  llena la foto si estaba vacía. Es de mejor esfuerzo: no todos los
+  códigos de barras tienen foto disponible en esas bases de datos.
 - **Configuración**: tasa de impuesto, margen general de venta, modo
   oscuro, vista en lista, cerrar sesión.
 

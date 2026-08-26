@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/catalog_entry.dart';
 import '../../services/product_catalog_repository.dart';
+import '../../services/product_lookup_service.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
@@ -21,11 +22,15 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final ProductCatalogRepository _repository = ProductCatalogRepository();
+  final ProductLookupService _lookupService = ProductLookupService();
   final _searchController = TextEditingController();
   List<CatalogEntry> _entries = [];
   bool _loading = true;
   String _search = '';
   String? _error;
+  bool _findingImages = false;
+  int _findImagesProgress = 0;
+  int _findImagesTotal = 0;
 
   @override
   void initState() {
@@ -94,6 +99,70 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _load();
   }
 
+  /// Busca en internet (Open Food Facts, Open Beauty Facts, Open Products
+  /// Facts, UPCitemdb y, si la configuraste, Google) la foto de cada
+  /// producto del catálogo que tiene código de barras pero todavía no
+  /// tiene foto. No toca el nombre ni la marca ya guardados — solo llena
+  /// la foto si la encuentra. Es de mejor esfuerzo: si no encuentra nada
+  /// para alguno, simplemente sigue con el resto.
+  Future<void> _findImagesByBarcode() async {
+    final candidates = _entries
+        .where((e) =>
+            (e.imageUrl == null || e.imageUrl!.trim().isEmpty) &&
+            e.barcode != null &&
+            e.barcode!.trim().isNotEmpty)
+        .toList();
+    if (candidates.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay productos del catálogo con código de barras y sin foto')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _findingImages = true;
+      _findImagesProgress = 0;
+      _findImagesTotal = candidates.length;
+    });
+
+    var updated = 0;
+    for (final entry in candidates) {
+      try {
+        final imageUrl = await _lookupService.findImageUrl(entry.barcode!);
+        if (imageUrl != null && imageUrl.trim().isNotEmpty) {
+          await _repository.update(
+            entry.id,
+            CatalogEntry(
+              id: entry.id,
+              barcode: entry.barcode,
+              name: entry.name,
+              brand: entry.brand,
+              imageUrl: imageUrl,
+              suggestedPrice: entry.suggestedPrice,
+            ),
+          );
+          updated++;
+        }
+      } catch (_) {
+        // Sigue con el resto aunque uno falle (sin internet, API caída, etc.)
+      }
+      if (mounted) setState(() => _findImagesProgress++);
+    }
+
+    if (!mounted) return;
+    setState(() => _findingImages = false);
+    _load();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(updated > 0
+            ? 'Se encontraron $updated foto(s) nueva(s) de ${candidates.length} producto(s) revisados'
+            : 'No se encontró ninguna foto nueva entre ${candidates.length} producto(s) revisados'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -120,6 +189,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                IconButton(
+                  icon: _findingImages
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.image_search_outlined),
+                  tooltip: 'Buscar fotos por código de barras',
+                  onPressed: _findingImages ? null : _findImagesByBarcode,
+                ),
+                const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: () => _openForm(),
                   icon: const Icon(Icons.add),
@@ -128,6 +205,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ],
             ),
           ),
+          if (_findingImages)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LinearProgressIndicator(
+                    value: _findImagesTotal == 0 ? null : _findImagesProgress / _findImagesTotal,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Buscando fotos: $_findImagesProgress de $_findImagesTotal',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const LoadingIndicator()

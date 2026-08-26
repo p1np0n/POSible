@@ -229,6 +229,13 @@ alter table store_settings add column if not exists low_stock_notify_email text;
 -- estrictos y compartida entre todo el mundo) — para uso real conviene
 -- una propia, gratis en ocr.space.
 alter table store_settings add column if not exists ocr_api_key text;
+-- Clave y motor de búsqueda de Google Custom Search (JSON API), para
+-- buscar fotos de productos por código de barras cuando Open Food Facts,
+-- Open Beauty Facts, Open Products Facts y UPCitemdb no encuentran nada.
+-- Si alguno de los dos es null, simplemente no se usa Google como fuente
+-- (las demás siguen funcionando igual). Gratis hasta 100 consultas/día.
+alter table store_settings add column if not exists google_search_api_key text;
+alter table store_settings add column if not exists google_search_engine_id text;
 -- Margen general (%) que se usa para sugerir el precio de venta a partir
 -- del costo cuando un producto no tiene su propio margen configurado.
 alter table store_settings add column if not exists default_margin_percent numeric(5,2) not null default 30;

@@ -6,7 +6,6 @@ import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/csv_export_service.dart';
-import '../../services/product_lookup_service.dart';
 import '../../services/product_repository.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
@@ -24,8 +23,8 @@ enum _StockFilter { all, lowStock, outOfStock }
 const int _pageSize = 50;
 
 /// Debajo de este ancho, la barra de herramientas agrupa ordenar/
-/// seleccionar/exportar/buscar fotos en un solo menú — a este ancho no
-/// caben como íconos sueltos junto al buscador sin apretarlo demasiado.
+/// seleccionar/exportar en un solo menú — a este ancho no caben como
+/// íconos sueltos junto al buscador sin apretarlo demasiado.
 const double _toolbarCompactBreakpoint = 600;
 
 class ProductListScreen extends StatefulWidget {
@@ -39,7 +38,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final ProductRepository _productRepository = ProductRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final CsvExportService _csvExportService = CsvExportService();
-  final ProductLookupService _lookupService = ProductLookupService();
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   List<Product> _products = [];
@@ -55,9 +53,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final Set<String> _selectedIds = {};
   int _requestId = 0;
   bool _exporting = false;
-  bool _findingImages = false;
-  int _findImagesProgress = 0;
-  int _findImagesTotal = 0;
 
   @override
   void initState() {
@@ -281,60 +276,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
-  /// Busca en internet (Open Food Facts, UPCitemdb, o el catálogo global si
-  /// ya la tenía guardada otra tienda) la foto de cada producto que tiene
-  /// código de barras pero todavía no tiene foto, y la guarda si la
-  /// encuentra. Es de mejor esfuerzo: si no encuentra nada para alguno,
-  /// simplemente sigue con el resto.
-  Future<void> _findImagesByBarcode() async {
-    final allProducts = await _productRepository.getAll();
-    final candidates = allProducts
-        .where((p) =>
-            (p.imageUrl == null || p.imageUrl!.trim().isEmpty) &&
-            p.barcode != null &&
-            p.barcode!.trim().isNotEmpty)
-        .toList();
-    if (candidates.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No hay productos con código de barras y sin foto')),
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _findingImages = true;
-      _findImagesProgress = 0;
-      _findImagesTotal = candidates.length;
-    });
-
-    var updated = 0;
-    for (final product in candidates) {
-      try {
-        final entry = await _lookupService.lookup(product.barcode!);
-        if (entry?.imageUrl != null && entry!.imageUrl!.trim().isNotEmpty) {
-          await _productRepository.update(product.id, product.copyWith(imageUrl: entry.imageUrl));
-          updated++;
-        }
-      } catch (_) {
-        // Sigue con el resto aunque uno falle (sin internet, API caída, etc.)
-      }
-      if (mounted) setState(() => _findImagesProgress++);
-    }
-
-    if (!mounted) return;
-    setState(() => _findingImages = false);
-    _resetAndLoad();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(updated > 0
-            ? 'Se encontraron $updated foto(s) nueva(s) de ${candidates.length} producto(s) revisados'
-            : 'No se encontró ninguna foto nueva entre ${candidates.length} producto(s) revisados'),
-      ),
-    );
-  }
-
   void _toggleSelectionMode() {
     setState(() {
       _selectionMode = !_selectionMode;
@@ -466,10 +407,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
               padding: const EdgeInsets.all(12),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // En pantallas angostas, ordenar/seleccionar/exportar/buscar
-                  // fotos se apretaban junto al buscador hasta dejarlo casi
-                  // inusable — se agrupan en un solo menú y se deja siempre
-                  // visible lo esencial: buscador, escanear y "Nuevo".
+                  // En pantallas angostas, ordenar/seleccionar/exportar se
+                  // apretaban junto al buscador hasta dejarlo casi inusable —
+                  // se agrupan en un solo menú y se deja siempre visible lo
+                  // esencial: buscador, escanear y "Nuevo".
                   final compact = constraints.maxWidth < _toolbarCompactBreakpoint;
                   return Row(
                     children: [
@@ -512,8 +453,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               _toggleSelectionMode();
                             } else if (value == 'export') {
                               if (!_exporting) _exportCsv();
-                            } else if (value == 'find_images') {
-                              if (!_findingImages) _findImagesByBarcode();
                             }
                           },
                           itemBuilder: (context) => [
@@ -526,7 +465,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               child: Text(_selectionMode ? 'Cancelar selección' : 'Seleccionar varios'),
                             ),
                             const PopupMenuItem(value: 'export', child: Text('Exportar a CSV')),
-                            const PopupMenuItem(value: 'find_images', child: Text('Buscar fotos por código de barras')),
                           ],
                         )
                       else ...[
@@ -557,14 +495,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           tooltip: 'Exportar a CSV',
                           onPressed: _exporting ? null : _exportCsv,
                         ),
-                        IconButton(
-                          icon: _findingImages
-                              ? const SizedBox(
-                                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.image_search_outlined),
-                          tooltip: 'Buscar fotos por código de barras',
-                          onPressed: _findingImages ? null : _findImagesByBarcode,
-                        ),
                       ],
                       const SizedBox(width: 8),
                       FilledButton.icon(
@@ -577,22 +507,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 },
               ),
             ),
-            if (_findingImages)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LinearProgressIndicator(
-                      value: _findImagesTotal == 0 ? null : _findImagesProgress / _findImagesTotal,
-                    ),
-                    const SizedBox(height: 4),
-                    Text('Buscando fotos: $_findImagesProgress de $_findImagesTotal',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
