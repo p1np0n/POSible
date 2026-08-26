@@ -1,0 +1,47 @@
+name: Build APK Info Admin
+
+on:
+  workflow_dispatch: {}   # solo se compila a pedido, no en cada push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Generar carpeta Android faltante (no toca lib/ ni pubspec.yaml)
+        run: flutter create . --platforms=android --org com.posible.app --project-name posible
+
+      - name: Asegurar permisos de Internet en Android
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
+          fi
+
+      - name: Cambiar el ID y el nombre de la app (para instalarla junto a POSible sin reemplazarla)
+        run: |
+          for f in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$f" ]; then
+              sed -i -E 's/(applicationId[[:space:]]*=?[[:space:]]*")([^"]+)(")/\1\2.infoadmin\3/' "$f"
+            fi
+          done
+          sed -i 's/android:label="[^"]*"/android:label="Info Admin"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Compilar APK
+        run: flutter build apk --release -t lib/main_info_admin.dart
+
+      - name: Subir APK como resultado descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: info-admin-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

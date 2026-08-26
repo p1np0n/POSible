@@ -290,6 +290,28 @@ lo pides, no en cada cambio.
    "instalar apps de orígenes desconocidos" — es normal, es tu propia app).
 5. Abre la app y entra con el correo/contraseña que creaste en el Paso 3.
 
+## APK aparte: "Info Admin"
+
+Además del APK completo de POSible, hay un **segundo APK**, más chico, para
+consultar desde el celular sin exponer todo el punto de venta: **Info
+Admin**. Usa el mismo correo/contraseña que ya tienes (es la misma cuenta,
+la misma base de datos), pero solo muestra 3 secciones elegidas con un menú
+abajo:
+
+- **Inventario**: el historial de movimientos de stock (entradas/salidas),
+  solo para ver — no se puede escanear ni registrar movimientos desde acá.
+- **Reportes**: el total vendido **hoy**, hasta el momento en que tocas
+  "Actualizar" — sin rangos de fecha ni desgloses, para revisar de un
+  vistazo cómo va el día.
+- **Lista de artículos**: buscar y ver el catálogo (nombre, precio, stock),
+  solo para consultar — no se puede crear, editar ni borrar productos desde
+  acá.
+
+Para compilarlo: pestaña **Actions** → **"Build APK Info Admin"** → **Run
+workflow**, igual que el APK normal. El artifact se llama **info-admin-apk**.
+Como usa un identificador de app distinto (`...posible.infoadmin`), puedes
+instalar los dos APK en el mismo celular sin que uno reemplace al otro.
+
 ## Si el workflow sale en rojo (falló)
 Click en el workflow fallido → click en el paso que tiene la X roja → copia
 el texto del error y pégamelo en el chat, lo reviso contigo.
