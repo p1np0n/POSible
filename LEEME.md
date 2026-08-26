@@ -588,7 +588,12 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   automáticamente, solo lo muestra como precio sugerido. Si tienes
   modificadores activos (ej. "Extra queso"), al tocar un producto en
   Ventas te deja elegirlos antes de agregarlo al carrito, y quedan
-  reflejados en el recibo.
+  reflejados en el recibo. En Lista de artículos, el precio se ve más
+  grande en cada fila para que sea fácil de leer de un vistazo; el filtro
+  "Categoría" tiene una opción "Sin categoría" para encontrar los
+  artículos que todavía no tienen una asignada; y tocando la categoría de
+  cualquier artículo (ícono de lápiz al lado) puedes cambiarla ahí mismo,
+  sin tener que abrir el producto.
 - **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
   por método de pago, productos más vendidos.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
