@@ -108,7 +108,12 @@ tiene aunque sea un artículo, no se le toca nada).
 
 **Cómo le activas funciones a una tienda**: entra a **Tiendas** en el menú
 (solo la ves tú, como administrador principal) y prende los interruptores
-de Reportes / Clientes / Empleados para la tienda que quieras.
+de Reportes / Clientes / Empleados para la tienda que quieras. Si tienes
+varias tiendas, arriba hay un **buscador** por nombre o código para
+encontrar la que necesitas rápido, y cada tarjeta muestra de un vistazo si
+le falta administrador (etiqueta naranja "Sin administrador"). Tocando el
+código de la tienda (junto al ícono de copiar) lo copias al portapapeles,
+listo para pasárselo a un empleado nuevo.
 
 **Cómo un empleado se une a una tienda que ya existe**: usa el botón
 "¿Eres empleado nuevo? Crea tu cuenta" de siempre, pero ahora pide además
