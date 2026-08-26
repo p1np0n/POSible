@@ -145,13 +145,18 @@ tocar "Usar otra cuenta" para entrar con el formulario normal.
 
 ⚠️ **Paso extra en Supabase para permitir contraseñas de 4 dígitos**: por
 defecto, Supabase exige contraseñas de mínimo 6 caracteres, así que crear
-una cuenta con una contraseña de 4 dígitos fallaría. Para permitirlo:
-1. Ve a **Authentication** → **Policies** (o **Settings**, según la
-   versión del panel) → busca **"Minimum password length"**.
-2. Cámbialo de `6` a `4` y guarda.
-Si no encuentras esta opción o prefieres no tocarla, no pasa nada: solo
-usa contraseñas de 6 dígitos en vez de 4 (igual funciona el PIN, solo que
-escribes 2 números más).
+una cuenta (o restablecer un PIN) con 4 dígitos fallaría con un error de
+"contraseña muy corta". Para permitirlo:
+1. Ve a **Authentication** → pestaña **Sign In / Providers** (a veces
+   solo dice "Providers").
+2. En la lista de proveedores, toca la fila **Email** para desplegarla.
+3. Busca **"Minimum password length"**, cámbialo de `6` a `4` y guarda
+   (botón "Save" de esa misma fila).
+Si no la encuentras ahí, usa la lupa de búsqueda del panel de Supabase (o
+`Cmd/Ctrl+K`) y escribe "password length" — te lleva directo a la opción
+sin importar en qué pestaña esté en tu versión del panel. Si prefieres no
+tocarla, no pasa nada: solo usa contraseñas/PIN de 6 dígitos en vez de 4
+(igual funciona, solo que escribes 2 números más).
 
 ### Bloqueo automático (pedir el PIN de nuevo) — solo en el APK
 En **Configuración → Seguridad → "Bloqueo automático"** (solo aparece en el
