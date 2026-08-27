@@ -575,6 +575,13 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
     prueba compartida por defecto (con límites); en Configuración puedes
     poner tu propia clave gratuita de [ocr.space](https://ocr.space/ocrapi)
     para que sea confiable.
+  - **Se corrigió: un producto creado al escanear un código no encontrado
+    (desde Inventario) podía no aparecer al buscarlo después**: si tenías
+    algo escrito en el buscador o un filtro de categoría activo antes de
+    escanear, ese filtro seguía puesto después de crear el producto y lo
+    escondía de la lista aunque ya estuviera guardado. Ahora, apenas creas
+    un producto así, se limpian el buscador y el filtro de categoría de la
+    pestaña Artículos, para que se vea de inmediato.
 - **Artículos** (en el APK y en el panel web): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
