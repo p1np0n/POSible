@@ -135,7 +135,17 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
         builder: (_) => ProductFormScreen(categories: _categories, initialBarcode: barcode),
       ),
     );
-    if (changed == true) _load();
+    if (changed != true || !mounted) return;
+    // Se limpia lo que hubiera en el buscador (ej. el mismo código que no
+    // encontraba nada antes de crearlo) — si no, el filtro seguía activo y
+    // el producto recién creado no aparecía en la lista aunque ya
+    // estuviera guardado.
+    _searchController.clear();
+    setState(() {
+      _search = '';
+      _selectedCategoryId = null;
+    });
+    _load();
   }
 
   Future<void> _promptMovement(Product product) async {
