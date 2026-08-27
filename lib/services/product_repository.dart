@@ -8,13 +8,29 @@ import '../utils/search_normalize.dart';
 class ProductRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// Trae TODOS los productos, sin importar cuántos sean. Se pide en
+  /// bloques de 1000 filas: Supabase limita cada consulta a un máximo de
+  /// filas configurado en el proyecto (1000 por defecto) sin
+  /// avisar si el resultado quedó incompleto, así que un solo select()
+  /// directo podía recortar el catálogo en silencio en tiendas con más
+  /// productos que ese límite (a diferencia de [getPage], que ya paginaba
+  /// explícitamente).
   Future<List<Product>> getAll({bool onlyActive = true}) async {
-    var query = _client.from('products').select();
-    if (onlyActive) {
-      query = query.eq('active', true);
+    const chunkSize = 1000;
+    final all = <Product>[];
+    var offset = 0;
+    while (true) {
+      var query = _client.from('products').select();
+      if (onlyActive) {
+        query = query.eq('active', true);
+      }
+      final data = await query.order('name').range(offset, offset + chunkSize - 1).withTimeout();
+      final page = (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
+      all.addAll(page);
+      if (page.length < chunkSize) break;
+      offset += chunkSize;
     }
-    final data = await query.order('name').withTimeout();
-    return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
+    return all;
   }
 
   /// Trae una página de productos activos, ya filtrados y ordenados en el

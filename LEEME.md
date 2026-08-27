@@ -591,6 +591,16 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
     producto no está". Ahora esas consultas tienen un límite de tiempo, y
     si algo falla se muestra un error con botón "Reintentar" en vez de
     quedarse pegado en blanco.
+  - **Se corrigió (causa raíz real): la lista de Inventario podía mostrar
+    menos productos que Lista de artículos en tiendas con catálogos
+    grandes**: Inventario pedía todo el catálogo en una sola consulta, y
+    Supabase recorta en silencio cualquier consulta a un máximo de filas
+    configurado en el proyecto (1000 por defecto) sin avisar que el
+    resultado quedó incompleto — a diferencia de Lista de artículos, que ya
+    pedía los productos por páginas y por eso siempre traía todo. Ahora
+    Inventario también pide el catálogo por bloques internamente, así que
+    trae el catálogo completo sin importar cuántos productos tenga la
+    tienda.
 - **Artículos** (en el APK y en el panel web): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
