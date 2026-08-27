@@ -10,6 +10,7 @@ import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../utils/search_normalize.dart';
+import '../../widgets/error_state.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'invoice_scan_screen.dart';
 import 'product_form_screen.dart';
@@ -36,6 +37,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   String _search = '';
   String? _selectedCategoryId;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -50,18 +52,30 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _productRepository.getAll(),
-      _categoryRepository.getAll(),
-      _movementRepository.getRecent(),
-    ]);
     setState(() {
-      _products = results[0] as List<Product>;
-      _categories = results[1] as List<Category>;
-      _movements = results[2] as List<StockMovement>;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final results = await Future.wait([
+        _productRepository.getAll(),
+        _categoryRepository.getAll(),
+        _movementRepository.getRecent(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _products = results[0] as List<Product>;
+        _categories = results[1] as List<Category>;
+        _movements = results[2] as List<StockMovement>;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar el inventario';
+        _loading = false;
+      });
+    }
   }
 
   List<Product> get _articleTabProducts {
@@ -331,6 +345,8 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
           const SizedBox(height: 16),
           if (_loading)
             const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+          else if (_error != null)
+            ErrorState(message: _error!, onRetry: _load)
           else if (products.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
@@ -385,6 +401,8 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
           const SizedBox(height: 16),
           if (_loading)
             const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+          else if (_error != null)
+            ErrorState(message: _error!, onRetry: _load)
           else if (_movements.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
