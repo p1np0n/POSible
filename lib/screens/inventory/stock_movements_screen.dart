@@ -30,12 +30,14 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   final CategoryRepository _categoryRepository = CategoryRepository();
   final StockMovementRepository _movementRepository = StockMovementRepository();
   final _searchController = TextEditingController();
+  final _movementSearchController = TextEditingController();
 
   List<Product> _products = [];
   List<Category> _categories = [];
   List<StockMovement> _movements = [];
   String _search = '';
   String? _selectedCategoryId;
+  String _movementSearch = '';
   bool _loading = true;
   String? _error;
 
@@ -48,6 +50,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _movementSearchController.dispose();
     super.dispose();
   }
 
@@ -93,6 +96,17 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
           .toList();
     }
     return list;
+  }
+
+  List<StockMovement> get _filteredMovements {
+    if (_movementSearch.trim().isEmpty) return _movements;
+    final term = normalizeForSearch(_movementSearch);
+    return _movements
+        .where((m) =>
+            normalizeForSearch(m.productName).contains(term) ||
+            (m.note != null && normalizeForSearch(m.note!).contains(term)) ||
+            (m.userEmail != null && normalizeForSearch(m.userEmail!).contains(term)))
+        .toList();
   }
 
   String? _categoryName(String? categoryId) {
@@ -376,6 +390,8 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   }
 
   Widget _buildMovementsTab() {
+    final movements = _filteredMovements;
+
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -398,18 +414,32 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _movementSearchController,
+            decoration: const InputDecoration(
+              labelText: 'Buscar movimiento',
+              hintText: 'Producto, motivo o quién lo registró',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (value) => setState(() => _movementSearch = value),
+          ),
           const SizedBox(height: 16),
           if (_loading)
             const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
           else if (_error != null)
             ErrorState(message: _error!, onRetry: _load)
-          else if (_movements.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text('Todavía no hay movimientos de inventario'),
+          else if (movements.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(_movements.isEmpty
+                  ? 'Todavía no hay movimientos de inventario'
+                  : 'No hay movimientos que coincidan'),
             )
           else
-            ..._movements.map((m) => ListTile(
+            ...movements.map((m) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     m.isIn ? Icons.add_circle_outline : Icons.remove_circle_outline,

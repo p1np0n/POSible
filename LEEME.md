@@ -566,7 +566,8 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
     configurado, el número aparece en naranja.
   - **Movimientos**: el historial de entradas/salidas registradas aparte de
     las ventas (ej. recibir mercadería de un proveedor, o descontar por
-    pérdida o rotura), con quién, cuándo y por qué (motivo opcional). El
+    pérdida o rotura), con quién, cuándo y por qué (motivo opcional), y con
+    su propio buscador (por producto, motivo o quién lo registró). El
     ícono de escanear junto a "Importar factura (foto)" busca el producto
     por su código y abre el mismo popup de entrada/salida; si el código no
     existe, te ofrece crear el producto ahí mismo. El botón **"Importar
