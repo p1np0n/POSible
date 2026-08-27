@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/stock_movement.dart';
+import '../utils/query_timeout.dart';
 
 class StockMovementRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -26,8 +27,12 @@ class StockMovementRepository {
   }
 
   Future<List<StockMovement>> getRecent({int limit = 50}) async {
-    final data =
-        await _client.from('stock_movements').select().order('created_at', ascending: false).limit(limit);
+    final data = await _client
+        .from('stock_movements')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit)
+        .withTimeout();
     return (data as List).map((e) => StockMovement.fromMap(e as Map<String, dynamic>)).toList();
   }
 }

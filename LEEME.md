@@ -582,6 +582,15 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
     escondía de la lista aunque ya estuviera guardado. Ahora, apenas creas
     un producto así, se limpian el buscador y el filtro de categoría de la
     pestaña Artículos, para que se vea de inmediato.
+  - **Se corrigió (más a fondo): productos recién agregados podían seguir
+    sin aparecer en Inventario aunque ya estuvieran en Lista de
+    artículos**: la carga de la pestaña Artículos/Movimientos no tenía
+    manejo de errores ni límite de tiempo en dos de sus tres consultas, así
+    que si una tardaba demasiado o fallaba, la pantalla se quedaba
+    "cargando" para siempre sin avisar — lo que se veía igual que "el
+    producto no está". Ahora esas consultas tienen un límite de tiempo, y
+    si algo falla se muestra un error con botón "Reintentar" en vez de
+    quedarse pegado en blanco.
 - **Artículos** (en el APK y en el panel web): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
   producto (cámara o galería), y búsqueda automática por código de barras
