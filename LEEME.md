@@ -308,8 +308,13 @@ abajo:
   panel — escanear, registrar entradas/salidas, todo igual que en POSible.
 - **Reportes**: el total vendido **hoy**, hasta el momento en que tocas
   "Actualizar", más el desglose por **método de pago** (efectivo/tarjeta/
-  otro) y por **categoría** — sin rangos de fecha ni el resto de los
-  desgloses del panel completo, para revisar de un vistazo cómo va el día.
+  otro) y por **categoría** — un vistazo rápido de cómo va el día. Con el
+  ícono de arriba (📊 "Ver reporte completo") se abre el mismo reporte del
+  panel web: rangos **Hoy / 7 días / Este mes / Este año** (o un rango
+  personalizado), gráfico de ventas por día (o por mes en el rango
+  anual, con el mes de mejores ventas y el promedio mensual), y el
+  desglose completo por método de pago, productos más vendidos, categoría,
+  empleado y modificador.
 - **Lista de artículos**: la misma pantalla completa del catálogo — crear,
   editar, borrar, escanear, selección múltiple, exportar, todo igual que en
   POSible.
@@ -620,8 +625,11 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   artículos que todavía no tienen una asignada; y tocando la categoría de
   cualquier artículo (ícono de lápiz al lado) puedes cambiarla ahí mismo,
   sin tener que abrir el producto.
-- **Reportes**: ventas de hoy / 7 días / este mes, ticket promedio, ventas
-  por método de pago, productos más vendidos.
+- **Reportes**: ventas de hoy / 7 días / este mes / **este año** (o un rango
+  personalizado), ticket promedio, ventas por método de pago, productos más
+  vendidos. En el rango de hoy/7 días/mes el gráfico es por día; en el
+  rango anual se agrupa por mes, con el mes de mejores ventas y el
+  promedio mensual como dato adicional.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
   acumulados por compra (1 punto por cada unidad de moneda gastada).
 - **Empleados** (solo en el panel web): cualquiera crea su cuenta desde la
