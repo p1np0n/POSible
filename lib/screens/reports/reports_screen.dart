@@ -5,7 +5,22 @@ import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 
-enum ReportRange { today, week, month, custom }
+enum ReportRange { today, week, month, year, custom }
+
+const _monthAbbrevEs = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
 
 String _formatDate(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
@@ -50,6 +65,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
       case ReportRange.month:
         return DateTime(now.year, now.month, 1);
+      case ReportRange.year:
+        return DateTime(now.year, 1, 1);
       case ReportRange.custom:
         return _customRange?.start ?? DateTime(now.year, now.month, now.day);
     }
@@ -138,6 +155,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ButtonSegment(value: ReportRange.today, label: Text('Hoy')),
                   ButtonSegment(value: ReportRange.week, label: Text('7 días')),
                   ButtonSegment(value: ReportRange.month, label: Text('Este mes')),
+                  ButtonSegment(value: ReportRange.year, label: Text('Este año')),
                 ],
                 selected: {_range == ReportRange.custom ? ReportRange.today : _range},
                 onSelectionChanged: (value) {
@@ -194,7 +212,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             const SizedBox(height: 12),
             _StatCard(label: 'Ticket promedio', child: CurrencyText(summary.averageTicket, bold: true)),
-            if (summary.dailyTotals.length > 1) ...[
+            if (_range == ReportRange.year && summary.dailyTotals.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Ventas por mes', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              _MonthlyBarChart(dailyTotals: summary.dailyTotals),
+            ] else if (summary.dailyTotals.length > 1) ...[
               const SizedBox(height: 16),
               Text('Ventas por día', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
@@ -324,6 +347,96 @@ class _DailyBarChart extends StatelessWidget {
           }).toList(),
         ),
       ),
+    );
+  }
+}
+
+/// Agrupa los totales diarios del año por mes (mismo widget base que
+/// [_DailyBarChart], una barra por mes) y agrega debajo el mes con más
+/// ventas y el promedio mensual, para tener algo de contexto además del
+/// gráfico.
+class _MonthlyBarChart extends StatelessWidget {
+  final List<DailyTotal> dailyTotals;
+
+  const _MonthlyBarChart({required this.dailyTotals});
+
+  @override
+  Widget build(BuildContext context) {
+    final byMonth = <int, double>{};
+    for (final d in dailyTotals) {
+      byMonth[d.date.month] = (byMonth[d.date.month] ?? 0) + d.total;
+    }
+    final months = byMonth.keys.toList()..sort();
+    final maxTotal = byMonth.values.fold<double>(0, (a, b) => a > b ? a : b);
+    const chartHeight = 120.0;
+
+    final bestMonth = months.reduce((a, b) => byMonth[a]! >= byMonth[b]! ? a : b);
+    final average = byMonth.values.fold<double>(0, (a, b) => a + b) / months.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: chartHeight + 32,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: months.map((month) {
+                final total = byMonth[month]!;
+                final barHeight = maxTotal == 0 ? 0.0 : (total / maxTotal) * chartHeight;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: barHeight < 2 ? 2 : barHeight,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(_monthAbbrevEs[month - 1], style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Mejor mes', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Row(
+                    children: [
+                      Text('${_monthAbbrevEs[bestMonth - 1]}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      CurrencyText(byMonth[bestMonth]!, bold: true),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Promedio mensual', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  CurrencyText(average, bold: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
