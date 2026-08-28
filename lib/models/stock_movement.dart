@@ -8,6 +8,12 @@ class StockMovement {
   final DateTime createdAt;
   final String? userEmail;
 
+  /// Costo unitario del producto al momento del movimiento — solo se
+  /// guarda para movimientos de "uso propio" (ver [isOwnerUse]), para
+  /// poder sumar el gasto total sin que cambie si después se actualiza el
+  /// costo del producto.
+  final double? costAtTime;
+
   StockMovement({
     required this.id,
     this.productId,
@@ -17,9 +23,11 @@ class StockMovement {
     this.note,
     required this.createdAt,
     this.userEmail,
+    this.costAtTime,
   });
 
   bool get isIn => type == 'in';
+  bool get isOwnerUse => type == 'owner_use';
 
   factory StockMovement.fromMap(Map<String, dynamic> map) => StockMovement(
         id: map['id'] as String,
@@ -30,5 +38,6 @@ class StockMovement {
         note: map['note'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),
         userEmail: map['user_email'] as String?,
+        costAtTime: (map['cost_at_time'] as num?)?.toDouble(),
       );
 }

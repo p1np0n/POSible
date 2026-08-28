@@ -10,6 +10,7 @@ import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../utils/search_normalize.dart';
+import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'invoice_scan_screen.dart';
@@ -35,6 +36,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
   List<Product> _products = [];
   List<Category> _categories = [];
   List<StockMovement> _movements = [];
+  double _ownerUseTotal = 0;
   String _search = '';
   String? _selectedCategoryId;
   String _movementSearch = '';
@@ -64,12 +66,14 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
         _productRepository.getAll(),
         _categoryRepository.getAll(),
         _movementRepository.getRecent(),
+        _movementRepository.getOwnerUseTotal(),
       ]);
       if (!mounted) return;
       setState(() {
         _products = results[0] as List<Product>;
         _categories = results[1] as List<Category>;
         _movements = results[2] as List<StockMovement>;
+        _ownerUseTotal = results[3] as double;
         _loading = false;
       });
     } catch (_) {
@@ -206,10 +210,19 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                       ButtonSegment(value: 'in', label: Text('Entrada'), icon: Icon(Icons.add_box_outlined)),
                       ButtonSegment(
                           value: 'out', label: Text('Salida'), icon: Icon(Icons.indeterminate_check_box_outlined)),
+                      ButtonSegment(
+                          value: 'owner_use', label: Text('Uso propio'), icon: Icon(Icons.person_outline)),
                     ],
                     selected: {type},
                     onSelectionChanged: (value) => setDialogState(() => type = value.first),
                   ),
+                  if (type == 'owner_use') ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Baja el stock y suma el costo al total de mercadería que usas tú mismo.',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: quantityController,
@@ -260,6 +273,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
         type: type,
         quantity: quantity,
         note: note,
+        costAtTime: type == 'owner_use' ? product.cost : null,
       );
       if (!mounted) return;
       _searchController.clear();
@@ -268,7 +282,9 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(type == 'in'
             ? '+${quantity.toStringAsFixed(0)} ${product.name}'
-            : '-${quantity.toStringAsFixed(0)} ${product.name}'),
+            : type == 'owner_use'
+                ? 'Uso propio: -${quantity.toStringAsFixed(0)} ${product.name}'
+                : '-${quantity.toStringAsFixed(0)} ${product.name}'),
       ));
     } catch (e) {
       if (mounted) {
@@ -397,6 +413,22 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Uso propio del dueño (total histórico)'),
+                  ),
+                  CurrencyText(_ownerUseTotal, bold: true),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -442,19 +474,24 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
             ...movements.map((m) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                    m.isIn ? Icons.add_circle_outline : Icons.remove_circle_outline,
-                    color: m.isIn ? Colors.green : Colors.red,
+                    m.isIn
+                        ? Icons.add_circle_outline
+                        : m.isOwnerUse
+                            ? Icons.person_outline
+                            : Icons.remove_circle_outline,
+                    color: m.isIn ? Colors.green : (m.isOwnerUse ? Colors.orange : Colors.red),
                   ),
                   title: Text(m.productName),
                   subtitle: Text(
                     '${formatDayHeaderEs(m.createdAt.toLocal())} · ${formatTimeEs(m.createdAt.toLocal())}'
+                    '${m.isOwnerUse ? ' · Uso propio' : ''}'
                     '${m.note != null ? ' · ${m.note}' : ''}'
                     '${m.userEmail != null ? ' · ${m.userEmail}' : ''}',
                   ),
                   trailing: Text(
                     '${m.isIn ? '+' : '-'}${m.quantity.toStringAsFixed(0)}',
                     style: TextStyle(
-                      color: m.isIn ? Colors.green : Colors.red,
+                      color: m.isIn ? Colors.green : (m.isOwnerUse ? Colors.orange : Colors.red),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
