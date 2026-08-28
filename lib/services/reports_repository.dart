@@ -97,7 +97,8 @@ class ReportsRepository {
       final items = await _client
           .from('sale_items')
           .select('product_name, quantity, subtotal, sale_id')
-          .inFilter('sale_id', saleIds);
+          .inFilter('sale_id', saleIds)
+          .withTimeout();
       for (final item in (items as List).cast<Map<String, dynamic>>()) {
         final name = item['product_name'] as String;
         final qty = (item['quantity'] as num).toDouble();
@@ -150,8 +151,11 @@ class ReportsRepository {
     final saleIds = await _saleIdsInRange(from, DateTime.now());
     if (saleIds.isEmpty) return [];
 
-    final items =
-        await _client.from('sale_items').select('product_id, quantity').inFilter('sale_id', saleIds);
+    final items = await _client
+        .from('sale_items')
+        .select('product_id, quantity')
+        .inFilter('sale_id', saleIds)
+        .withTimeout();
 
     final totals = <String, double>{};
     for (final item in (items as List).cast<Map<String, dynamic>>()) {
@@ -184,13 +188,15 @@ class ReportsRepository {
     final items = await _client
         .from('sale_items')
         .select('product_id, subtotal')
-        .inFilter('sale_id', saleIds);
+        .inFilter('sale_id', saleIds)
+        .withTimeout();
     final itemsList = (items as List).cast<Map<String, dynamic>>();
 
     final productIds = itemsList.map((i) => i['product_id'] as String?).whereType<String>().toSet().toList();
     final categoryIdByProduct = <String, String?>{};
     if (productIds.isNotEmpty) {
-      final products = await _client.from('products').select('id, category_id').inFilter('id', productIds);
+      final products =
+          await _client.from('products').select('id, category_id').inFilter('id', productIds).withTimeout();
       for (final p in (products as List).cast<Map<String, dynamic>>()) {
         categoryIdByProduct[p['id'] as String] = p['category_id'] as String?;
       }
@@ -198,7 +204,8 @@ class ReportsRepository {
     final categoryIds = categoryIdByProduct.values.whereType<String>().toSet().toList();
     final categoryNameById = <String, String>{};
     if (categoryIds.isNotEmpty) {
-      final categories = await _client.from('categories').select('id, name').inFilter('id', categoryIds);
+      final categories =
+          await _client.from('categories').select('id, name').inFilter('id', categoryIds).withTimeout();
       for (final c in (categories as List).cast<Map<String, dynamic>>()) {
         categoryNameById[c['id'] as String] = c['name'] as String;
       }
@@ -238,7 +245,8 @@ class ReportsRepository {
     final userIds = totals.keys.whereType<String>().toList();
     final emailById = <String, String>{};
     if (userIds.isNotEmpty) {
-      final profiles = await _client.from('profiles').select('id, email').inFilter('id', userIds);
+      final profiles =
+          await _client.from('profiles').select('id, email').inFilter('id', userIds).withTimeout();
       for (final p in (profiles as List).cast<Map<String, dynamic>>()) {
         emailById[p['id'] as String] = (p['email'] as String?) ?? 'Sin correo';
       }
@@ -262,7 +270,8 @@ class ReportsRepository {
         .from('sale_items')
         .select('modifiers_summary, quantity')
         .inFilter('sale_id', saleIds)
-        .not('modifiers_summary', 'is', null);
+        .not('modifiers_summary', 'is', null)
+        .withTimeout();
 
     final counts = <String, double>{};
     for (final item in (items as List).cast<Map<String, dynamic>>()) {
