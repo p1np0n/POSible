@@ -622,7 +622,9 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
     tienda.
 - **Artículos** (en el APK y en el panel web): lista de productos,
   categorías, modificadores, descuentos, control de existencias, foto por
-  producto (cámara o galería), y búsqueda automática por código de barras
+  producto (cámara o galería, comprimida automáticamente a un tamaño
+  máximo de 1024px para que cargue rápido y pese lo menos posible), y
+  búsqueda automática por código de barras
   al escanear o crear un producto — revisa, en orden, el catálogo global,
   Open Food Facts, Open Beauty Facts, Open Products Facts y UPCitemdb (las
   cuatro últimas gratis y sin configurar nada), y si ninguna encuentra
@@ -630,7 +632,12 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   clave en Configuración). Al crear un producto también puedes buscarlo
   por nombre en el catálogo global (ícono de lupa junto a "Nombre") para
   reutilizar lo que ya cargó otra de tus tiendas — nunca copia el precio
-  automáticamente, solo lo muestra como precio sugerido. Si tienes
+  automáticamente, solo lo muestra como precio sugerido. Si el nombre
+  está vacío cuando subes una foto, la app también intenta reconocer el
+  texto de la foto (mismo OCR que "Importar factura" en Inventario) y
+  sugiere como nombre la línea más legible que encuentra en el empaque —
+  es solo una sugerencia editable, y si no encuentra nada legible no pasa
+  nada. Si tienes
   modificadores activos (ej. "Extra queso"), al tocar un producto en
   Ventas te deja elegirlos antes de agregarlo al carrito, y quedan
   reflejados en el recibo. En Lista de artículos, el precio se ve más
