@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,7 @@ import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../services/category_repository.dart';
+import '../../services/invoice_ocr_service.dart';
 import '../../services/photo_upload_service.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_lookup_service.dart';
@@ -39,6 +41,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final ProductCatalogRepository _catalogRepository = ProductCatalogRepository();
   final CategoryRepository _categoryRepository = CategoryRepository();
   final PhotoUploadService _photoService = PhotoUploadService();
+  final InvoiceOcrService _ocrService = InvoiceOcrService();
   final SettingsRepository _settingsRepository = SettingsRepository();
 
   late final TextEditingController _nameController;
@@ -387,8 +390,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
     setState(() => _uploadingPhoto = true);
     try {
-      final url = await _photoService.pickAndUploadPhoto(source);
-      if (url != null && mounted) setState(() => _imageUrl = url);
+      final result = await _photoService.pickAndUploadPhoto(source);
+      if (result == null || !mounted) return;
+      final (url, bytes) = result;
+      setState(() => _imageUrl = url);
+      if (_nameController.text.trim().isEmpty) {
+        unawaited(_suggestNameFromPhoto(bytes));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al subir la foto: $e')));
@@ -396,6 +404,32 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
+  }
+
+  /// Intenta reconocer el texto de la foto recién subida (mismo OCR que
+  /// "Importar factura") y, si el nombre sigue vacío cuando termina, lo
+  /// llena con la línea más larga del texto reconocido — suele ser el
+  /// nombre del producto en el empaque, más que el peso o el código de
+  /// barras. Es solo una sugerencia editable: si no encuentra nada legible,
+  /// no hace nada (no interrumpe con un error, ya que la foto ya se subió
+  /// bien de todas formas).
+  Future<void> _suggestNameFromPhoto(Uint8List bytes) async {
+    String text;
+    try {
+      text = await _ocrService.extractText(bytes);
+    } catch (_) {
+      return;
+    }
+    final candidate = text
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.length >= 3 && RegExp(r'[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}').hasMatch(line))
+        .fold<String?>(null, (best, line) => (best == null || line.length > best.length) ? line : best);
+    if (candidate == null || !mounted || _nameController.text.trim().isNotEmpty) return;
+    setState(() => _nameController.text = candidate);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Nombre sugerido de la foto: "$candidate" (puedes cambiarlo)')),
+    );
   }
 
   Future<void> _delete() async {
