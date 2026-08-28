@@ -324,6 +324,19 @@ workflow**, igual que el APK normal. El artifact se llama **info-admin-apk**.
 Como usa un identificador de app distinto (`...posible.infoadmin`), puedes
 instalar los dos APK en el mismo celular sin que uno reemplace al otro.
 
+## ⚠️ Si instalas un APK nuevo y no ves los cambios
+Se corrigió un problema en los workflows de compilación (`build.yml` y
+`build_info_admin.yml`): cada vez que se compilaba, Android firmaba el APK
+con una clave distinta (porque la carpeta `android/` se genera de cero en
+cada corrida y no había una clave de firma fija guardada). Cuando la clave
+de firma cambia, Android puede rechazar en silencio la actualización sobre
+la versión anterior en vez de avisar con un error claro — se queda con la
+app vieja aunque la instalación "parezca" haber funcionado. Ya se corrigió
+guardando la clave entre compilaciones, pero **la próxima vez que instales
+un APK nuevo vas a tener que desinstalar primero la versión que ya
+tienes** (una sola vez); de ahí en adelante las actualizaciones deberían
+instalarse encima sin problema.
+
 ## Si el workflow sale en rojo (falló)
 Click en el workflow fallido → click en el paso que tiene la X roja → copia
 el texto del error y pégamelo en el chat, lo reviso contigo.

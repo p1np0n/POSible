@@ -15,6 +15,20 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Restaurar la clave de firma (para que las actualizaciones instalen encima sin conflicto)
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-v1
+
+      - name: Crear la clave de firma si todavía no existe en la caché
+        run: |
+          if [ ! -f ~/.android/debug.keystore ]; then
+            mkdir -p ~/.android
+            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey \
+              -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
       - name: Generar carpeta Android faltante (no toca lib/ ni pubspec.yaml)
         run: flutter create . --platforms=android --org com.posible.app --project-name posible
 
