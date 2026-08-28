@@ -13,6 +13,7 @@ class StockMovementRepository {
     required String type,
     required double quantity,
     String? note,
+    double? costAtTime,
   }) async {
     await _client.from('stock_movements').insert({
       'product_id': productId,
@@ -20,6 +21,7 @@ class StockMovementRepository {
       'type': type,
       'quantity': quantity,
       'note': note,
+      'cost_at_time': costAtTime,
       'user_id': _client.auth.currentUser?.id,
       'user_email': _client.auth.currentUser?.email,
       'store_id': CurrentStore.id,
@@ -34,5 +36,21 @@ class StockMovementRepository {
         .limit(limit)
         .withTimeout();
     return (data as List).map((e) => StockMovement.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Suma el gasto total en mercadería tomada por el dueño para uso propio
+  /// (cantidad × costo unitario al momento de cada movimiento), de todos
+  /// los tiempos.
+  Future<double> getOwnerUseTotal() async {
+    final data = await _client
+        .from('stock_movements')
+        .select('quantity, cost_at_time')
+        .eq('type', 'owner_use')
+        .withTimeout();
+    return (data as List).cast<Map<String, dynamic>>().fold<double>(0, (sum, m) {
+      final cost = (m['cost_at_time'] as num?)?.toDouble() ?? 0;
+      final qty = (m['quantity'] as num).toDouble();
+      return sum + (cost * qty);
+    });
   }
 }

@@ -365,6 +365,15 @@ create policy "solo mi tienda" on stock_movements for all
   using (public.is_approved() and store_id is not distinct from public.current_store_id())
   with check (public.is_approved() and store_id is not distinct from public.current_store_id());
 
+-- Tipo de movimiento "owner_use": el dueño toma mercadería para uso propio
+-- (no es una venta ni una pérdida). "cost_at_time" guarda el costo unitario
+-- del producto en el momento del movimiento, para poder sumar el gasto
+-- total sin que cambie si después se actualiza el costo del producto.
+alter table stock_movements drop constraint if exists stock_movements_type_check;
+alter table stock_movements add constraint stock_movements_type_check
+  check (type in ('in', 'out', 'owner_use'));
+alter table stock_movements add column if not exists cost_at_time numeric(12,2);
+
 -- Pestañas personalizadas en Ventas ("A1", "Verduras", "Promos", etc.): cada
 -- tienda arma las suyas con los productos y/o categorías que quiera, para
 -- tenerlos a mano sin buscar. "pos_page_items" guarda cada artículo o
