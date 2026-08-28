@@ -177,7 +177,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const LoadingIndicator(padding: EdgeInsets.all(32))
           else if (_error != null)
             ErrorState(message: _error!, onRetry: _load)
-          else if (summary != null) ...[
+          else if (summary == null)
+            ErrorState(message: 'No se pudieron cargar los reportes', onRetry: _load)
+          else ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

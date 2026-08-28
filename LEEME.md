@@ -644,6 +644,15 @@ lo haces, la app puede fallar porque le faltan tablas o columnas nuevas.
   vendidos. En el rango de hoy/7 días/mes el gráfico es por día; en el
   rango anual se agrupa por mes, con el mes de mejores ventas y el
   promedio mensual como dato adicional.
+  - **Se corrigió: la pantalla podía quedar completamente en blanco (sin
+    tarjetas, sin gráfico, sin ningún error) si alguna de las consultas
+    fallaba o tardaba demasiado**: varias consultas secundarias (productos
+    más vendidos, por categoría, por empleado, por modificador) no tenían
+    límite de tiempo, y si la pantalla terminaba de cargar sin datos por
+    cualquier motivo, no había ningún mensaje de reserva — se veía como si
+    el reporte "no existiera". Ahora esas consultas también tienen límite
+    de tiempo, y si por algún motivo no hay datos para mostrar, aparece un
+    mensaje de error con botón "Reintentar" en vez de quedar en blanco.
 - **Clientes y lealtad**: ficha de cliente, historial de gasto y puntos
   acumulados por compra (1 punto por cada unidad de moneda gastada).
 - **Empleados** (solo en el panel web): cualquiera crea su cuenta desde la
