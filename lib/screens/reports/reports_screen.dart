@@ -114,7 +114,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _repository.getByCategory(from: from, to: to),
         _repository.getByEmployee(from: from, to: to),
         _repository.getByModifier(from: from, to: to),
-      ]);
+      ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
         _summary = results[0] as SalesSummary;
@@ -124,10 +124,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _byModifier = results[4] as List<ModifierUsage>;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      // Se muestra el texto real del error (no uno genérico) para poder
+      // diagnosticar de una sola vez si vuelve a fallar, en vez de tener
+      // que adivinar a ciegas qué fue.
       setState(() {
-        _error = 'No se pudieron cargar los reportes';
+        _error = 'No se pudieron cargar los reportes: $e';
         _loading = false;
       });
     }

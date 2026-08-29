@@ -821,3 +821,26 @@ repites el Paso 4 (Actions compila sola) y el Paso 5 (descargar el nuevo
   todo cobrado al primer precio). Ahora cada vez que agregas un producto
   de precio variable se crea una línea nueva en el carrito, con su propio
   precio — igual que ya pasaba con los productos por peso.
+
+## Arreglos recientes: Reportes, Ventas, Lista de artículos y Categorías
+
+- **Reportes seguía sin mostrar nada**, pese al arreglo anterior. No se
+  encontró ningún error real al revisar el código de nuevo a fondo — así
+  que, para no seguir adivinando a ciegas, ahora el mensaje de error
+  muestra el texto exacto de lo que falló (antes decía siempre "No se
+  pudieron cargar los reportes", sin más detalle). Si vuelve a pasar,
+  copia y pégame ese mensaje completo — con eso sí voy a poder encontrar
+  la causa real en vez de tantear. También se agregó un límite de tiempo
+  extra de 15 segundos a la carga completa, además del que ya tenía cada
+  consulta por separado.
+- **Ventas (la pantalla principal) podía quedarse cargando para siempre
+  sin avisar** si fallaba algo al traer el catálogo, las categorías o las
+  pestañas personalizadas — no tenía ningún manejo de error. Ahora, si
+  falla, se ve un mensaje de error con botón "Reintentar" en vez de la
+  rueda de carga sin parar nunca.
+- Mismo arreglo (mensaje de error + "Reintentar" en vez de quedar
+  colgado o en blanco) en **Lista de artículos** y en **Categorías**, que
+  tampoco lo tenían.
+- No se tocó nada más de lo que ya funcionaba — no hizo falta ningún
+  cambio en `sql/schema.sql` ni en ninguna Edge Function para este grupo
+  de arreglos.
