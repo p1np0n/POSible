@@ -10,6 +10,7 @@ import '../../services/product_repository.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/product_avatar.dart';
 import '../../widgets/status_badge.dart';
@@ -53,6 +54,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
+  String? _error;
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
   int _requestId = 0;
@@ -96,40 +98,49 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final requestId = ++_requestId;
     setState(() {
       _loading = true;
+      _error = null;
       _products = [];
       _hasMore = true;
     });
 
-    if (_stockFilter == _StockFilter.lowStock) {
-      // Grupo chico (solo productos con umbral configurado): se trae
-      // completo y se filtra/ordena en la app, sin paginar.
-      final candidates = await _productRepository.getLowStockCandidates();
+    try {
+      if (_stockFilter == _StockFilter.lowStock) {
+        // Grupo chico (solo productos con umbral configurado): se trae
+        // completo y se filtra/ordena en la app, sin paginar.
+        final candidates = await _productRepository.getLowStockCandidates();
+        if (!mounted || requestId != _requestId) return;
+        setState(() {
+          _products = candidates;
+          _hasMore = false;
+          _loading = false;
+        });
+        return;
+      }
+
+      final (orderBy, ascending) = _sortColumn;
+      final page = await _productRepository.getPage(
+        offset: 0,
+        pageSize: _pageSize,
+        categoryId: _selectedCategoryId == _uncategorizedFilter ? null : _selectedCategoryId,
+        onlyUncategorized: _selectedCategoryId == _uncategorizedFilter,
+        search: _search,
+        onlyOutOfStock: _stockFilter == _StockFilter.outOfStock,
+        orderBy: orderBy,
+        ascending: ascending,
+      );
       if (!mounted || requestId != _requestId) return;
       setState(() {
-        _products = candidates;
-        _hasMore = false;
+        _products = page;
+        _hasMore = page.length == _pageSize;
         _loading = false;
       });
-      return;
+    } catch (e) {
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _error = 'No se pudieron cargar los artículos: $e';
+        _loading = false;
+      });
     }
-
-    final (orderBy, ascending) = _sortColumn;
-    final page = await _productRepository.getPage(
-      offset: 0,
-      pageSize: _pageSize,
-      categoryId: _selectedCategoryId == _uncategorizedFilter ? null : _selectedCategoryId,
-      onlyUncategorized: _selectedCategoryId == _uncategorizedFilter,
-      search: _search,
-      onlyOutOfStock: _stockFilter == _StockFilter.outOfStock,
-      orderBy: orderBy,
-      ascending: ascending,
-    );
-    if (!mounted || requestId != _requestId) return;
-    setState(() {
-      _products = page;
-      _hasMore = page.length == _pageSize;
-      _loading = false;
-    });
   }
 
   Future<void> _loadMore() async {
@@ -593,9 +604,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
             Expanded(
               child: _loading
                   ? const LoadingIndicator()
-                  : visible.isEmpty
-                      ? const EmptyState(message: 'No hay artículos', icon: Icons.inventory_2_outlined)
-                      : ListView.builder(
+                  : _error != null
+                      ? ErrorState(message: _error!, onRetry: _resetAndLoad)
+                      : visible.isEmpty
+                          ? const EmptyState(message: 'No hay artículos', icon: Icons.inventory_2_outlined)
+                          : ListView.builder(
                           controller: _scrollController,
                           itemCount: visible.length + (_loadingMore ? 1 : 0),
                           itemBuilder: (context, index) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/category.dart';
 import '../../services/category_repository.dart';
 import '../../utils/search_normalize.dart';
+import '../../widgets/error_state.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -15,6 +16,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   final CategoryRepository _repository = CategoryRepository();
   List<Category> _categories = [];
   bool _loading = true;
+  String? _error;
   String _search = '';
 
   @override
@@ -24,12 +26,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final categories = await _repository.getAll();
     setState(() {
-      _categories = categories;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final categories = await _repository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _categories = categories;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar las categorías: $e';
+        _loading = false;
+      });
+    }
   }
 
   List<Category> get _filtered => _categories
@@ -105,24 +119,26 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _filtered.isEmpty
-                    ? const Center(child: Text('No hay categorías todavía'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _filtered.length,
-                        itemBuilder: (context, index) {
-                          final category = _filtered[index];
-                          return Card(
-                            child: ListTile(
-                              title: Text(category.name),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () => _delete(category),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                : _error != null
+                    ? ErrorState(message: _error!, onRetry: _load)
+                    : _filtered.isEmpty
+                        ? const Center(child: Text('No hay categorías todavía'))
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _filtered.length,
+                            itemBuilder: (context, index) {
+                              final category = _filtered[index];
+                              return Card(
+                                child: ListTile(
+                                  title: Text(category.name),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline),
+                                    onPressed: () => _delete(category),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
           ),
         ],
       ),

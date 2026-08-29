@@ -26,6 +26,7 @@ import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/number_pad_dialog.dart';
 import '../../widgets/product_avatar.dart';
 import '../../widgets/status_badge.dart';
@@ -85,6 +86,7 @@ class _PosScreenState extends State<PosScreen> {
   String _search = '';
   int _searchSyncId = 0;
   bool _loading = true;
+  String? _error;
   int _openTicketCount = 0;
   // Si el buscador está desplegado (mostrando el campo de texto) o
   // escondido detrás del ícono de lupa — ver la barra de arriba en build().
@@ -140,52 +142,63 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _productRepository.getAll(),
-      _categoryRepository.getAll(),
-      _modifierRepository.getAll(onlyActive: true),
-      _reportsRepository.getTopSellingProductIds(),
-      _pageRepository.getAll(),
-      _pageRepository.getAllItems(),
-    ]);
-    if (!mounted) return;
-    final pages = results[4] as List<PosPage>;
-    final allItems = results[5] as List<PosPageItem>;
-    final grouped = <String, List<PosPageItem>>{};
-    for (final item in allItems) {
-      grouped.putIfAbsent(item.pageId, () => []).add(item);
-    }
-    var products = results[0] as List<Product>;
-    // Una pestaña puede tener agregado un producto que, por lo que sea, no
-    // quedó en este catálogo recién cargado (ej. se agregó desde otra
-    // pantalla justo antes) — sin esto, esa pestaña lo mostraría como
-    // "(eliminado)" aunque sí exista, y su tarjeta no aparecería en el
-    // mosaico.
-    final knownIds = products.map((p) => p.id).toSet();
-    final missingIds = allItems
-        .map((i) => i.productId)
-        .whereType<String>()
-        .where((id) => !knownIds.contains(id))
-        .toSet()
-        .toList();
-    if (missingIds.isNotEmpty) {
-      final missing = await _productRepository.getByIds(missingIds);
-      if (!mounted) return;
-      products = [...products, ...missing];
-    }
     setState(() {
-      _products = products;
-      _categories = results[1] as List<Category>;
-      _modifiers = results[2] as List<Modifier>;
-      _topSellingIds = results[3] as List<String>;
-      _pages = pages;
-      _pageItemsByPage = grouped;
-      if (_selectedPageId != null && !pages.any((p) => p.id == _selectedPageId)) {
-        _selectedPageId = null;
-      }
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final results = await Future.wait([
+        _productRepository.getAll(),
+        _categoryRepository.getAll(),
+        _modifierRepository.getAll(onlyActive: true),
+        _reportsRepository.getTopSellingProductIds(),
+        _pageRepository.getAll(),
+        _pageRepository.getAllItems(),
+      ]);
+      if (!mounted) return;
+      final pages = results[4] as List<PosPage>;
+      final allItems = results[5] as List<PosPageItem>;
+      final grouped = <String, List<PosPageItem>>{};
+      for (final item in allItems) {
+        grouped.putIfAbsent(item.pageId, () => []).add(item);
+      }
+      var products = results[0] as List<Product>;
+      // Una pestaña puede tener agregado un producto que, por lo que sea, no
+      // quedó en este catálogo recién cargado (ej. se agregó desde otra
+      // pantalla justo antes) — sin esto, esa pestaña lo mostraría como
+      // "(eliminado)" aunque sí exista, y su tarjeta no aparecería en el
+      // mosaico.
+      final knownIds = products.map((p) => p.id).toSet();
+      final missingIds = allItems
+          .map((i) => i.productId)
+          .whereType<String>()
+          .where((id) => !knownIds.contains(id))
+          .toSet()
+          .toList();
+      if (missingIds.isNotEmpty) {
+        final missing = await _productRepository.getByIds(missingIds);
+        if (!mounted) return;
+        products = [...products, ...missing];
+      }
+      setState(() {
+        _products = products;
+        _categories = results[1] as List<Category>;
+        _modifiers = results[2] as List<Modifier>;
+        _topSellingIds = results[3] as List<String>;
+        _pages = pages;
+        _pageItemsByPage = grouped;
+        if (_selectedPageId != null && !pages.any((p) => p.id == _selectedPageId)) {
+          _selectedPageId = null;
+        }
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar el catálogo de Ventas: $e';
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _addToCart(Product product) async {
@@ -953,13 +966,16 @@ class _PosScreenState extends State<PosScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : (products.isEmpty && _selectedPageId == null)
-                    ? Center(
-                        child: Text(_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
-                      )
-                    : prefs.useListLayout
-                        ? _buildList(products, cashSession)
-                        : _buildTileGrid(products, cashSession),
+                : _error != null
+                    ? ErrorState(message: _error!, onRetry: _loadData)
+                    : (products.isEmpty && _selectedPageId == null)
+                        ? Center(
+                            child:
+                                Text(_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
+                          )
+                        : prefs.useListLayout
+                            ? _buildList(products, cashSession)
+                            : _buildTileGrid(products, cashSession),
           ),
         ],
       ),
