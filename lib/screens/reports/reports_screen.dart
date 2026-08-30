@@ -52,10 +52,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
     'other': 'Otro',
   };
 
+  // TEMPORAL: trazas de depuración para encontrar por qué la pantalla se
+  // queda en blanco (ver reporte de bug). debugPrint sí llega a la consola
+  // del navegador aunque sea el build de producción — se quitan apenas se
+  // encuentre la causa.
+  final _instanceId = DateTime.now().microsecondsSinceEpoch;
+
   @override
   void initState() {
     super.initState();
+    debugPrint('ReportsScreen[$_instanceId] initState');
     _load();
+  }
+
+  @override
+  void dispose() {
+    debugPrint('ReportsScreen[$_instanceId] dispose');
+    super.dispose();
   }
 
   DateTime get _fromDate {
@@ -99,6 +112,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _load() async {
+    debugPrint('ReportsScreen[$_instanceId] _load() start, mounted=$mounted');
     setState(() {
       _loading = true;
       _error = null;
@@ -117,6 +131,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _repository.getByEmployee(from: from, to: to),
         _repository.getByModifier(from: from, to: to),
       ]).timeout(const Duration(seconds: 15));
+      // TEMPORAL: si nunca se ve esta línea en la consola, Future.wait no
+      // terminó (ni éxito ni excepción) — el problema no es "mounted".
+      debugPrint('ReportsScreen[$_instanceId] Future.wait resolvió, mounted=$mounted');
       if (!mounted) return;
       setState(() {
         _summary = results[0] as SalesSummary;
@@ -126,7 +143,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _byModifier = results[4] as List<ModifierUsage>;
         _loading = false;
       });
+      debugPrint('ReportsScreen[$_instanceId] setState de éxito aplicado');
     } catch (e) {
+      debugPrint('ReportsScreen[$_instanceId] catch: $e, mounted=$mounted');
       if (!mounted) return;
       // Se muestra el texto real del error (no uno genérico) para poder
       // diagnosticar de una sola vez si vuelve a fallar, en vez de tener
@@ -145,6 +164,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final percentChange = (summary != null && previous != null && previous > 0)
         ? ((summary.totalSales - previous) / previous) * 100
         : null;
+
+    debugPrint(
+      'ReportsScreen[$_instanceId] build() _loading=$_loading _error=${_error != null} summary=${summary != null}',
+    );
 
     return RefreshIndicator(
       onRefresh: _load,
