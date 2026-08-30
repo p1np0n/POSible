@@ -844,3 +844,15 @@ repites el Paso 4 (Actions compila sola) y el Paso 5 (descargar el nuevo
 - No se tocó nada más de lo que ya funcionaba — no hizo falta ningún
   cambio en `sql/schema.sql` ni en ninguna Edge Function para este grupo
   de arreglos.
+
+## Reportes: gráficos con librería de verdad (fl_chart)
+
+Los gráficos de barras de Reportes (por día y por mes) se rehicieron con
+`fl_chart`, una librería de gráficos gratuita y muy usada en Flutter, en
+vez de las barras hechas a mano — ahora tienen grilla de fondo, se
+animan al cambiar de rango, y al tocar una barra aparece el monto exacto
+de ese día/mes. Además, "Por método de pago" y "Por categoría" ahora
+también muestran un **gráfico de torta** con leyenda de colores, arriba
+de la lista de siempre (la lista se mantiene igual, con los montos
+exactos). No hace falta correr nada en Supabase para esto — es solo un
+cambio visual dentro de la app.
