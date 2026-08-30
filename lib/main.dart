@@ -20,11 +20,37 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  enableVerboseErrorDisplay();
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
   runApp(const PosibleApp());
+}
+
+/// TEMPORAL (para diagnosticar el bug de Reportes en blanco): por defecto,
+/// en el build de producción Flutter reemplaza cualquier widget que falle
+/// al construirse por una caja vacía, sin mostrar ni loguear el error —
+/// así es indistinguible de "no hay nada". Esto hace que ese error se vea
+/// en pantalla (y en la consola del navegador) en vez de desaparecer en
+/// silencio. Se quita en cuanto se encuentre la causa real.
+void enableVerboseErrorDisplay() {
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError capturado: ${details.exception}\n${details.stack}');
+  };
+  ErrorWidget.builder = (details) => Material(
+        color: Colors.red.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Text(
+              'Error al construir un widget:\n\n${details.exception}',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+        ),
+      );
 }
 
 /// [title] y [home] permiten reutilizar esta misma app (login, providers,
