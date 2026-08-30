@@ -1,6 +1,8 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/reports_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
@@ -231,6 +233,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 16),
             Text('Por método de pago', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
+            _PieChartCard(
+              items: summary.byPaymentMethod.entries
+                  .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
+                  .toList(),
+            ),
             ...summary.byPaymentMethod.entries.map((entry) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(_paymentLabels[entry.key] ?? entry.key),
@@ -253,12 +260,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 8),
             if (_byCategory.isEmpty)
               const Text('Sin ventas en este período')
-            else
+            else ...[
+              _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
               ..._byCategory.map((c) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(c.name),
                     trailing: CurrencyText(c.total, bold: true),
                   )),
+            ],
             const SizedBox(height: 16),
             Text('Por empleado', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -311,8 +320,27 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// Gráfico de barras simple hecho con widgets básicos (sin dependencias
-/// nuevas): una barra por día, con su altura proporcional a la venta del día.
+/// Un color fijo por posición, para que categorías/métodos de pago y las
+/// barras del gráfico usen la misma paleta en toda la pantalla.
+const _chartPalette = [
+  Color(0xFFEF6C00), // naranja de marca
+  Color(0xFF1976D2),
+  Color(0xFF43A047),
+  Color(0xFF8E24AA),
+  Color(0xFFFDD835),
+  Color(0xFF00897B),
+  Color(0xFFD81B60),
+  Color(0xFF5D4037),
+];
+
+/// Ancho aproximado que ocupa cada barra (barra + separación), para decidir
+/// cuánto espacio horizontal darle al gráfico — con pocos días se estira al
+/// ancho disponible, con muchos se puede desplazar horizontalmente en vez
+/// de aplastarse.
+const double _barSlotWidth = 44;
+
+/// Gráfico de barras con fl_chart: una barra por día, con grilla, animación
+/// al cambiar de rango y un total exacto al tocar una barra.
 class _DailyBarChart extends StatelessWidget {
   final List<DailyTotal> dailyTotals;
 
@@ -320,46 +348,18 @@ class _DailyBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxTotal = dailyTotals.map((d) => d.total).fold<double>(0, (a, b) => a > b ? a : b);
-    const chartHeight = 120.0;
-
-    return SizedBox(
-      height: chartHeight + 32,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: dailyTotals.map((d) {
-            final barHeight = maxTotal == 0 ? 0.0 : (d.total / maxTotal) * chartHeight;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    width: 28,
-                    height: barHeight < 2 ? 2 : barHeight,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(_formatDate(d.date), style: const TextStyle(fontSize: 10)),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ),
+    return _BarChartFrame(
+      barCount: dailyTotals.length,
+      values: dailyTotals.map((d) => d.total).toList(),
+      labelFor: (index) => _formatDate(dailyTotals[index].date),
+      color: Theme.of(context).colorScheme.primary,
     );
   }
 }
 
-/// Agrupa los totales diarios del año por mes (mismo widget base que
-/// [_DailyBarChart], una barra por mes) y agrega debajo el mes con más
-/// ventas y el promedio mensual, para tener algo de contexto además del
-/// gráfico.
+/// Agrupa los totales diarios del año por mes (una barra por mes) y agrega
+/// debajo el mes con más ventas y el promedio mensual, para tener algo de
+/// contexto además del gráfico.
 class _MonthlyBarChart extends StatelessWidget {
   final List<DailyTotal> dailyTotals;
 
@@ -372,45 +372,17 @@ class _MonthlyBarChart extends StatelessWidget {
       byMonth[d.date.month] = (byMonth[d.date.month] ?? 0) + d.total;
     }
     final months = byMonth.keys.toList()..sort();
-    final maxTotal = byMonth.values.fold<double>(0, (a, b) => a > b ? a : b);
-    const chartHeight = 120.0;
-
     final bestMonth = months.reduce((a, b) => byMonth[a]! >= byMonth[b]! ? a : b);
     final average = byMonth.values.fold<double>(0, (a, b) => a + b) / months.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: chartHeight + 32,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: months.map((month) {
-                final total = byMonth[month]!;
-                final barHeight = maxTotal == 0 ? 0.0 : (total / maxTotal) * chartHeight;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: barHeight < 2 ? 2 : barHeight,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(_monthAbbrevEs[month - 1], style: const TextStyle(fontSize: 10)),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+        _BarChartFrame(
+          barCount: months.length,
+          values: months.map((m) => byMonth[m]!).toList(),
+          labelFor: (index) => _monthAbbrevEs[months[index] - 1],
+          color: Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(height: 12),
         Row(
@@ -442,6 +414,166 @@ class _MonthlyBarChart extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Base compartida entre [_DailyBarChart] y [_MonthlyBarChart]: arma un
+/// `BarChart` de fl_chart con grilla, tooltip al tocar una barra y
+/// animación al cambiar los datos, desplazable horizontalmente si hay
+/// muchas barras para que no queden aplastadas.
+class _BarChartFrame extends StatelessWidget {
+  final int barCount;
+  final List<double> values;
+  final String Function(int index) labelFor;
+  final Color color;
+
+  const _BarChartFrame({
+    required this.barCount,
+    required this.values,
+    required this.labelFor,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final maxTotal = values.fold<double>(0, (a, b) => a > b ? a : b);
+    final maxY = maxTotal == 0 ? 1.0 : maxTotal * 1.2;
+
+    final chart = BarChart(
+      BarChartData(
+        maxY: maxY,
+        gridData: FlGridData(
+          drawVerticalLine: false,
+          horizontalInterval: maxY / 4,
+          getDrawingHorizontalLine: (_) => FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 24,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index < 0 || index >= barCount) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(labelFor(index), style: const TextStyle(fontSize: 10)),
+                );
+              },
+            ),
+          ),
+        ),
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipItem: (group, groupIndex, rod, rodIndex) => BarTooltipItem(
+              formatCurrencyCl(rod.toY),
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+        ),
+        barGroups: [
+          for (var i = 0; i < values.length; i++)
+            BarChartGroupData(
+              x: i,
+              barRods: [
+                BarChartRodData(
+                  toY: values[i],
+                  color: color,
+                  width: 18,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+              ],
+            ),
+        ],
+      ),
+      duration: const Duration(milliseconds: 300),
+    );
+
+    return SizedBox(
+      height: 160,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = barCount * _barSlotWidth;
+          if (width <= constraints.maxWidth) return chart;
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(width: width, child: chart),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Gráfico de torta con fl_chart (con leyenda de colores debajo) para
+/// mostrar de un vistazo el peso de cada categoría o método de pago,
+/// complementando la lista con los montos exactos que ya se muestra abajo.
+class _PieChartCard extends StatelessWidget {
+  final List<({String label, double value})> items;
+
+  const _PieChartCard({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = items.fold<double>(0, (sum, item) => sum + item.value);
+    if (total <= 0) return const SizedBox.shrink();
+    final sorted = [...items]..sort((a, b) => b.value.compareTo(a.value));
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 160,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 28,
+                sections: [
+                  for (var i = 0; i < sorted.length; i++)
+                    PieChartSectionData(
+                      value: sorted[i].value,
+                      color: _chartPalette[i % _chartPalette.length],
+                      radius: 56,
+                      title: '${(sorted[i].value / total * 100).round()}%',
+                      titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                ],
+              ),
+              duration: const Duration(milliseconds: 300),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              for (var i = 0; i < sorted.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: _chartPalette[i % _chartPalette.length],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(sorted[i].label, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
