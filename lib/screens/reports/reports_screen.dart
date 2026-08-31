@@ -207,6 +207,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          // TEMPORAL: marcador de depuración, se muestra siempre (sin
+          // depender de _loading/_error/summary) para aislar si el problema
+          // es que nada puede pintarse debajo de los botones de rango, o si
+          // es algo específico del contenido de reportes.
+          Container(
+            height: 80,
+            width: double.infinity,
+            color: Colors.red,
+            alignment: Alignment.center,
+            child: const Text(
+              'MARCADOR DE PRUEBA VISIBLE',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 16),
           if (_loading)
             const LoadingIndicator(padding: EdgeInsets.all(32))
           else if (_error != null)
