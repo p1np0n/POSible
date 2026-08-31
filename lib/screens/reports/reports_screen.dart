@@ -229,37 +229,49 @@ class _ReportsScreenState extends State<ReportsScreen> {
           else if (summary == null)
             ErrorState(message: 'No se pudieron cargar los reportes', onRetry: _load)
           else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    label: 'Ventas totales',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CurrencyText(summary.totalSales, bold: true),
-                        if (percentChange != null)
-                          Text(
-                            '${percentChange >= 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}% vs período anterior',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: percentChange >= 0 ? Colors.green : Colors.red,
+            // IntrinsicHeight es necesario porque este Row usa
+            // crossAxisAlignment.stretch y vive directo dentro de un
+            // ListView: el ListView le da altura infinita (es el eje de
+            // scroll), y sin este envoltorio Flutter intenta "estirar" los
+            // hijos a esa altura infinita. En modo debug eso lanza un error
+            // bien visible; en el build de producción (release) esa
+            // comprobación es un `assert` que se elimina, así que el layout
+            // queda roto en silencio (sin ninguna excepción) y deja todo lo
+            // que sigue en la lista sin pintarse — la causa real del bug de
+            // Reportes en blanco.
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Ventas totales',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CurrencyText(summary.totalSales, bold: true),
+                          if (percentChange != null)
+                            Text(
+                              '${percentChange >= 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}% vs período anterior',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: percentChange >= 0 ? Colors.green : Colors.red,
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Transacciones',
-                    child: Text('${summary.transactionCount}',
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Transacciones',
+                      child: Text('${summary.transactionCount}',
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             _StatCard(label: 'Ticket promedio', child: CurrencyText(summary.averageTicket, bold: true)),
