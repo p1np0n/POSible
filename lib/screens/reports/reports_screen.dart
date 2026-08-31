@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/reports_repository.dart';
+import '../../services/stock_movement_repository.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
@@ -36,6 +37,7 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   final ReportsRepository _repository = ReportsRepository();
+  final StockMovementRepository _stockMovementRepository = StockMovementRepository();
   ReportRange _range = ReportRange.today;
   DateTimeRange? _customRange;
   SalesSummary? _summary;
@@ -43,6 +45,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<NamedTotal> _byCategory = [];
   List<NamedTotal> _byEmployee = [];
   List<ModifierUsage> _byModifier = [];
+  double _inboundCostTotal = 0;
   bool _loading = true;
   String? _error;
 
@@ -116,6 +119,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _repository.getByCategory(from: from, to: to),
         _repository.getByEmployee(from: from, to: to),
         _repository.getByModifier(from: from, to: to),
+        _stockMovementRepository.getInboundCostTotal(from: from, to: to),
       ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
@@ -124,6 +128,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _byCategory = results[2] as List<NamedTotal>;
         _byEmployee = results[3] as List<NamedTotal>;
         _byModifier = results[4] as List<ModifierUsage>;
+        _inboundCostTotal = results[5] as double;
         _loading = false;
       });
     } catch (e) {
@@ -231,6 +236,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             const SizedBox(height: 12),
             _StatCard(label: 'Ticket promedio', child: CurrencyText(summary.averageTicket, bold: true)),
+            const SizedBox(height: 12),
+            _StatCard(
+              label: 'Gastado en mercadería (entradas de stock)',
+              child: CurrencyText(_inboundCostTotal, bold: true),
+            ),
             if (_range == ReportRange.year && summary.dailyTotals.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text('Ventas por mes', style: Theme.of(context).textTheme.titleMedium),

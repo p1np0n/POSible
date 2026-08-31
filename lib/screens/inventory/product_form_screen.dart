@@ -56,12 +56,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _stockController;
   late final TextEditingController _lowStockController;
   late final TextEditingController _pluController;
+  late final TextEditingController _promoPriceController;
   late List<Category> _categories;
   bool _trackStock = true;
   String? _categoryId;
   String? _imageUrl;
   double? _suggestedPrice;
   String _pricingType = 'fixed';
+  bool _promoEnabled = false;
+  DateTime? _promoStartsAt;
+  DateTime? _promoEndsAt;
   bool _saving = false;
   bool _looking = false;
   bool _uploadingPhoto = false;
@@ -108,6 +112,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _lowStockController = TextEditingController(
         text: product?.lowStockThreshold != null ? product!.lowStockThreshold!.toStringAsFixed(0) : '');
     _pluController = TextEditingController(text: product?.plu ?? '');
+    _promoPriceController =
+        TextEditingController(text: product?.promoPrice != null ? product!.promoPrice!.round().toString() : '');
+    _promoEnabled = product?.promoPrice != null;
+    _promoStartsAt = product?.promoStartsAt;
+    _promoEndsAt = product?.promoEndsAt;
     _trackStock = product?.trackStock ?? true;
     _categoryId = product?.categoryId;
     _imageUrl = product?.imageUrl;
@@ -149,7 +158,27 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _stockController.dispose();
     _lowStockController.dispose();
     _pluController.dispose();
+    _promoPriceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPromoDate({required bool isStart}) async {
+    final initial =
+        isStart ? (_promoStartsAt ?? DateTime.now()) : (_promoEndsAt ?? DateTime.now().add(const Duration(days: 7)));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _promoStartsAt = DateTime(picked.year, picked.month, picked.day);
+      } else {
+        _promoEndsAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+      }
+    });
   }
 
   Future<void> _save() async {
@@ -177,6 +206,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       plu: _isSoldByWeight && plu.isNotEmpty ? plu : null,
       targetMarginPercent:
           _marginController.text.trim().isEmpty ? null : double.tryParse(_marginController.text.trim()),
+      archived: widget.product?.archived ?? false,
+      promoPrice: _promoEnabled && _pricingType == 'fixed' ? double.tryParse(_promoPriceController.text) : null,
+      promoStartsAt: _promoEnabled && _pricingType == 'fixed' ? _promoStartsAt : null,
+      promoEndsAt: _promoEnabled && _pricingType == 'fixed' ? _promoEndsAt : null,
     );
 
     try {
@@ -236,7 +269,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       return;
     }
     final price = cost / (1 - margin / 100);
-    setState(() => _priceController.text = price.round().toString());
+    setState(() => _priceController.text = roundPriceCl(price).toString());
   }
 
   Future<void> _scanBarcode() async {
@@ -655,7 +688,56 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            const SizedBox(height: 12),
+            if (_pricingType == 'fixed') ...[
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Oferta temporal'),
+                subtitle: const Text(
+                  'Un precio distinto solo por un tiempo — se muestra en Ventas y Lista de artículos mientras dure.',
+                ),
+                value: _promoEnabled,
+                onChanged: (value) => setState(() {
+                  _promoEnabled = value;
+                  if (value) {
+                    _promoStartsAt ??= DateTime.now();
+                    _promoEndsAt ??= DateTime.now().add(const Duration(days: 7));
+                  }
+                }),
+              ),
+              if (_promoEnabled) ...[
+                TextFormField(
+                  controller: _promoPriceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Precio de oferta', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickPromoDate(isStart: true),
+                        icon: const Icon(Icons.date_range),
+                        label: Text(_promoStartsAt != null
+                            ? 'Desde: ${_promoStartsAt!.day.toString().padLeft(2, '0')}/${_promoStartsAt!.month.toString().padLeft(2, '0')}'
+                            : 'Desde'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickPromoDate(isStart: false),
+                        icon: const Icon(Icons.date_range),
+                        label: Text(_promoEndsAt != null
+                            ? 'Hasta: ${_promoEndsAt!.day.toString().padLeft(2, '0')}/${_promoEndsAt!.month.toString().padLeft(2, '0')}'
+                            : 'Hasta'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
             TextFormField(
               controller: _skuController,
               decoration: const InputDecoration(labelText: 'SKU (opcional)', border: OutlineInputBorder()),

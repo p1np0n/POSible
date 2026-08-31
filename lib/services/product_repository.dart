@@ -15,7 +15,7 @@ class ProductRepository {
   /// directo podía recortar el catálogo en silencio en tiendas con más
   /// productos que ese límite (a diferencia de [getPage], que ya paginaba
   /// explícitamente).
-  Future<List<Product>> getAll({bool onlyActive = true}) async {
+  Future<List<Product>> getAll({bool onlyActive = true, bool includeArchived = false}) async {
     const chunkSize = 1000;
     final all = <Product>[];
     var offset = 0;
@@ -23,6 +23,9 @@ class ProductRepository {
       var query = _client.from('products').select();
       if (onlyActive) {
         query = query.eq('active', true);
+      }
+      if (!includeArchived) {
+        query = query.eq('archived', false);
       }
       final data = await query.order('name').range(offset, offset + chunkSize - 1).withTimeout();
       final page = (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
@@ -45,8 +48,9 @@ class ProductRepository {
     bool onlyOutOfStock = false,
     String orderBy = 'name',
     bool ascending = true,
+    bool onlyArchived = false,
   }) async {
-    var query = _client.from('products').select().eq('active', true);
+    var query = _client.from('products').select().eq('active', true).eq('archived', onlyArchived);
     if (onlyUncategorized) {
       query = query.isFilter('category_id', null);
     } else if (categoryId != null) {
@@ -77,6 +81,7 @@ class ProductRepository {
         .from('products')
         .select()
         .eq('active', true)
+        .eq('archived', false)
         .eq('track_stock', true)
         .not('low_stock_threshold', 'is', null);
     return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
@@ -116,5 +121,12 @@ class ProductRepository {
 
   Future<void> adjustStock(String id, double delta) async {
     await _client.rpc('adjust_product_stock', params: {'p_id': id, 'p_delta': delta});
+  }
+
+  /// Archivar/desarchivar a mano desde Lista de artículos. Subir stock
+  /// (ver [adjustStock]) también desarchiva solo, así que esto es sobre
+  /// todo para archivar, o para desarchivar sin necesidad de tocar stock.
+  Future<void> setArchived(String id, bool archived) async {
+    await _client.from('products').update({'archived': archived}).eq('id', id);
   }
 }

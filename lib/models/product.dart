@@ -27,6 +27,23 @@ class Product {
   /// general de la tienda (Configuración).
   final double? targetMarginPercent;
 
+  /// true si el producto está archivado: no se vende hace tiempo, así que
+  /// se saca de Ventas y de Lista de artículos (pero no del catálogo
+  /// global) hasta que se desarchive a mano o se le suba stock — ver el
+  /// filtro en [ProductRepository].
+  final bool archived;
+
+  /// Última vez que se vendió (lo actualiza un trigger en la base de datos
+  /// cada vez que aparece en una venta) — null si nunca se ha vendido.
+  final DateTime? lastSoldAt;
+
+  /// Oferta temporal: mientras estemos entre [promoStartsAt] y
+  /// [promoEndsAt], el precio de venta pasa a ser [promoPrice] en vez de
+  /// [price] (ver [effectivePrice]).
+  final double? promoPrice;
+  final DateTime? promoStartsAt;
+  final DateTime? promoEndsAt;
+
   Product({
     required this.id,
     required this.name,
@@ -43,10 +60,30 @@ class Product {
     this.pricingType = 'fixed',
     this.plu,
     this.targetMarginPercent,
+    this.archived = false,
+    this.lastSoldAt,
+    this.promoPrice,
+    this.promoStartsAt,
+    this.promoEndsAt,
   });
 
   bool get isVariablePrice => pricingType == 'variable';
   bool get isSoldByWeight => pricingType == 'weight';
+
+  bool get isPromoActive {
+    // Solo para precio fijo: en variable se pregunta el precio cada vez, y
+    // en peso "price" es por kilo — mezclarlos con una oferta a precio fijo
+    // no tiene un significado claro.
+    if (pricingType != 'fixed' || promoPrice == null || promoPrice! <= 0) return false;
+    final now = DateTime.now();
+    if (promoStartsAt != null && now.isBefore(promoStartsAt!)) return false;
+    if (promoEndsAt != null && now.isAfter(promoEndsAt!)) return false;
+    return true;
+  }
+
+  /// El precio que corresponde cobrar ahora mismo: el de oferta si está
+  /// vigente, si no el normal.
+  double get effectivePrice => isPromoActive ? promoPrice! : price;
 
   /// true si el producto controla inventario, tiene un umbral configurado y
   /// las existencias están en o por debajo de ese umbral.
@@ -79,7 +116,8 @@ class Product {
   /// barras), el nombre (ej. el nombre propio de un botón de venta rápida
   /// en una pestaña, distinto del nombre real del producto) y/o el stock
   /// (ej. al editarlo rápido desde el mosaico de Ventas).
-  Product copyWith({String? name, double? price, String? imageUrl, double? stockQuantity}) => Product(
+  Product copyWith({String? name, double? price, String? imageUrl, double? stockQuantity, bool? archived}) =>
+      Product(
         id: id,
         name: name ?? this.name,
         categoryId: categoryId,
@@ -95,6 +133,11 @@ class Product {
         pricingType: pricingType,
         plu: plu,
         targetMarginPercent: targetMarginPercent,
+        archived: archived ?? this.archived,
+        lastSoldAt: lastSoldAt,
+        promoPrice: promoPrice,
+        promoStartsAt: promoStartsAt,
+        promoEndsAt: promoEndsAt,
       );
 
   factory Product.fromMap(Map<String, dynamic> map) => Product(
@@ -113,6 +156,11 @@ class Product {
         pricingType: map['pricing_type'] as String? ?? 'fixed',
         plu: map['plu'] as String?,
         targetMarginPercent: (map['target_margin_percent'] as num?)?.toDouble(),
+        archived: map['archived'] as bool? ?? false,
+        lastSoldAt: map['last_sold_at'] != null ? DateTime.parse(map['last_sold_at'] as String) : null,
+        promoPrice: (map['promo_price'] as num?)?.toDouble(),
+        promoStartsAt: map['promo_starts_at'] != null ? DateTime.parse(map['promo_starts_at'] as String) : null,
+        promoEndsAt: map['promo_ends_at'] != null ? DateTime.parse(map['promo_ends_at'] as String) : null,
       );
 
   Map<String, dynamic> toMap() => {
@@ -128,6 +176,10 @@ class Product {
         'active': active,
         'low_stock_threshold': lowStockThreshold,
         'pricing_type': pricingType,
+        'archived': archived,
+        'promo_price': promoPrice,
+        'promo_starts_at': promoStartsAt?.toUtc().toIso8601String(),
+        'promo_ends_at': promoEndsAt?.toUtc().toIso8601String(),
         'plu': plu,
         'target_margin_percent': targetMarginPercent,
       };

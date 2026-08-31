@@ -179,7 +179,10 @@ class _PosScreenState extends State<PosScreen> {
       if (missingIds.isNotEmpty) {
         final missing = await _productRepository.getByIds(missingIds);
         if (!mounted) return;
-        products = [...products, ...missing];
+        // Un producto archivado no debe volver a aparecer en Ventas por
+        // este camino tampoco (ver getAll(), que ya lo excluye del
+        // catálogo principal más arriba).
+        products = [...products, ...missing.where((p) => !p.archived)];
       }
       setState(() {
         _products = products;
@@ -205,6 +208,11 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _addToCart(Product product) async {
     try {
       var effective = product;
+      // Oferta temporal: se vende al precio de oferta mientras esté
+      // vigente, sin que el cajero tenga que acordarse de aplicarla.
+      if (effective.isPromoActive) {
+        effective = effective.copyWith(price: effective.effectivePrice);
+      }
       if (product.isVariablePrice) {
         final price = await _askVariablePrice(product);
         if (price == null || !mounted) return;
@@ -457,7 +465,7 @@ class _PosScreenState extends State<PosScreen> {
         barcode: barcode,
       ));
       if (!mounted) return;
-      setState(() => _products = [..._products, created]);
+      setState(() => _products = _sortedByName([..._products, created]));
       try {
         await _catalogRepository.upsert(barcode: barcode, name: name, suggestedPrice: price, source: 'store');
       } catch (_) {
@@ -471,6 +479,13 @@ class _PosScreenState extends State<PosScreen> {
       }
     }
   }
+
+  /// El catálogo se carga ya ordenado A-Z desde el servidor; agregar un
+  /// producto nuevo o "recién encontrado" directo al final de la lista en
+  /// memoria (ver arriba) lo dejaría fuera de orden hasta la próxima vez
+  /// que se entre a Ventas — se reordena acá para que quede A-Z siempre.
+  List<Product> _sortedByName(List<Product> products) =>
+      products..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
   bool _matchesSearch(Product product) {
     final search = normalizeForSearch(_search);
@@ -500,7 +515,7 @@ class _PosScreenState extends State<PosScreen> {
     final knownIds = _products.map((p) => p.id).toSet();
     final missing = results.where((p) => !knownIds.contains(p.id)).toList();
     if (missing.isEmpty) return;
-    setState(() => _products = [..._products, ...missing]);
+    setState(() => _products = _sortedByName([..._products, ...missing]));
   }
 
   /// Productos de una pestaña personalizada: los agregados uno por uno, más
@@ -1181,6 +1196,19 @@ class _PosScreenState extends State<PosScreen> {
         children: [
           CurrencyText(product.price, bold: bold, style: TextStyle(color: color)),
           Text(' /kg', style: baseStyle),
+        ],
+      );
+    }
+    if (product.isPromoActive) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            formatCurrencyCl(product.price),
+            style: baseStyle.copyWith(fontSize: 11, decoration: TextDecoration.lineThrough),
+          ),
+          CurrencyText(product.promoPrice!, bold: bold, style: TextStyle(color: color ?? Colors.red)),
         ],
       );
     }

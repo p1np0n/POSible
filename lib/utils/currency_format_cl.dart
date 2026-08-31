@@ -30,3 +30,15 @@ String formatNumberCl(num value, {int decimals = 0}) {
   if (parts.length > 1) buffer.write(',${parts[1]}');
   return '${isNegative ? '-' : ''}$buffer';
 }
+
+/// Redondea un precio sugerido a la decena más cercana, usando 6 como
+/// punto de corte en vez del 5 habitual: si el último dígito es 6 o más
+/// sube a la decena de arriba, si es 5 o menos baja a la de abajo (ej.
+/// 1235 -> 1230, 1236 -> 1240). Se usa en la calculadora de precios
+/// (costo + margen) de Lista de artículos.
+int roundPriceCl(double price) {
+  final rounded = price.round();
+  final remainder = rounded % 10;
+  final base = rounded - remainder;
+  return remainder >= 6 ? base + 10 : base;
+}

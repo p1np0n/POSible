@@ -83,6 +83,24 @@ alter table products add column if not exists target_margin_percent numeric(5,2)
 drop index if exists products_plu_store_idx;
 create unique index products_plu_store_idx on products(store_id, plu) where plu is not null;
 
+-- "Archivado": un producto que no se vende hace tiempo se puede sacar de
+-- la lista de artículos y de las búsquedas (en Ventas y en Lista de
+-- artículos) sin borrarlo ni afectar el catálogo global — es solo para no
+-- ver tanta información poco útil en la tienda. Se archiva a mano, o solo
+-- (ver el cron job más abajo, sección "Archivado automático") si pasa 1
+-- mes sin venderse. Subir stock lo desarchiva automático (ver
+-- "adjust_product_stock" más abajo). "last_sold_at" se actualiza con un
+-- trigger cada vez que se vende (ver sale_items).
+alter table products add column if not exists archived boolean not null default false;
+alter table products add column if not exists last_sold_at timestamptz;
+-- Oferta temporal por producto: mientras "now()" esté entre
+-- promo_starts_at y promo_ends_at, el precio de venta efectivo es
+-- promo_price en vez de price. Fuera de ese rango (o si promo_price es
+-- null) se vende al precio normal, sin necesidad de acordarse de sacarla.
+alter table products add column if not exists promo_price numeric(12,2);
+alter table products add column if not exists promo_starts_at timestamptz;
+alter table products add column if not exists promo_ends_at timestamptz;
+
 -- Columna calculada (PostgREST la expone como si fuera una columna más de
 -- "products") para poder filtrar por nombre/código sin distinguir tildes:
 -- la app manda el término de búsqueda ya pasado por el mismo
@@ -314,6 +332,26 @@ create table if not exists sale_items (
 alter table sale_items add column if not exists modifiers_summary text;
 alter table sale_items add column if not exists store_id uuid references stores(id);
 
+-- Cada vez que se vende un producto, marca cuándo fue su última venta —
+-- lo usa el "archivado automático" (ver más abajo) para saber qué
+-- productos llevan 1 mes sin venderse, sin tener que recorrer todo el
+-- historial de ventas cada vez.
+create or replace function update_product_last_sold()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.product_id is not null then
+    update products set last_sold_at = now() where id = new.product_id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists sale_items_update_last_sold on sale_items;
+create trigger sale_items_update_last_sold
+  after insert on sale_items
+  for each row execute function update_product_last_sold();
+
 -- Tickets abiertos: una venta que el cajero deja "en espera" (ej. para
 -- atender a otro cliente) y retoma más tarde. Se borra apenas se retoma o
 -- se cobra; no es el registro final de la venta (eso sigue siendo "sales").
@@ -422,11 +460,17 @@ create policy "solo mi tienda" on pos_page_items for all
 
 -- Funciones para ajustar stock y puntos de lealtad de forma atómica
 -- (evita perder datos si dos ventas ocurren al mismo tiempo)
+-- Subir stock (p_delta positivo) desarchiva el producto solo, para no
+-- tener que acordarse de desarchivarlo a mano al volver a recibir
+-- mercadería (bajar/vender stock, p_delta negativo, no lo toca).
 create or replace function adjust_product_stock(p_id uuid, p_delta numeric)
 returns void
 language sql
 as $$
-  update products set stock_quantity = stock_quantity + p_delta where id = p_id;
+  update products
+  set stock_quantity = stock_quantity + p_delta,
+      archived = case when p_delta > 0 then false else archived end
+  where id = p_id;
 $$;
 
 create or replace function adjust_customer_loyalty(p_id uuid, p_points_delta integer, p_spend_delta numeric)
@@ -818,5 +862,42 @@ begin
       from public.products p
       where p.store_id = v_main_store_id and p.active = true;
     end loop;
+  end if;
+end $$;
+
+-- ============================================================
+-- Archivado automático de artículos: cada día revisa si hay productos sin
+-- vender hace 1 mes (o que nunca se han vendido y llevan 1 mes creados) y
+-- los archiva solos, para que la tienda no vea tanta información poco
+-- útil (ver "archived" en products, más arriba). Necesita la extensión
+-- "pg_cron" activada en el proyecto — si no está disponible acá (algunos
+-- planes la piden activar a mano en Database > Extensions del panel de
+-- Supabase), esto no falla el resto del script, pero el archivado
+-- automático no funcionará hasta activarla; el archivado MANUAL (desde la
+-- app) funciona igual sin esto.
+-- ============================================================
+do $$
+begin
+  create extension if not exists pg_cron;
+exception when others then
+  raise notice 'No se pudo activar la extensión pg_cron (revisa Database > Extensions en Supabase). El archivado automático de productos no funcionará hasta activarla; archivar/desarchivar a mano desde la app sigue funcionando igual.';
+end $$;
+
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    if exists (select 1 from cron.job where jobname = 'archive-inactive-products') then
+      perform cron.unschedule('archive-inactive-products');
+    end if;
+    perform cron.schedule(
+      'archive-inactive-products',
+      '0 6 * * *',
+      $job$
+        update products set archived = true
+        where archived = false
+          and created_at < now() - interval '30 days'
+          and (last_sold_at is null or last_sold_at < now() - interval '30 days');
+      $job$
+    );
   end if;
 end $$;
