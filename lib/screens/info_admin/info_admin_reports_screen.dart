@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/reports_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/loading_indicator.dart';
@@ -95,7 +96,7 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
             children: [
               Column(
                 children: [
-                  Text('${summary.transactionCount}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(formatNumberCl(summary.transactionCount), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                   const Text('Ventas', style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),

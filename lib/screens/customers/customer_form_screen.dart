@@ -115,7 +115,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.stars_outlined),
-                title: Text('${widget.customer!.loyaltyPoints} puntos de lealtad'),
+                title: Text('${formatNumberCl(widget.customer!.loyaltyPoints)} puntos de lealtad'),
                 subtitle: Text('Total gastado: ${formatCurrencyCl(widget.customer!.totalSpent)}'),
               ),
             ],

@@ -156,7 +156,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
         title: const Text('Stock insuficiente'),
         content: Text(
           'Estos productos no tienen suficiente inventario y quedarían en negativo:\n\n'
-          '${shortItems.map((item) => '• ${item.product.name} (stock: ${item.product.stockQuantity.toStringAsFixed(0)}, vendes: ${item.quantity.toStringAsFixed(0)})').join('\n')}'
+          '${shortItems.map((item) => '• ${item.product.name} (stock: ${formatNumberCl(item.product.stockQuantity)}, vendes: ${formatNumberCl(item.quantity)})').join('\n')}'
           '\n\n¿Quieres continuar con la venta de todas formas?',
         ),
         actions: [

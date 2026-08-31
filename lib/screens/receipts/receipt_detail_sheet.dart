@@ -68,8 +68,8 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
                       title: Text(item.productName),
                       subtitle: Text(
                         item.modifiersSummary == null || item.modifiersSummary!.isEmpty
-                            ? '${item.quantity.toStringAsFixed(0)} x ${formatCurrencyCl(item.unitPrice)}'
-                            : '${item.quantity.toStringAsFixed(0)} x ${formatCurrencyCl(item.unitPrice)} · ${item.modifiersSummary}',
+                            ? '${formatNumberCl(item.quantity)} x ${formatCurrencyCl(item.unitPrice)}'
+                            : '${formatNumberCl(item.quantity)} x ${formatCurrencyCl(item.unitPrice)} · ${item.modifiersSummary}',
                       ),
                       trailing: CurrencyText(item.subtotal, bold: true),
                     )),

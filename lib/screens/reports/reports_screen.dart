@@ -222,7 +222,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   Expanded(
                     child: _StatCard(
                       label: 'Transacciones',
-                      child: Text('${summary.transactionCount}',
+                      child: Text(formatNumberCl(summary.transactionCount),
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     ),
                   ),
@@ -264,7 +264,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ...summary.topProducts.map((product) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(product.name),
-                    subtitle: Text('${product.quantity.toStringAsFixed(0)} unidades'),
+                    subtitle: Text('${formatNumberCl(product.quantity)} unidades'),
                     trailing: CurrencyText(product.total, bold: true),
                   )),
             const SizedBox(height: 16),
@@ -298,7 +298,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ..._byModifier.map((m) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(m.name),
-                    trailing: Text('${m.count.toStringAsFixed(0)} veces'),
+                    trailing: Text('${formatNumberCl(m.count)} veces'),
                   )),
             ],
           ],

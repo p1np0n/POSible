@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/customer.dart';
 import '../../services/customer_repository.dart';
+import '../../utils/currency_format_cl.dart';
 
 class CustomerPickerDialog extends StatefulWidget {
   const CustomerPickerDialog({super.key});
@@ -60,7 +61,7 @@ class _CustomerPickerDialogState extends State<CustomerPickerDialog> {
                         final customer = _results[index];
                         return ListTile(
                           title: Text(customer.name),
-                          subtitle: Text('${customer.loyaltyPoints} puntos'),
+                          subtitle: Text('${formatNumberCl(customer.loyaltyPoints)} puntos'),
                           onTap: () => Navigator.of(context).pop(customer),
                         );
                       },
