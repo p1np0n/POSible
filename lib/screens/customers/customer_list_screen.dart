@@ -104,7 +104,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                             return ListTile(
                               title: Text(customer.name),
                               subtitle: Text(
-                                  '${customer.loyaltyPoints} puntos · Gastado: ${formatCurrencyCl(customer.totalSpent)}'),
+                                  '${formatNumberCl(customer.loyaltyPoints)} puntos · Gastado: ${formatCurrencyCl(customer.totalSpent)}'),
                               onTap: () => _openForm(customer),
                             );
                           },

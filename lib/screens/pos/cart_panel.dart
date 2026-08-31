@@ -198,7 +198,7 @@ class _CartPanelState extends State<CartPanel> {
             onPressed: () => _decrementOrConfirmRemove(item),
           ),
           Text(
-            item.product.isSoldByWeight ? item.quantity.toStringAsFixed(3) : item.quantity.toStringAsFixed(0),
+            item.product.isSoldByWeight ? item.quantity.toStringAsFixed(3) : formatNumberCl(item.quantity),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           IconButton(

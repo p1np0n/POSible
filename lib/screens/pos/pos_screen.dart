@@ -24,6 +24,7 @@ import '../../services/pos_page_repository.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
@@ -1280,7 +1281,7 @@ class _PosScreenState extends State<PosScreen> {
     if (!product.trackStock) return const SizedBox.shrink();
     final label = product.isSoldByWeight
         ? product.stockQuantity.toStringAsFixed(3)
-        : product.stockQuantity.toStringAsFixed(0);
+        : formatNumberCl(product.stockQuantity);
     final fg = overlay ? Colors.white : Colors.black87;
     return GestureDetector(
       onTap: () => _editStock(product),
@@ -1404,7 +1405,7 @@ class _PosScreenState extends State<PosScreen> {
           subtitle: outOfStock
               ? const Align(alignment: Alignment.centerLeft, child: StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true))
               : product.trackStock
-                  ? Text('Stock: ${product.stockQuantity.toStringAsFixed(0)}')
+                  ? Text('Stock: ${formatNumberCl(product.stockQuantity)}')
                   : null,
           trailing: _priceLabel(product, bold: true),
           enabled: cashSession.isOpen,

@@ -8,6 +8,7 @@ import '../../providers/app_preferences_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../utils/date_format_es.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
@@ -200,7 +201,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                 children: [
                   Text(
                     product.trackStock
-                        ? 'Stock actual: ${product.stockQuantity.toStringAsFixed(0)}'
+                        ? 'Stock actual: ${formatNumberCl(product.stockQuantity)}'
                         : 'Este producto no controla inventario',
                     style: const TextStyle(color: Colors.grey),
                   ),
@@ -281,10 +282,10 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
       _load();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(type == 'in'
-            ? '+${quantity.toStringAsFixed(0)} ${product.name}'
+            ? '+${formatNumberCl(quantity)} ${product.name}'
             : type == 'owner_use'
-                ? 'Uso propio: -${quantity.toStringAsFixed(0)} ${product.name}'
-                : '-${quantity.toStringAsFixed(0)} ${product.name}'),
+                ? 'Uso propio: -${formatNumberCl(quantity)} ${product.name}'
+                : '-${formatNumberCl(quantity)} ${product.name}'),
       ));
     } catch (e) {
       if (mounted) {
@@ -390,7 +391,8 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                     subtitle: Text(_categoryName(p.categoryId) ?? 'Sin categoría'),
                     trailing: p.trackStock
                         ? Text(
-                            p.stockQuantity.toStringAsFixed(p.stockQuantity == p.stockQuantity.roundToDouble() ? 0 : 2),
+                            formatNumberCl(p.stockQuantity,
+                                decimals: p.stockQuantity == p.stockQuantity.roundToDouble() ? 0 : 2),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: p.isLowStock ? Colors.orange : null,
@@ -489,7 +491,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                     '${m.userEmail != null ? ' · ${m.userEmail}' : ''}',
                   ),
                   trailing: Text(
-                    '${m.isIn ? '+' : '-'}${m.quantity.toStringAsFixed(0)}',
+                    '${m.isIn ? '+' : '-'}${formatNumberCl(m.quantity)}',
                     style: TextStyle(
                       color: m.isIn ? Colors.green : (m.isOwnerUse ? Colors.orange : Colors.red),
                       fontWeight: FontWeight.bold,

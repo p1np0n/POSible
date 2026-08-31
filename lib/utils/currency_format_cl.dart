@@ -11,3 +11,22 @@ String formatCurrencyCl(num amount) {
   }
   return '${isNegative ? '-' : ''}\$$buffer';
 }
+
+/// Igual que [formatCurrencyCl] pero sin el símbolo "$" — para cantidades,
+/// stock, puntos, unidades vendidas, etc. (ej. 1234 -> "1.234"). Con
+/// [decimals] > 0 conserva esos decimales usando coma, al estilo chileno
+/// (ej. formatNumberCl(1234.5, decimals: 1) -> "1.234,5").
+String formatNumberCl(num value, {int decimals = 0}) {
+  final isNegative = value < 0;
+  final abs = value.abs();
+  final text = decimals == 0 ? abs.round().toString() : abs.toStringAsFixed(decimals);
+  final parts = text.split('.');
+  final digits = parts[0];
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+    buffer.write(digits[i]);
+  }
+  if (parts.length > 1) buffer.write(',${parts[1]}');
+  return '${isNegative ? '-' : ''}$buffer';
+}

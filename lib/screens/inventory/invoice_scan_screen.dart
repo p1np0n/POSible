@@ -8,6 +8,7 @@ import '../../models/product.dart';
 import '../../services/invoice_ocr_service.dart';
 import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../utils/invoice_parser.dart';
 
 enum _InvoiceSource { camera, pdf }
@@ -321,7 +322,7 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
                                     ...row.candidates.map((p) => DropdownMenuItem(
                                           value: p,
                                           child: Text(
-                                            'Sumar a: ${p.name} (stock ${p.stockQuantity.toStringAsFixed(0)})',
+                                            'Sumar a: ${p.name} (stock ${formatNumberCl(p.stockQuantity)})',
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         )),

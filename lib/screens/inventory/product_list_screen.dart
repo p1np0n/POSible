@@ -7,6 +7,7 @@ import '../../providers/app_preferences_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/csv_export_service.dart';
 import '../../services/product_repository.dart';
+import '../../utils/currency_format_cl.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/empty_state.dart';
@@ -661,7 +662,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                     children: [
                                       Text(
                                         product.trackStock
-                                            ? 'Stock: ${product.stockQuantity.toStringAsFixed(0)}'
+                                            ? 'Stock: ${formatNumberCl(product.stockQuantity)}'
                                             : 'Stock: N/A',
                                         style: metaStyle,
                                       ),
