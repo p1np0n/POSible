@@ -9,12 +9,6 @@ import '../../widgets/loading_indicator.dart';
 
 enum ReportRange { today, week, month, year, custom }
 
-/// TEMPORAL: apaga los gráficos de fl_chart para aislar si son la causa
-/// de que Reportes se quede en blanco (ver reporte de bug). Si con esto
-/// en `true` el resto del contenido (tarjetas, listas) se ve bien, confirma
-/// que el problema está en fl_chart y no en el resto de la pantalla.
-const _debugDisableCharts = true;
-
 const _monthAbbrevEs = [
   'ene',
   'feb',
@@ -58,23 +52,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     'other': 'Otro',
   };
 
-  // TEMPORAL: trazas de depuración para encontrar por qué la pantalla se
-  // queda en blanco (ver reporte de bug). debugPrint sí llega a la consola
-  // del navegador aunque sea el build de producción — se quitan apenas se
-  // encuentre la causa.
-  final _instanceId = DateTime.now().microsecondsSinceEpoch;
-
   @override
   void initState() {
     super.initState();
-    debugPrint('ReportsScreen[$_instanceId] initState');
     _load();
-  }
-
-  @override
-  void dispose() {
-    debugPrint('ReportsScreen[$_instanceId] dispose');
-    super.dispose();
   }
 
   DateTime get _fromDate {
@@ -118,7 +99,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _load() async {
-    debugPrint('ReportsScreen[$_instanceId] _load() start, mounted=$mounted');
     setState(() {
       _loading = true;
       _error = null;
@@ -137,9 +117,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _repository.getByEmployee(from: from, to: to),
         _repository.getByModifier(from: from, to: to),
       ]).timeout(const Duration(seconds: 15));
-      // TEMPORAL: si nunca se ve esta línea en la consola, Future.wait no
-      // terminó (ni éxito ni excepción) — el problema no es "mounted".
-      debugPrint('ReportsScreen[$_instanceId] Future.wait resolvió, mounted=$mounted');
       if (!mounted) return;
       setState(() {
         _summary = results[0] as SalesSummary;
@@ -149,9 +126,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _byModifier = results[4] as List<ModifierUsage>;
         _loading = false;
       });
-      debugPrint('ReportsScreen[$_instanceId] setState de éxito aplicado');
     } catch (e) {
-      debugPrint('ReportsScreen[$_instanceId] catch: $e, mounted=$mounted');
       if (!mounted) return;
       // Se muestra el texto real del error (no uno genérico) para poder
       // diagnosticar de una sola vez si vuelve a fallar, en vez de tener
@@ -170,10 +145,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final percentChange = (summary != null && previous != null && previous > 0)
         ? ((summary.totalSales - previous) / previous) * 100
         : null;
-
-    debugPrint(
-      'ReportsScreen[$_instanceId] build() _loading=$_loading _error=${_error != null} summary=${summary != null}',
-    );
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -205,21 +176,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     : 'Rango personalizado'),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          // TEMPORAL: marcador de depuración, se muestra siempre (sin
-          // depender de _loading/_error/summary) para aislar si el problema
-          // es que nada puede pintarse debajo de los botones de rango, o si
-          // es algo específico del contenido de reportes.
-          Container(
-            height: 80,
-            width: double.infinity,
-            color: Colors.red,
-            alignment: Alignment.center,
-            child: const Text(
-              'MARCADOR DE PRUEBA VISIBLE',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
           ),
           const SizedBox(height: 16),
           if (_loading)
@@ -279,30 +235,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
               const SizedBox(height: 16),
               Text('Ventas por mes', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              if (_debugDisableCharts)
-                const Text('(gráfico deshabilitado temporalmente para depurar)')
-              else
-                _MonthlyBarChart(dailyTotals: summary.dailyTotals),
+              _MonthlyBarChart(dailyTotals: summary.dailyTotals),
             ] else if (summary.dailyTotals.length > 1) ...[
               const SizedBox(height: 16),
               Text('Ventas por día', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              if (_debugDisableCharts)
-                const Text('(gráfico deshabilitado temporalmente para depurar)')
-              else
-                _DailyBarChart(dailyTotals: summary.dailyTotals),
+              _DailyBarChart(dailyTotals: summary.dailyTotals),
             ],
             const SizedBox(height: 16),
             Text('Por método de pago', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            if (_debugDisableCharts)
-              const Text('(gráfico deshabilitado temporalmente para depurar)')
-            else
-              _PieChartCard(
-                items: summary.byPaymentMethod.entries
-                    .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
-                    .toList(),
-              ),
+            _PieChartCard(
+              items: summary.byPaymentMethod.entries
+                  .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
+                  .toList(),
+            ),
             ...summary.byPaymentMethod.entries.map((entry) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(_paymentLabels[entry.key] ?? entry.key),
@@ -326,10 +273,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             if (_byCategory.isEmpty)
               const Text('Sin ventas en este período')
             else ...[
-              if (_debugDisableCharts)
-                const Text('(gráfico deshabilitado temporalmente para depurar)')
-              else
-                _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
+              _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
               ..._byCategory.map((c) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(c.name),

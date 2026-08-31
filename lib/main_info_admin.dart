@@ -14,7 +14,6 @@ import 'screens/info_admin/info_admin_shell.dart';
 /// convertir el proyecto en dos apps separadas.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  enableVerboseErrorDisplay();
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
