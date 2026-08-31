@@ -58,12 +58,17 @@ class ReportsRepository {
     if (storeId == null) {
       return SalesSummary(totalSales: 0, transactionCount: 0, byPaymentMethod: {}, topProducts: [], dailyTotals: []);
     }
+    // .toUtc() antes de serializar es clave: from/to vienen en hora local
+    // (ej. medianoche de Chile), pero un DateTime local sin convertir se
+    // serializa sin offset ("2026-08-31T00:00:00.000"), y Postgres lo
+    // interpreta como UTC — corriendo el límite de "hoy" varias horas hacia
+    // atrás y mezclando ventas del turno de ayer.
     final sales = await _client
         .from('sales')
         .select('id, total, cash_amount, card_amount, other_amount, created_at')
         .eq('store_id', storeId)
-        .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String())
+        .gte('created_at', from.toUtc().toIso8601String())
+        .lte('created_at', to.toUtc().toIso8601String())
         .withTimeout();
 
     final salesList = (sales as List).cast<Map<String, dynamic>>();
@@ -136,8 +141,8 @@ class ReportsRepository {
         .from('sales')
         .select('total')
         .eq('store_id', storeId)
-        .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String())
+        .gte('created_at', from.toUtc().toIso8601String())
+        .lte('created_at', to.toUtc().toIso8601String())
         .withTimeout();
     return (sales as List).fold<double>(0, (sum, s) => sum + (s['total'] as num).toDouble());
   }
@@ -175,8 +180,8 @@ class ReportsRepository {
         .from('sales')
         .select('id')
         .eq('store_id', storeId)
-        .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String())
+        .gte('created_at', from.toUtc().toIso8601String())
+        .lte('created_at', to.toUtc().toIso8601String())
         .withTimeout();
     return (sales as List).map((s) => s['id'] as String).toList();
   }
@@ -230,8 +235,8 @@ class ReportsRepository {
         .from('sales')
         .select('user_id, total')
         .eq('store_id', storeId)
-        .gte('created_at', from.toIso8601String())
-        .lte('created_at', to.toIso8601String())
+        .gte('created_at', from.toUtc().toIso8601String())
+        .lte('created_at', to.toUtc().toIso8601String())
         .withTimeout();
     final salesList = (sales as List).cast<Map<String, dynamic>>();
 
