@@ -9,6 +9,12 @@ import '../../widgets/loading_indicator.dart';
 
 enum ReportRange { today, week, month, year, custom }
 
+/// TEMPORAL: apaga los gráficos de fl_chart para aislar si son la causa
+/// de que Reportes se quede en blanco (ver reporte de bug). Si con esto
+/// en `true` el resto del contenido (tarjetas, listas) se ve bien, confirma
+/// que el problema está en fl_chart y no en el resto de la pantalla.
+const _debugDisableCharts = true;
+
 const _monthAbbrevEs = [
   'ene',
   'feb',
@@ -246,21 +252,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
               const SizedBox(height: 16),
               Text('Ventas por mes', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              _MonthlyBarChart(dailyTotals: summary.dailyTotals),
+              if (_debugDisableCharts)
+                const Text('(gráfico deshabilitado temporalmente para depurar)')
+              else
+                _MonthlyBarChart(dailyTotals: summary.dailyTotals),
             ] else if (summary.dailyTotals.length > 1) ...[
               const SizedBox(height: 16),
               Text('Ventas por día', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              _DailyBarChart(dailyTotals: summary.dailyTotals),
+              if (_debugDisableCharts)
+                const Text('(gráfico deshabilitado temporalmente para depurar)')
+              else
+                _DailyBarChart(dailyTotals: summary.dailyTotals),
             ],
             const SizedBox(height: 16),
             Text('Por método de pago', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            _PieChartCard(
-              items: summary.byPaymentMethod.entries
-                  .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
-                  .toList(),
-            ),
+            if (_debugDisableCharts)
+              const Text('(gráfico deshabilitado temporalmente para depurar)')
+            else
+              _PieChartCard(
+                items: summary.byPaymentMethod.entries
+                    .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
+                    .toList(),
+              ),
             ...summary.byPaymentMethod.entries.map((entry) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(_paymentLabels[entry.key] ?? entry.key),
@@ -284,7 +299,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
             if (_byCategory.isEmpty)
               const Text('Sin ventas en este período')
             else ...[
-              _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
+              if (_debugDisableCharts)
+                const Text('(gráfico deshabilitado temporalmente para depurar)')
+              else
+                _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
               ..._byCategory.map((c) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(c.name),
