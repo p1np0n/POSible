@@ -274,7 +274,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
         type: type,
         quantity: quantity,
         note: note,
-        costAtTime: type == 'owner_use' ? product.cost : null,
+        costAtTime: (type == 'owner_use' || type == 'in') ? product.cost : null,
       );
       if (!mounted) return;
       _searchController.clear();

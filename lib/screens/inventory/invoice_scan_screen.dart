@@ -192,6 +192,7 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
             type: 'in',
             quantity: quantity,
             note: 'Factura escaneada',
+            costAtTime: row.linkedProduct!.cost,
           );
           updated++;
         } else {

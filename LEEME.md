@@ -856,3 +856,64 @@ también muestran un **gráfico de torta** con leyenda de colores, arriba
 de la lista de siempre (la lista se mantiene igual, con los montos
 exactos). No hace falta correr nada en Supabase para esto — es solo un
 cambio visual dentro de la app.
+
+## Reportes: corrección de zona horaria en "Hoy" / "7 días" / etc.
+
+Los rangos de fecha de Reportes se calculaban en tu hora local (Chile),
+pero se enviaban a Supabase sin avisarle la zona horaria — así que
+Postgres los tomaba como si fueran UTC, y el límite de "medianoche de
+hoy" en realidad quedaba varias horas antes (cerca de las 8-9pm de
+ayer). Por eso podían aparecer ventas del turno de ayer dentro del
+reporte de "Hoy" incluso sin haber abierto caja todavía. Ya está
+corregido. No hace falta correr nada en Supabase para esto.
+
+## Cinco mejoras nuevas: ofertas, gasto en mercadería, redondeo, orden A-Z y archivado
+
+**Importante: esta vez sí hay que volver a correr `sql/schema.sql`** en el
+editor SQL de Supabase (Paso 1 de este mismo documento) — agrega columnas
+nuevas y una función que se ejecuta sola todos los días. No borra nada de
+lo que ya tienes.
+
+- **Oferta temporal por producto**: al crear o editar un artículo con
+  precio normal (no aplica a precio variable ni por peso), puedes activar
+  "Oferta temporal", poner un precio de oferta y elegir desde/hasta cuándo
+  dura. Mientras esté vigente, ese es el precio que se cobra en Ventas
+  (se muestra el precio normal tachado arriba del precio de oferta, tanto
+  en Ventas como en Lista de artículos) — pasada la fecha, vuelve solo al
+  precio normal, sin que tengas que acordarte de sacarla.
+- **Cuánto gastas en mercadería**: cada vez que registras una entrada de
+  stock (recibir mercadería, sea a mano desde Inventario o escaneando una
+  factura), se guarda el costo de ese producto en ese momento. Reportes
+  ahora tiene una tarjeta "Gastado en mercadería (entradas de stock)" que
+  suma cantidad × costo de todas las entradas dentro del rango de fechas
+  elegido (Hoy, 7 días, este mes, este año, o tu rango).
+- **Calculadora de precios (costo + margen)**: el precio sugerido que
+  calcula ahora redondea a la decena más cercana usando 6 como punto de
+  corte en vez del 5 de siempre — si el último dígito es 6 o más sube a
+  la decena de arriba, si es 5 o menos baja a la de abajo (ej. termina en
+  5 → baja; termina en 6 → sube).
+- **Listas de artículos siempre de la A a la Z**: se revisó Ventas, Lista
+  de artículos y Catálogo global — ya estaban ordenados así casi en todos
+  lados, salvo un caso en Ventas donde un producto recién creado (o
+  encontrado al buscar) se agregaba al final de la lista en memoria en
+  vez de en su lugar alfabético hasta la próxima vez que entraras a
+  Ventas. Ya corregido. (Las pestañas personalizadas que tú armas a mano
+  en Ventas, y "Más vendidos", mantienen su propio orden a propósito —
+  ahí el orden significa algo, no es solo alfabético.)
+- **Archivar artículos**: en Lista de artículos, cada producto tiene ahora
+  un ícono de archivo — al archivarlo, deja de aparecer en Ventas y en
+  esta misma lista (no se borra, ni afecta el Catálogo global). Hay una
+  nueva sección **"Artículos archivados"** (ícono junto a "Exportar a
+  CSV", o dentro de "Más acciones" en pantalla angosta) donde puedes
+  verlos todos y desarchivarlos cuando quieras. Subir stock a un producto
+  archivado (recibir mercadería) también lo desarchiva solo. Además, una
+  vez al día la base de datos revisa sola si algún producto lleva 1 mes
+  sin venderse (o 1 mes creado sin haberse vendido nunca) y lo archiva
+  automáticamente, para que no acumules artículos viejos sin darte cuenta.
+  - Este archivado automático diario necesita la extensión **pg_cron**
+    activada en tu proyecto de Supabase. Si tu plan no la tiene activada
+    por defecto, ve a **Database → Extensions** en el panel de Supabase y
+    actívala buscando "pg_cron" — si no la activas, todo lo demás
+    (archivar/desarchivar a mano, la sección de archivados, subir stock
+    para desarchivar) funciona igual, solo no se archivará nada
+    automáticamente por inactividad.

@@ -16,6 +16,7 @@ import '../../widgets/loading_indicator.dart';
 import '../../widgets/product_avatar.dart';
 import '../../widgets/status_badge.dart';
 import '../scan/barcode_scanner_screen.dart';
+import 'archived_products_screen.dart';
 import 'product_form_screen.dart';
 
 enum _SortMode { name, stockAsc, stockDesc }
@@ -204,6 +205,45 @@ class _ProductListScreenState extends State<ProductListScreen> {
         break;
     }
     return list;
+  }
+
+  /// Archivar saca el producto de esta lista y de Ventas hasta que se
+  /// desarchive a mano (ver pantalla "Artículos archivados") o se le suba
+  /// stock — no lo borra ni afecta el catálogo global.
+  Future<void> _archiveProduct(Product product) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Archivar artículo'),
+        content: Text(
+          '"${product.name}" dejará de aparecer en Ventas y en esta lista hasta que lo desarchives o le subas stock. '
+          'Podrás encontrarlo en "Artículos archivados".',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Archivar')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _productRepository.setArchived(product.id, true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('"${product.name}" archivado')));
+      _resetAndLoad();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al archivar: $e')));
+      }
+    }
+  }
+
+  Future<void> _openArchivedProducts() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ArchivedProductsScreen(categories: _categories)),
+    );
+    if (changed == true) _resetAndLoad();
   }
 
   Future<void> _openForm([Product? product]) async {
@@ -498,6 +538,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               _toggleSelectionMode();
                             } else if (value == 'export') {
                               if (!_exporting) _exportCsv();
+                            } else if (value == 'archived') {
+                              _openArchivedProducts();
                             }
                           },
                           itemBuilder: (context) => [
@@ -510,6 +552,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               child: Text(_selectionMode ? 'Cancelar selección' : 'Seleccionar varios'),
                             ),
                             const PopupMenuItem(value: 'export', child: Text('Exportar a CSV')),
+                            const PopupMenuItem(value: 'archived', child: Text('Artículos archivados')),
                           ],
                         )
                       else ...[
@@ -539,6 +582,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               : const Icon(Icons.download_outlined),
                           tooltip: 'Exportar a CSV',
                           onPressed: _exporting ? null : _exportCsv,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          tooltip: 'Artículos archivados',
+                          onPressed: _openArchivedProducts,
                         ),
                       ],
                       const SizedBox(width: 8),
@@ -687,11 +735,33 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        CurrencyText(product.price, bold: true, style: const TextStyle(fontSize: 18)),
+                                        if (product.isPromoActive)
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                formatCurrencyCl(product.price),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                  decoration: TextDecoration.lineThrough,
+                                                ),
+                                              ),
+                                              CurrencyText(product.promoPrice!,
+                                                  bold: true, style: const TextStyle(fontSize: 18, color: Colors.red)),
+                                            ],
+                                          )
+                                        else
+                                          CurrencyText(product.price, bold: true, style: const TextStyle(fontSize: 18)),
                                         IconButton(
                                           icon: const Icon(Icons.edit_outlined, size: 20),
                                           tooltip: 'Editar precio/costo rápido',
                                           onPressed: () => _quickEditPriceCost(product),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.archive_outlined, size: 20),
+                                          tooltip: 'Archivar (dejar de mostrar en Ventas y Lista de artículos)',
+                                          onPressed: () => _archiveProduct(product),
                                         ),
                                       ],
                                     ),
