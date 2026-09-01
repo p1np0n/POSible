@@ -147,7 +147,7 @@ class _ArchivedProductsScreenState extends State<ArchivedProductsScreen> {
                                     categoryId: product.categoryId,
                                     imageUrl: product.imageUrl,
                                   ),
-                                  title: Text(product.name),
+                                  title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                                   subtitle: Text(
                                     product.trackStock
                                         ? 'Stock: ${formatNumberCl(product.stockQuantity)}'

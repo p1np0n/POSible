@@ -273,7 +273,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             else
               ...summary.topProducts.map((product) => ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(product.name),
+                    title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                     subtitle: Text('${formatNumberCl(product.quantity)} unidades'),
                     trailing: CurrencyText(product.total, bold: true),
                   )),
