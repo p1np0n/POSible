@@ -360,6 +360,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ..._outOfStockProducts.map((p) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.add_box_outlined),
+                      tooltip: 'Agregar stock',
+                      onPressed: () => _quickAddStock(p),
+                    ),
                   )),
             ],
             const SizedBox(height: 16),
@@ -373,7 +378,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ..._lowStockProducts.map((p) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    trailing: Text('Stock: ${formatNumberCl(p.stockQuantity)}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Stock: ${formatNumberCl(p.stockQuantity)}'),
+                        IconButton(
+                          icon: const Icon(Icons.add_box_outlined),
+                          tooltip: 'Agregar stock',
+                          onPressed: () => _quickAddStock(p),
+                        ),
+                      ],
+                    ),
                   )),
             ],
             const SizedBox(height: 16),
@@ -388,7 +403,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                     subtitle: Text(p.isExpired ? 'Vencido' : 'Por vencer'),
-                    trailing: Text(_formatExpiration(p.expirationDate!)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_formatExpiration(p.expirationDate!)),
+                        IconButton(
+                          icon: const Icon(Icons.add_box_outlined),
+                          tooltip: 'Agregar stock',
+                          onPressed: () => _quickAddStock(p),
+                        ),
+                      ],
+                    ),
                   )),
             ],
           ],
@@ -399,6 +424,64 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   String _formatExpiration(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+  /// Entrada de stock rápida desde una de las listas de productos de
+  /// Reportes (sin stock, stock bajo, por vencer) — sin salir de la
+  /// pantalla ni pasar por Movimientos de stock. Registra el movimiento
+  /// igual que allá, para que quede en el historial.
+  Future<void> _quickAddStock(Product product) async {
+    final formKey = GlobalKey<FormState>();
+    final quantityController = TextEditingController(text: '1');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Agregar stock: ${product.name}'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: quantityController,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Cantidad a agregar', border: OutlineInputBorder()),
+            validator: (value) {
+              final qty = double.tryParse(value ?? '');
+              return (qty == null || qty <= 0) ? 'Cantidad inválida' : null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.of(context).pop(true);
+            },
+            child: const Text('Agregar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final quantity = double.parse(quantityController.text);
+    try {
+      await _productRepository.adjustStock(product.id, quantity);
+      await _stockMovementRepository.create(
+        productId: product.id,
+        productName: product.name,
+        type: 'in',
+        quantity: quantity,
+        costAtTime: product.cost,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Stock agregado a ${product.name}')));
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo agregar stock: $e')));
+    }
+  }
 }
 
 class _StatCard extends StatelessWidget {
