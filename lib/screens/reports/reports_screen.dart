@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/product.dart';
+import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../services/stock_movement_repository.dart';
 import '../../utils/currency_format_cl.dart';
@@ -38,6 +40,7 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   final ReportsRepository _repository = ReportsRepository();
   final StockMovementRepository _stockMovementRepository = StockMovementRepository();
+  final ProductRepository _productRepository = ProductRepository();
   ReportRange _range = ReportRange.today;
   DateTimeRange? _customRange;
   SalesSummary? _summary;
@@ -46,6 +49,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<NamedTotal> _byEmployee = [];
   List<ModifierUsage> _byModifier = [];
   double _inboundCostTotal = 0;
+  // Estos tres son un estado del inventario ahora mismo (no dependen del
+  // rango de fechas elegido arriba): venta de hoy vs. ayer, y qué
+  // productos están sin stock o con stock bajo en este momento.
+  double _todayTotal = 0;
+  double _yesterdayTotal = 0;
+  List<Product> _outOfStockProducts = [];
+  List<Product> _lowStockProducts = [];
   bool _loading = true;
   String? _error;
 
@@ -112,6 +122,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final previousTo = from.subtract(const Duration(seconds: 1));
     final previousFrom = previousTo.subtract(duration);
 
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final yesterdayStart = todayStart.subtract(const Duration(days: 1));
+    final yesterdayEnd = todayStart.subtract(const Duration(seconds: 1));
+
     try {
       final results = await Future.wait([
         _repository.getSummary(from: from, to: to),
@@ -120,6 +135,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _repository.getByEmployee(from: from, to: to),
         _repository.getByModifier(from: from, to: to),
         _stockMovementRepository.getInboundCostTotal(from: from, to: to),
+        _repository.getTotalSales(from: todayStart, to: now),
+        _repository.getTotalSales(from: yesterdayStart, to: yesterdayEnd),
+        _productRepository.getOutOfStockProducts(),
+        _productRepository.getLowStockCandidates(),
       ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
@@ -129,6 +148,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _byEmployee = results[3] as List<NamedTotal>;
         _byModifier = results[4] as List<ModifierUsage>;
         _inboundCostTotal = results[5] as double;
+        _todayTotal = results[6] as double;
+        _yesterdayTotal = results[7] as double;
+        _outOfStockProducts = results[8] as List<Product>;
+        _lowStockProducts = (results[9] as List<Product>).where((p) => p.isLowStock).toList();
         _loading = false;
       });
     } catch (e) {
@@ -241,6 +264,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
               label: 'Gastado en mercadería (entradas de stock)',
               child: CurrencyText(_inboundCostTotal, bold: true),
             ),
+            const SizedBox(height: 16),
+            Text('Hoy vs. ayer', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            _BarChartFrame(
+              barCount: 2,
+              values: [_yesterdayTotal, _todayTotal],
+              labelFor: (index) => index == 0 ? 'Ayer' : 'Hoy',
+              color: Theme.of(context).colorScheme.primary,
+            ),
             if (_range == ReportRange.year && summary.dailyTotals.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text('Ventas por mes', style: Theme.of(context).textTheme.titleMedium),
@@ -309,6 +341,35 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(m.name),
                     trailing: Text('${formatNumberCl(m.count)} veces'),
+                  )),
+            ],
+            // Estado del inventario ahora mismo — no depende del rango de
+            // fechas elegido arriba, siempre muestra la situación actual.
+            const SizedBox(height: 16),
+            Text('Productos sin stock', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (_outOfStockProducts.isEmpty)
+              const Text('Ningún producto sin stock ahora mismo')
+            else ...[
+              Text('${_outOfStockProducts.length} producto(s)',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              ..._outOfStockProducts.map((p) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  )),
+            ],
+            const SizedBox(height: 16),
+            Text('Productos con stock bajo', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (_lowStockProducts.isEmpty)
+              const Text('Ningún producto con stock bajo ahora mismo')
+            else ...[
+              Text('${_lowStockProducts.length} producto(s)',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              ..._lowStockProducts.map((p) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    trailing: Text('Stock: ${formatNumberCl(p.stockQuantity)}'),
                   )),
             ],
           ],

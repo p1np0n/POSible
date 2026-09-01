@@ -917,3 +917,39 @@ lo que ya tienes.
     (archivar/desarchivar a mano, la sección de archivados, subir stock
     para desarchivar) funciona igual, solo no se archivará nada
     automáticamente por inactividad.
+
+## 2026-09-01: vencimiento de stock, tickets en espera entre turnos, búsqueda en Más vendidos y más gráficos en Reportes
+
+**Importante: esta vez también hay que volver a correr `sql/schema.sql`**
+en el editor SQL de Supabase (Paso 1 de este documento) — agrega una
+columna nueva. No borra nada de lo que ya tienes.
+
+- **Fecha de vencimiento del stock**: al registrar una entrada de stock
+  (recibir mercadería) desde Inventario → Movimientos de stock, ahora
+  puedes poner una fecha de vencimiento opcional. Desde 7 días antes y
+  hasta el mismo día del vencimiento, Lista de artículos y Ventas
+  muestran un aviso ("Por vencer") y el precio de venta baja solo al
+  precio de costo (tachado el precio normal arriba, igual que con una
+  oferta temporal) — así el producto tiene más chance de venderse antes
+  de vencer, sin que tengas que acordarte de rebajarlo a mano. Si pasa la
+  fecha sin venderse, Lista de artículos lo marca como "Vencido" (el
+  precio ya no baja solo, para que lo revises tú). Puedes quitar o
+  cambiar la fecha en cualquier momento desde la misma pantalla de
+  Movimientos de stock.
+- **Los tickets en espera ya no se borran al cerrar el turno**: antes,
+  un ticket dejado en espera quedaba inaccesible en la app apenas se
+  cerraba la caja (seguía en la base de datos, pero ninguna pantalla lo
+  volvía a mostrar). Ahora la lista de "Tickets en espera" muestra todos,
+  sin importar en qué turno se dejaron, hasta que alguien los retome o
+  los borre a mano — se agregó la fecha además de la hora en la lista
+  para no confundirlos entre turnos distintos.
+- **Buscar en "Más vendidos" ahora busca en todo el catálogo**: igual que
+  ya pasaba en las pestañas personalizadas, si estás en la pestaña "Más
+  vendidos" de Ventas y escribes algo en el buscador, ahora busca en
+  todo el catálogo (no solo entre los productos más vendidos), para
+  poder vender cualquier producto sin tener que cambiar de pestaña.
+- **Más gráficos en Reportes**: se agregó una comparación "Hoy vs. ayer",
+  y dos listas nuevas con la situación del inventario ahora mismo:
+  "Productos sin stock" y "Productos con stock bajo" (estas dos no
+  dependen del rango de fechas elegido arriba, siempre muestran el
+  estado actual).

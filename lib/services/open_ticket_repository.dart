@@ -6,12 +6,14 @@ import '../models/open_ticket.dart';
 class OpenTicketRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
-  Future<List<OpenTicket>> getForSession(String cashSessionId) async {
-    final data = await _client
-        .from('open_tickets')
-        .select()
-        .eq('cash_session_id', cashSessionId)
-        .order('created_at');
+  /// Todos los tickets en espera de la tienda, sin importar en qué turno se
+  /// dejaron — antes se filtraba por cash_session_id, así que un ticket
+  /// dejado en un turno quedaba inaccesible en la app apenas se cerraba ese
+  /// turno (seguía en la base de datos, pero ninguna consulta lo volvía a
+  /// traer). Ahora quedan visibles hasta que alguien los retome o los
+  /// borre a mano, cruzando turnos.
+  Future<List<OpenTicket>> getAll() async {
+    final data = await _client.from('open_tickets').select().order('created_at');
     return (data as List).map((e) => OpenTicket.fromMap(e as Map<String, dynamic>)).toList();
   }
 
