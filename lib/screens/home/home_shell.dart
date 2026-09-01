@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,6 +25,13 @@ import '../stores/stores_screen.dart';
 /// Punto de corte para mostrar el menú lateral fijo (pantalla ancha, como un
 /// computador) en vez del menú deslizable (celular).
 const double _wideLayoutBreakpoint = 900;
+
+/// Colores del menú lateral (fijo en pantalla ancha, o el drawer deslizable
+/// en celular) — siempre oscuro, independiente del tema claro/oscuro del
+/// resto de la app, igual que un panel de administración.
+const _sidebarBg = Color(0xFF1C1A22);
+const _sidebarInactive = Color(0xFFB7B1C2);
+const _sidebarMuted = Color(0xFF6E6879);
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -129,23 +137,63 @@ class _HomeShellState extends State<HomeShell> {
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
 
     Widget buildNav(BuildContext context, {required bool closeDrawer}) {
-      return Scrollbar(
-        controller: _navScrollController,
-        thumbVisibility: true,
-        child: ListView(
-        controller: _navScrollController,
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
+      final navTheme = Theme.of(context).copyWith(
+        listTileTheme: ListTileThemeData(
+          iconColor: _sidebarInactive,
+          textColor: _sidebarInactive,
+          selectedColor: Colors.white,
+          selectedTileColor: Theme.of(context).colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          minLeadingWidth: 24,
+        ),
+      );
+      return Container(
+        color: _sidebarBg,
+        child: Theme(
+          data: navTheme,
+          child: Scrollbar(
+            controller: _navScrollController,
+            thumbVisibility: true,
+            child: ListView(
+              controller: _navScrollController,
+              padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                const Icon(Icons.point_of_sale, color: Colors.white, size: 32),
-                const SizedBox(height: 8),
-                Text(AppConfig.appName, style: const TextStyle(color: Colors.white, fontSize: 20)),
-                Text(store.myStore?.name ?? email, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 20),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Text(
+                    'P',
+                    style: GoogleFonts.spaceGrotesk(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        AppConfig.appName,
+                        style: GoogleFonts.spaceGrotesk(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      Text(
+                        store.myStore?.name ?? email,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _sidebarMuted, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -184,6 +232,14 @@ class _HomeShellState extends State<HomeShell> {
           ExpansionTile(
             leading: const Icon(Icons.inventory_2),
             title: const Text('Artículos'),
+            iconColor: _sidebarInactive,
+            collapsedIconColor: _sidebarInactive,
+            textColor: Colors.white,
+            collapsedTextColor: _sidebarInactive,
+            backgroundColor: Colors.transparent,
+            collapsedBackgroundColor: Colors.transparent,
+            shape: const Border(),
+            collapsedShape: const Border(),
             initiallyExpanded: _articulosExpanded,
             onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
             children: [
@@ -236,7 +292,7 @@ class _HomeShellState extends State<HomeShell> {
               onTap: () => _selectIndex(customersIndex, closeDrawer: closeDrawer),
             ),
           if (kIsWeb && store.showEmployees) ...[
-            const Divider(),
+            const Divider(color: _sidebarMuted, height: 24),
             ListTile(
               leading: const Icon(Icons.badge_outlined),
               title: const Text('Empleados'),
@@ -245,7 +301,7 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ],
           if (kIsWeb && store.isSuperAdmin) ...[
-            const Divider(),
+            const Divider(color: _sidebarMuted, height: 24),
             ListTile(
               leading: const Icon(Icons.storefront_outlined),
               title: const Text('Tiendas'),
@@ -260,7 +316,9 @@ class _HomeShellState extends State<HomeShell> {
             selected: index == settingsIndex,
             onTap: () => _selectIndex(settingsIndex, closeDrawer: closeDrawer),
           ),
-        ],
+              ],
+            ),
+          ),
         ),
       );
     }
