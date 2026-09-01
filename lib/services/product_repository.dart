@@ -87,6 +87,20 @@ class ProductRepository {
     return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  /// Productos que controlan inventario y están en 0 o menos — para el
+  /// resumen de Reportes.
+  Future<List<Product>> getOutOfStockProducts() async {
+    final data = await _client
+        .from('products')
+        .select()
+        .eq('active', true)
+        .eq('archived', false)
+        .eq('track_stock', true)
+        .lte('stock_quantity', 0)
+        .order('name');
+    return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   Future<Product?> findByBarcode(String barcode) async {
     final data =
         await _client.from('products').select().eq('barcode', barcode).eq('active', true).maybeSingle();
@@ -128,5 +142,14 @@ class ProductRepository {
   /// todo para archivar, o para desarchivar sin necesidad de tocar stock.
   Future<void> setArchived(String id, bool archived) async {
     await _client.from('products').update({'archived': archived}).eq('id', id);
+  }
+
+  /// Fecha de vencimiento del stock actual (se pregunta al registrar una
+  /// entrada en Movimientos de stock). null la quita.
+  Future<void> setExpirationDate(String id, DateTime? date) async {
+    final value = date == null
+        ? null
+        : '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    await _client.from('products').update({'expiration_date': value}).eq('id', id);
   }
 }

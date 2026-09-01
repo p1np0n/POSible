@@ -608,8 +608,15 @@ class _PosScreenState extends State<PosScreen> {
   /// categoría del menú desplegable (o todas).
   List<Product> get _filteredProducts {
     if (_showTopSelling) {
+      // Mismo criterio que en una pestaña personalizada: en cuanto se
+      // escribe algo, se busca en TODO el catálogo (no solo entre los más
+      // vendidos), para poder vender cualquier producto sin salir de la
+      // pestaña.
+      if (_search.trim().isNotEmpty) {
+        return _products.where(_matchesSearch).toList();
+      }
       final byId = {for (final p in _products) p.id: p};
-      return _topSellingIds.map((id) => byId[id]).whereType<Product>().where(_matchesSearch).toList();
+      return _topSellingIds.map((id) => byId[id]).whereType<Product>().toList();
     }
     if (_selectedPageId != null) {
       // Mientras no se busque nada, se muestra solo lo que se agregó a
@@ -793,12 +800,10 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _refreshOpenTicketCount() async {
-    final session = context.read<CashSessionProvider>().current;
-    if (session == null) {
-      if (mounted) setState(() => _openTicketCount = 0);
-      return;
-    }
-    final tickets = await _openTicketRepository.getForSession(session.id);
+    // Los tickets ya no se limitan al turno actual (ver
+    // OpenTicketRepository.getAll) — el contador se muestra igual sin
+    // importar si hay una caja abierta ahora mismo.
+    final tickets = await _openTicketRepository.getAll();
     if (mounted) setState(() => _openTicketCount = tickets.length);
   }
 
@@ -808,7 +813,7 @@ class _PosScreenState extends State<PosScreen> {
     final ticket = await showModalBottomSheet<OpenTicket>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => OpenTicketsSheet(cashSessionId: session.id),
+      builder: (_) => const OpenTicketsSheet(),
     );
     if (ticket != null && mounted) {
       await _resumeTicket(ticket);
@@ -1281,7 +1286,7 @@ class _PosScreenState extends State<PosScreen> {
         ],
       );
     }
-    if (product.isPromoActive) {
+    if (product.isPromoActive || product.isMarkedDownForExpiry) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1290,7 +1295,7 @@ class _PosScreenState extends State<PosScreen> {
             formatCurrencyCl(product.price),
             style: baseStyle.copyWith(fontSize: 11, decoration: TextDecoration.lineThrough),
           ),
-          CurrencyText(product.promoPrice!, bold: bold, style: TextStyle(color: color ?? Colors.red)),
+          CurrencyText(product.effectivePrice, bold: bold, style: TextStyle(color: color ?? Colors.red)),
         ],
       );
     }

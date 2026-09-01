@@ -726,6 +726,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                           tone: StatusBadgeTone.warning,
                                           dense: true,
                                         ),
+                                      if (product.isExpired)
+                                        const StatusBadge(label: 'Vencido', tone: StatusBadgeTone.danger, dense: true)
+                                      else if (product.isNearExpiry)
+                                        const StatusBadge(
+                                          label: 'Por vencer',
+                                          tone: StatusBadgeTone.warning,
+                                          dense: true,
+                                        ),
                                     ],
                                   ),
                                 ],
@@ -735,7 +743,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        if (product.isPromoActive)
+                                        if (product.isPromoActive || product.isMarkedDownForExpiry)
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
@@ -747,7 +755,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                                   decoration: TextDecoration.lineThrough,
                                                 ),
                                               ),
-                                              CurrencyText(product.promoPrice!,
+                                              CurrencyText(product.effectivePrice,
                                                   bold: true, style: const TextStyle(fontSize: 18, color: Colors.red)),
                                             ],
                                           )

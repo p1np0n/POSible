@@ -5,13 +5,18 @@ import '../../services/open_ticket_repository.dart';
 import '../../utils/date_format_es.dart';
 import '../../widgets/currency_text.dart';
 
-/// Lista de tickets que se dejaron en espera durante el turno actual.
-/// Al elegir "Retomar" se devuelve el ticket elegido; quien abre esta hoja
-/// es responsable de reconstruir el carrito y borrar el registro.
-class OpenTicketsSheet extends StatefulWidget {
-  final String cashSessionId;
+/// Como ahora los tickets pueden ser de cualquier turno anterior (no solo
+/// el actual), se muestra la fecha además de la hora para no confundirlos.
+String _formatDayMonth(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
 
-  const OpenTicketsSheet({super.key, required this.cashSessionId});
+/// Lista de todos los tickets en espera de la tienda — no solo los del
+/// turno actual, quedan guardados hasta que alguien los retome o los
+/// borre a mano, aunque haya pasado a otro turno. Al elegir "Retomar" se
+/// devuelve el ticket elegido; quien abre esta hoja es responsable de
+/// reconstruir el carrito y borrar el registro.
+class OpenTicketsSheet extends StatefulWidget {
+  const OpenTicketsSheet({super.key});
 
   @override
   State<OpenTicketsSheet> createState() => _OpenTicketsSheetState();
@@ -30,7 +35,7 @@ class _OpenTicketsSheetState extends State<OpenTicketsSheet> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final tickets = await _repository.getForSession(widget.cashSessionId);
+    final tickets = await _repository.getAll();
     setState(() {
       _tickets = tickets;
       _loading = false;
@@ -82,7 +87,8 @@ class _OpenTicketsSheetState extends State<OpenTicketsSheet> {
                               leading: const Icon(Icons.receipt_long),
                               title: Text(ticket.label ?? 'Ticket ${index + 1}'),
                               subtitle: Text(
-                                '${ticket.items.length} artículo(s) · ${formatTimeEs(ticket.createdAt.toLocal())}',
+                                '${ticket.items.length} artículo(s) · '
+                                '${_formatDayMonth(ticket.createdAt.toLocal())} ${formatTimeEs(ticket.createdAt.toLocal())}',
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,

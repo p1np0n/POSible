@@ -186,6 +186,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
     final quantityController = TextEditingController(text: '1');
     final noteController = TextEditingController();
     String type = 'in';
+    DateTime? expirationDate = product.expirationDate;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -222,6 +223,36 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                     const Text(
                       'Baja el stock y suma el costo al total de mercadería que usas tú mismo.',
                       style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+                    ),
+                  ],
+                  if (type == 'in') ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: expirationDate ?? DateTime.now().add(const Duration(days: 30)),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 3650)),
+                        );
+                        if (picked != null) setDialogState(() => expirationDate = picked);
+                      },
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(
+                        expirationDate != null
+                            ? 'Vence: ${expirationDate!.day.toString().padLeft(2, '0')}/${expirationDate!.month.toString().padLeft(2, '0')}/${expirationDate!.year}'
+                            : 'Fecha de vencimiento (opcional)',
+                      ),
+                    ),
+                    if (expirationDate != null)
+                      TextButton(
+                        onPressed: () => setDialogState(() => expirationDate = null),
+                        child: const Text('Quitar fecha de vencimiento'),
+                      ),
+                    const Text(
+                      'Si la pones, 1 semana antes avisamos acá y en Lista de artículos, y el '
+                      'precio baja solo al de costo hasta que la actualices o se venda.',
+                      style: TextStyle(color: Color(0xFF616161), fontSize: 12),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -268,6 +299,9 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
 
     try {
       await _productRepository.adjustStock(product.id, type == 'in' ? quantity : -quantity);
+      if (type == 'in' && expirationDate != product.expirationDate) {
+        await _productRepository.setExpirationDate(product.id, expirationDate);
+      }
       await _movementRepository.create(
         productId: product.id,
         productName: product.name,

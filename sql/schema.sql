@@ -101,6 +101,14 @@ alter table products add column if not exists promo_price numeric(12,2);
 alter table products add column if not exists promo_starts_at timestamptz;
 alter table products add column if not exists promo_ends_at timestamptz;
 
+-- Fecha de vencimiento del stock actual (se pregunta al registrar una
+-- entrada en Movimientos de stock, opcional). Desde 7 días antes y hasta
+-- el día mismo del vencimiento, el precio de venta efectivo baja solo al
+-- de costo (ver Product.effectivePrice en la app) — así no queda sin
+-- venderse a tiempo, sin que el cajero tenga que acordarse de aplicar un
+-- descuento a mano.
+alter table products add column if not exists expiration_date date;
+
 -- Columna calculada (PostgREST la expone como si fuera una columna más de
 -- "products") para poder filtrar por nombre/código sin distinguir tildes:
 -- la app manda el término de búsqueda ya pasado por el mismo

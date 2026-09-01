@@ -44,6 +44,12 @@ class Product {
   final DateTime? promoStartsAt;
   final DateTime? promoEndsAt;
 
+  /// Fecha de vencimiento del stock actual (se pregunta al registrar una
+  /// entrada en Movimientos de stock) — 1 semana antes se avisa en Lista
+  /// de artículos y el precio de venta baja solo al de costo hasta que se
+  /// venda o se actualice la fecha (ver [isNearExpiry]/[effectivePrice]).
+  final DateTime? expirationDate;
+
   Product({
     required this.id,
     required this.name,
@@ -65,6 +71,7 @@ class Product {
     this.promoPrice,
     this.promoStartsAt,
     this.promoEndsAt,
+    this.expirationDate,
   });
 
   bool get isVariablePrice => pricingType == 'variable';
@@ -81,9 +88,39 @@ class Product {
     return true;
   }
 
+  /// true entre 7 días antes de vencer y el día mismo del vencimiento
+  /// (inclusive) — mientras esté vigente, la venta se hace al precio de
+  /// costo (ver [effectivePrice]) para que no quede sin venderse a tiempo.
+  bool get isNearExpiry {
+    if (expirationDate == null) return false;
+    final now = DateTime.now();
+    final warnFrom = expirationDate!.subtract(const Duration(days: 7));
+    final endOfExpiryDay =
+        DateTime(expirationDate!.year, expirationDate!.month, expirationDate!.day, 23, 59, 59);
+    return !now.isBefore(warnFrom) && !now.isAfter(endOfExpiryDay);
+  }
+
+  /// true si ya pasó la fecha de vencimiento — a diferencia de
+  /// [isNearExpiry], acá ya no se baja el precio solo (el vencimiento ya
+  /// pasó, hay que revisar el producto a mano).
+  bool get isExpired {
+    if (expirationDate == null) return false;
+    final endOfExpiryDay =
+        DateTime(expirationDate!.year, expirationDate!.month, expirationDate!.day, 23, 59, 59);
+    return DateTime.now().isAfter(endOfExpiryDay);
+  }
+
+  /// true si [isNearExpiry] y hay un costo válido menor al precio normal —
+  /// condición real para aplicar la rebaja automática a precio de costo.
+  bool get isMarkedDownForExpiry => isNearExpiry && cost != null && cost! > 0 && cost! < price;
+
   /// El precio que corresponde cobrar ahora mismo: el de oferta si está
-  /// vigente, si no el normal.
-  double get effectivePrice => isPromoActive ? promoPrice! : price;
+  /// vigente, si no el de costo si está por vencer, si no el normal.
+  double get effectivePrice {
+    if (isPromoActive) return promoPrice!;
+    if (isMarkedDownForExpiry) return cost!;
+    return price;
+  }
 
   /// true si el producto controla inventario, tiene un umbral configurado y
   /// las existencias están en o por debajo de ese umbral.
@@ -138,6 +175,7 @@ class Product {
         promoPrice: promoPrice,
         promoStartsAt: promoStartsAt,
         promoEndsAt: promoEndsAt,
+        expirationDate: expirationDate,
       );
 
   factory Product.fromMap(Map<String, dynamic> map) => Product(
@@ -161,6 +199,7 @@ class Product {
         promoPrice: (map['promo_price'] as num?)?.toDouble(),
         promoStartsAt: map['promo_starts_at'] != null ? DateTime.parse(map['promo_starts_at'] as String) : null,
         promoEndsAt: map['promo_ends_at'] != null ? DateTime.parse(map['promo_ends_at'] as String) : null,
+        expirationDate: map['expiration_date'] != null ? DateTime.parse(map['expiration_date'] as String) : null,
       );
 
   Map<String, dynamic> toMap() => {
@@ -180,6 +219,9 @@ class Product {
         'promo_price': promoPrice,
         'promo_starts_at': promoStartsAt?.toUtc().toIso8601String(),
         'promo_ends_at': promoEndsAt?.toUtc().toIso8601String(),
+        'expiration_date': expirationDate != null
+            ? '${expirationDate!.year.toString().padLeft(4, '0')}-${expirationDate!.month.toString().padLeft(2, '0')}-${expirationDate!.day.toString().padLeft(2, '0')}'
+            : null,
         'plu': plu,
         'target_margin_percent': targetMarginPercent,
       };
