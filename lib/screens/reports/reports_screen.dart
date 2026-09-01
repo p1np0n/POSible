@@ -332,7 +332,7 @@ class _StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: Colors.grey.shade700)),
+            Text(label, style: const TextStyle(color: const Color(0xFF616161))),
             const SizedBox(height: 8),
             child,
           ],
@@ -414,7 +414,7 @@ class _MonthlyBarChart extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Mejor mes', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                  const Text('Mejor mes', style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
                   Row(
                     children: [
                       Text('${_monthAbbrevEs[bestMonth - 1]}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -428,7 +428,7 @@ class _MonthlyBarChart extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Promedio mensual', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                  const Text('Promedio mensual', style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
                   CurrencyText(average, bold: true),
                 ],
               ),
@@ -468,7 +468,7 @@ class _BarChartFrame extends StatelessWidget {
         gridData: FlGridData(
           drawVerticalLine: false,
           horizontalInterval: maxY / 4,
-          getDrawingHorizontalLine: (_) => FlLine(color: Colors.grey.shade700.withOpacity(0.2), strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: const Color(0xFF616161).withOpacity(0.2), strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(

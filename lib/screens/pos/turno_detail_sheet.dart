@@ -114,11 +114,11 @@ class _TurnoDetailSheetState extends State<TurnoDetailSheet> {
               session.isOpen ? 'Turno abierto' : 'Detalle del turno',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            Text(session.userEmail ?? '', style: const TextStyle(color: Colors.grey.shade700)),
+            Text(session.userEmail ?? '', style: const TextStyle(color: const Color(0xFF616161))),
             Text(
               'Apertura: ${formatDayHeaderEs(session.openedAt.toLocal())} ${formatTimeEs(session.openedAt.toLocal())}'
               '${session.closedAt != null ? '\nCierre: ${formatTimeEs(session.closedAt!.toLocal())}' : ''}',
-              style: const TextStyle(color: Colors.grey.shade700),
+              style: const TextStyle(color: const Color(0xFF616161)),
             ),
             const SizedBox(height: 16),
             Text('Cajón de efectivo', style: Theme.of(context).textTheme.titleMedium),

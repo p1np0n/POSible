@@ -244,7 +244,7 @@ class _InvoiceScanScreenState extends State<InvoiceScanScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey.shade700),
+                        const Icon(Icons.receipt_long_outlined, size: 48, color: const Color(0xFF616161)),
                         const SizedBox(height: 16),
                         const Text(
                           'Toma una foto o elige un PDF de la factura o boleta. Se va a leer el texto y '

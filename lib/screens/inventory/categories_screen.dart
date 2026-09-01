@@ -89,7 +89,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Text(
               'Las categorías se comparten entre todas tus tiendas.',
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
             ),
           ),
           Padding(

@@ -264,7 +264,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
     final totalColumn = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
+        const Text('Total', textAlign: TextAlign.center, style: TextStyle(color: const Color(0xFF616161))),
         FittedBox(
           fit: BoxFit.scaleDown,
           child: CurrencyText(
@@ -436,8 +436,8 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Subtotal', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-              CurrencyText(cart.total, style: const TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+              const Text('Subtotal', style: TextStyle(fontSize: 13, color: const Color(0xFF616161))),
+              CurrencyText(cart.total, style: const TextStyle(fontSize: 13, color: const Color(0xFF616161))),
             ],
           ),
           if (_discountAmount > 0)
@@ -446,8 +446,8 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Descuento', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-                  Text('-${formatCurrencyCl(_discountAmount)}', style: const TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                  const Text('Descuento', style: TextStyle(fontSize: 13, color: const Color(0xFF616161))),
+                  Text('-${formatCurrencyCl(_discountAmount)}', style: const TextStyle(fontSize: 13, color: const Color(0xFF616161))),
                 ],
               ),
             ),
@@ -458,8 +458,8 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('IVA incluido (${widget.taxRatePercent.toStringAsFixed(1)}%)',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-                  CurrencyText(_taxAmount, style: const TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                      style: const TextStyle(fontSize: 13, color: const Color(0xFF616161))),
+                  CurrencyText(_taxAmount, style: const TextStyle(fontSize: 13, color: const Color(0xFF616161))),
                 ],
               ),
             ),

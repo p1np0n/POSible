@@ -132,7 +132,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.videocam_off_outlined, size: 48, color: Colors.grey.shade700),
+            const Icon(Icons.videocam_off_outlined, size: 48, color: const Color(0xFF616161)),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
             const SizedBox(height: 16),

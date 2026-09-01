@@ -76,7 +76,7 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                     'Tu tienda empieza con las funciones básicas. El administrador puede '
                     'activarte Reportes, Clientes y Empleados más adelante.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    style: TextStyle(color: const Color(0xFF616161), fontSize: 13),
                   ),
                   const SizedBox(height: 24),
                   TextFormField(

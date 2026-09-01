@@ -671,7 +671,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                             final margin = product.marginPercent;
                             final selected = _selectedIds.contains(product.id);
                             final outOfStock = product.trackStock && product.stockQuantity <= 0;
-                            const metaStyle = TextStyle(fontSize: 12, color: Colors.grey.shade700);
+                            const metaStyle = TextStyle(fontSize: 12, color: const Color(0xFF616161));
                             return ListTile(
                               leading: _selectionMode
                                   ? Checkbox(
@@ -697,7 +697,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                         Text(_categoryName(product.categoryId)),
                                         if (!_selectionMode) ...[
                                           const SizedBox(width: 4),
-                                          const Icon(Icons.edit_outlined, size: 13, color: Colors.grey.shade700),
+                                          const Icon(Icons.edit_outlined, size: 13, color: const Color(0xFF616161)),
                                         ],
                                       ],
                                     ),
@@ -743,7 +743,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                                 formatCurrencyCl(product.price),
                                                 style: const TextStyle(
                                                   fontSize: 12,
-                                                  color: Colors.grey.shade700,
+                                                  color: const Color(0xFF616161),
                                                   decoration: TextDecoration.lineThrough,
                                                 ),
                                               ),

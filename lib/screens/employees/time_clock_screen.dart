@@ -93,7 +93,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
                   Icon(
                     isClockedIn ? Icons.timer : Icons.timer_off_outlined,
                     size: 48,
-                    color: isClockedIn ? Colors.green : Colors.grey.shade700,
+                    color: isClockedIn ? Colors.green : const Color(0xFF616161),
                   ),
                   const SizedBox(height: 8),
                   Text(
