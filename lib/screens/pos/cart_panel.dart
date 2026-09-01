@@ -291,7 +291,7 @@ class _CartPanelState extends State<CartPanel> {
           Expanded(
             child: cart.items.isEmpty
                 ? const Center(
-                    child: Text('El carrito está vacío', style: TextStyle(color: Colors.grey.shade700)),
+                    child: Text('El carrito está vacío', style: TextStyle(color: const Color(0xFF616161))),
                   )
                 : ListView.builder(
                     itemCount: cart.items.length,
@@ -367,7 +367,7 @@ class _CartPanelState extends State<CartPanel> {
                 ),
                 if (!hasItems) ...[
                   const SizedBox(height: 2),
-                  const Text('El carrito está vacío', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                  const Text('El carrito está vacío', style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
                 ] else ...[
                   const SizedBox(height: 2),
                   CurrencyText(

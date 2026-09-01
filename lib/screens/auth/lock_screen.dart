@@ -81,9 +81,9 @@ class _LockScreenState extends State<LockScreen> {
                 const SizedBox(height: 8),
                 const Text('App bloqueada', style: TextStyle(fontSize: 20)),
                 const SizedBox(height: 4),
-                Text(email, style: const TextStyle(color: Colors.grey.shade700)),
+                Text(email, style: const TextStyle(color: const Color(0xFF616161))),
                 const SizedBox(height: 4),
-                const Text('Introduce tu PIN para continuar', style: TextStyle(color: Colors.grey.shade700)),
+                const Text('Introduce tu PIN para continuar', style: TextStyle(color: const Color(0xFF616161))),
                 const SizedBox(height: 16),
                 if (_loading)
                   const Padding(padding: EdgeInsets.only(bottom: 12), child: CircularProgressIndicator()),

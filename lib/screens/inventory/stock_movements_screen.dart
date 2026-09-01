@@ -203,7 +203,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                     product.trackStock
                         ? 'Stock actual: ${formatNumberCl(product.stockQuantity)}'
                         : 'Este producto no controla inventario',
-                    style: const TextStyle(color: Colors.grey.shade700),
+                    style: const TextStyle(color: const Color(0xFF616161)),
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<String>(
@@ -221,7 +221,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                     const SizedBox(height: 8),
                     const Text(
                       'Baja el stock y suma el costo al total de mercadería que usas tú mismo.',
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                      style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -398,7 +398,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
                               color: p.isLowStock ? Colors.orange : null,
                             ),
                           )
-                        : const Text('No controla stock', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                        : const Text('No controla stock', style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
                     onTap: () => _promptMovement(p),
                   ),
                 )),

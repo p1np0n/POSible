@@ -31,7 +31,7 @@ class PendingApprovalScreen extends StatelessWidget {
               const Text(
                 'Pídele al dueño del negocio que te apruebe desde\nConfiguración → Empleados.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade700),
+                style: TextStyle(color: const Color(0xFF616161)),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(

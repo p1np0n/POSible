@@ -149,7 +149,7 @@ class _StoresScreenState extends State<StoresScreen> {
                 const SizedBox(width: 12),
                 Text(
                   '${_stores.length} ${_stores.length == 1 ? "tienda" : "tiendas"}',
-                  style: const TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                  style: const TextStyle(color: const Color(0xFF616161), fontSize: 12),
                 ),
               ],
             ),
@@ -212,12 +212,12 @@ class _StoreCard extends StatelessWidget {
                       if (store.ownerEmail != null)
                         Row(
                           children: [
-                            const Icon(Icons.person_outline, size: 14, color: Colors.grey.shade700),
+                            const Icon(Icons.person_outline, size: 14, color: const Color(0xFF616161)),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 store.ownerEmail!,
-                                style: const TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                                style: const TextStyle(color: const Color(0xFF616161), fontSize: 12),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -239,7 +239,7 @@ class _StoreCard extends StatelessWidget {
                     child: Column(
                       children: [
                         Text(store.storeCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const Icon(Icons.copy_outlined, size: 14, color: Colors.grey.shade700),
+                        const Icon(Icons.copy_outlined, size: 14, color: const Color(0xFF616161)),
                       ],
                     ),
                   ),
@@ -337,7 +337,7 @@ class _ResetPinDialogState extends State<_ResetPinDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.subtitle, style: const TextStyle(color: Colors.grey.shade700)),
+            Text(widget.subtitle, style: const TextStyle(color: const Color(0xFF616161))),
             const SizedBox(height: 12),
             TextFormField(
               controller: _passwordController,

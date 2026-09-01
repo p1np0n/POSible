@@ -109,7 +109,7 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
         const SizedBox(height: 8),
         Text('POSible', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
-        const Text('¿Quién eres?', style: TextStyle(color: Colors.grey.shade700)),
+        const Text('¿Quién eres?', style: TextStyle(color: const Color(0xFF616161))),
         const SizedBox(height: 16),
         ...knownEmails.map((email) => Card(
               child: ListTile(
@@ -150,7 +150,7 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
         const SizedBox(height: 8),
         Text(_selectedEmail!, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
-        const Text('Introduce tu PIN', style: TextStyle(color: Colors.grey.shade700)),
+        const Text('Introduce tu PIN', style: TextStyle(color: const Color(0xFF616161))),
         const SizedBox(height: 16),
         if (_loading) const Padding(padding: EdgeInsets.only(bottom: 12), child: CircularProgressIndicator()),
         if (_errorMessage != null)

@@ -57,7 +57,7 @@ class _ReceiptDetailSheetState extends State<ReceiptDetailSheet> {
               Text('Recibo #${sale.receiptNumber}', style: Theme.of(context).textTheme.titleLarge),
               Text(
                 '${formatDayHeaderEs(createdAtLocal)} · ${formatTimeEs(createdAtLocal)}',
-                style: const TextStyle(color: Colors.grey.shade700),
+                style: const TextStyle(color: const Color(0xFF616161)),
               ),
               const SizedBox(height: 16),
               if (_loading)

@@ -416,7 +416,7 @@ class _PosScreenState extends State<PosScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Código de barras: $barcode', style: TextStyle(color: Colors.grey.shade700)),
+              Text('Código de barras: $barcode', style: TextStyle(color: const Color(0xFF616161))),
               const SizedBox(height: 12),
               TextField(
                 controller: nameController,
@@ -1336,9 +1336,9 @@ class _PosScreenState extends State<PosScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_circle_outline, size: 32, color: Colors.grey.shade700),
+              Icon(Icons.add_circle_outline, size: 32, color: const Color(0xFF616161)),
               SizedBox(height: 6),
-              Text('Agregar\nproducto', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+              Text('Agregar\nproducto', textAlign: TextAlign.center, style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
             ],
           ),
         ),

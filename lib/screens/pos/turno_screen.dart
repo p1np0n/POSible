@@ -153,7 +153,7 @@ class _TurnoScreenState extends State<TurnoScreen> {
                 child: ListTile(
                   leading: Icon(
                     session.isOpen ? Icons.lock_open : Icons.lock_outline,
-                    color: session.isOpen ? Colors.green : Colors.grey.shade700,
+                    color: session.isOpen ? Colors.green : const Color(0xFF616161),
                   ),
                   title: Text(session.userEmail ?? 'Desconocido'),
                   subtitle: Text(
@@ -166,7 +166,7 @@ class _TurnoScreenState extends State<TurnoScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Ventas', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                      const Text('Ventas', style: TextStyle(fontSize: 12, color: const Color(0xFF616161))),
                       CurrencyText(total, bold: true),
                     ],
                   ),
