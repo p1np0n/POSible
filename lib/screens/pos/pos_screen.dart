@@ -1502,11 +1502,21 @@ class _PosScreenState extends State<PosScreen> {
         return ListTile(
           leading: ProductAvatar(name: product.name, categoryId: product.categoryId, imageUrl: product.imageUrl),
           title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-          subtitle: outOfStock
-              ? const Align(alignment: Alignment.centerLeft, child: StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true))
-              : product.trackStock
-                  ? Text('Stock: ${formatNumberCl(product.stockQuantity)}')
-                  : null,
+          // El texto de stock es tocable (igual que el badge de stock en el
+          // mosaico, ver _stockBadge/_editStock) para poder corregirlo sin
+          // salir de Ventas — el resto de la fila sigue agregando el
+          // producto al carrito con normalidad.
+          subtitle: !product.trackStock
+              ? null
+              : GestureDetector(
+                  onTap: () => _editStock(product),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: outOfStock
+                        ? const StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true)
+                        : Text('Stock: ${formatNumberCl(product.stockQuantity)}'),
+                  ),
+                ),
           trailing: _priceLabel(product, bold: true),
           enabled: cashSession.isOpen,
           onTap: () => _addToCart(product),
