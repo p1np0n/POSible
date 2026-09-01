@@ -101,6 +101,21 @@ class ProductRepository {
     return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  /// Productos con fecha de vencimiento cargada — para el resumen de
+  /// Reportes. Se trae completo (suele ser un grupo chico) y se filtra en
+  /// la app por [Product.isNearExpiry]/[Product.isExpired], igual que
+  /// [getLowStockCandidates] filtra por umbral.
+  Future<List<Product>> getProductsWithExpiration() async {
+    final data = await _client
+        .from('products')
+        .select()
+        .eq('active', true)
+        .eq('archived', false)
+        .not('expiration_date', 'is', null)
+        .order('expiration_date');
+    return (data as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   Future<Product?> findByBarcode(String barcode) async {
     final data =
         await _client.from('products').select().eq('barcode', barcode).eq('active', true).maybeSingle();

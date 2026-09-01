@@ -56,6 +56,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   double _yesterdayTotal = 0;
   List<Product> _outOfStockProducts = [];
   List<Product> _lowStockProducts = [];
+  List<Product> _nearExpiryProducts = [];
   bool _loading = true;
   String? _error;
 
@@ -139,6 +140,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _repository.getTotalSales(from: yesterdayStart, to: yesterdayEnd),
         _productRepository.getOutOfStockProducts(),
         _productRepository.getLowStockCandidates(),
+        _productRepository.getProductsWithExpiration(),
       ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
@@ -152,6 +154,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _yesterdayTotal = results[7] as double;
         _outOfStockProducts = results[8] as List<Product>;
         _lowStockProducts = (results[9] as List<Product>).where((p) => p.isLowStock).toList();
+        _nearExpiryProducts =
+            (results[10] as List<Product>).where((p) => p.isNearExpiry || p.isExpired).toList();
         _loading = false;
       });
     } catch (e) {
@@ -372,11 +376,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     trailing: Text('Stock: ${formatNumberCl(p.stockQuantity)}'),
                   )),
             ],
+            const SizedBox(height: 16),
+            Text('Productos por vencer', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (_nearExpiryProducts.isEmpty)
+              const Text('Ningún producto por vencer ahora mismo')
+            else ...[
+              Text('${_nearExpiryProducts.length} producto(s)',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              ..._nearExpiryProducts.map((p) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(p.isExpired ? 'Vencido' : 'Por vencer'),
+                    trailing: Text(_formatExpiration(p.expirationDate!)),
+                  )),
+            ],
           ],
         ],
       ),
     );
   }
+
+  String _formatExpiration(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 }
 
 class _StatCard extends StatelessWidget {
