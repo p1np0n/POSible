@@ -277,145 +277,185 @@ class _ReportsScreenState extends State<ReportsScreen> {
               labelFor: (index) => index == 0 ? 'Ayer' : 'Hoy',
               color: Theme.of(context).colorScheme.primary,
             ),
-            if (_range == ReportRange.year && summary.dailyTotals.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('Ventas por mes', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _MonthlyBarChart(dailyTotals: summary.dailyTotals),
-            ] else if (summary.dailyTotals.length > 1) ...[
-              const SizedBox(height: 16),
-              Text('Ventas por día', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _DailyBarChart(dailyTotals: summary.dailyTotals),
-            ],
             const SizedBox(height: 16),
-            Text('Por método de pago', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            _PieChartCard(
-              items: summary.byPaymentMethod.entries
-                  .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
-                  .toList(),
+            // El resto va en secciones plegables: antes era una sola lista
+            // larga y había que bajar mucho con el mouse para llegar al
+            // final. Las 3 de estado del inventario (sin stock/stock
+            // bajo/por vencer) parten abiertas por ser las más urgentes de
+            // revisar; el resto parte cerrado y se abre solo si interesa —
+            // el subtítulo de cada una ya adelanta cuántos ítems tiene.
+            if (_range == ReportRange.year && summary.dailyTotals.isNotEmpty)
+              _Section(
+                key: const ValueKey('ventas_por_periodo'),
+                title: 'Ventas por mes',
+                subtitle: '${summary.dailyTotals.length} mes(es)',
+                children: [_MonthlyBarChart(dailyTotals: summary.dailyTotals)],
+              )
+            else if (summary.dailyTotals.length > 1)
+              _Section(
+                key: const ValueKey('ventas_por_periodo'),
+                title: 'Ventas por día',
+                subtitle: '${summary.dailyTotals.length} día(s)',
+                children: [_DailyBarChart(dailyTotals: summary.dailyTotals)],
+              ),
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('por_metodo_pago'),
+              title: 'Por método de pago',
+              subtitle: '${summary.byPaymentMethod.length} método(s)',
+              children: [
+                _PieChartCard(
+                  items: summary.byPaymentMethod.entries
+                      .map((e) => (label: _paymentLabels[e.key] ?? e.key, value: e.value))
+                      .toList(),
+                ),
+                ...summary.byPaymentMethod.entries.map((entry) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_paymentLabels[entry.key] ?? entry.key),
+                      trailing: CurrencyText(entry.value, bold: true),
+                    )),
+              ],
             ),
-            ...summary.byPaymentMethod.entries.map((entry) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(_paymentLabels[entry.key] ?? entry.key),
-                  trailing: CurrencyText(entry.value, bold: true),
-                )),
-            const SizedBox(height: 16),
-            Text('Productos más vendidos', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (summary.topProducts.isEmpty)
-              const Text('Sin ventas en este período')
-            else
-              ...summary.topProducts.map((product) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${formatNumberCl(product.quantity)} unidades'),
-                    trailing: CurrencyText(product.total, bold: true),
-                  )),
-            const SizedBox(height: 16),
-            Text('Por categoría', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (_byCategory.isEmpty)
-              const Text('Sin ventas en este período')
-            else ...[
-              _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
-              ..._byCategory.map((c) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(c.name),
-                    trailing: CurrencyText(c.total, bold: true),
-                  )),
-            ],
-            const SizedBox(height: 16),
-            Text('Por empleado', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (_byEmployee.isEmpty)
-              const Text('Sin ventas en este período')
-            else
-              ..._byEmployee.map((e) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(e.name),
-                    trailing: CurrencyText(e.total, bold: true),
-                  )),
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('mas_vendidos'),
+              title: 'Productos más vendidos',
+              subtitle: '${summary.topProducts.length} producto(s)',
+              children: [
+                if (summary.topProducts.isEmpty)
+                  const Text('Sin ventas en este período')
+                else
+                  ...summary.topProducts.map((product) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('${formatNumberCl(product.quantity)} unidades'),
+                        trailing: CurrencyText(product.total, bold: true),
+                      )),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('por_categoria'),
+              title: 'Por categoría',
+              subtitle: '${_byCategory.length} categoría(s)',
+              children: [
+                if (_byCategory.isEmpty)
+                  const Text('Sin ventas en este período')
+                else ...[
+                  _PieChartCard(items: _byCategory.map((c) => (label: c.name, value: c.total)).toList()),
+                  ..._byCategory.map((c) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(c.name),
+                        trailing: CurrencyText(c.total, bold: true),
+                      )),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('por_empleado'),
+              title: 'Por empleado',
+              subtitle: '${_byEmployee.length} empleado(s)',
+              children: [
+                if (_byEmployee.isEmpty)
+                  const Text('Sin ventas en este período')
+                else
+                  ..._byEmployee.map((e) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e.name),
+                        trailing: CurrencyText(e.total, bold: true),
+                      )),
+              ],
+            ),
             if (_byModifier.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text('Por modificador', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ..._byModifier.map((m) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(m.name),
-                    trailing: Text('${formatNumberCl(m.count)} veces'),
-                  )),
+              const SizedBox(height: 12),
+              _Section(
+                key: const ValueKey('por_modificador'),
+                title: 'Por modificador',
+                subtitle: '${_byModifier.length} modificador(es)',
+                children: _byModifier
+                    .map((m) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(m.name),
+                          trailing: Text('${formatNumberCl(m.count)} veces'),
+                        ))
+                    .toList(),
+              ),
             ],
             // Estado del inventario ahora mismo — no depende del rango de
             // fechas elegido arriba, siempre muestra la situación actual.
-            const SizedBox(height: 16),
-            Text('Productos sin stock', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (_outOfStockProducts.isEmpty)
-              const Text('Ningún producto sin stock ahora mismo')
-            else ...[
-              Text('${_outOfStockProducts.length} producto(s)',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              ..._outOfStockProducts.map((p) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.add_box_outlined),
-                      tooltip: 'Agregar stock',
-                      onPressed: () => _quickAddStock(p),
-                    ),
-                  )),
-            ],
-            const SizedBox(height: 16),
-            Text('Productos con stock bajo', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (_lowStockProducts.isEmpty)
-              const Text('Ningún producto con stock bajo ahora mismo')
-            else ...[
-              Text('${_lowStockProducts.length} producto(s)',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              ..._lowStockProducts.map((p) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Stock: ${formatNumberCl(p.stockQuantity)}'),
-                        IconButton(
-                          icon: const Icon(Icons.add_box_outlined),
-                          tooltip: 'Agregar stock',
-                          onPressed: () => _quickAddStock(p),
-                        ),
-                      ],
-                    ),
-                  )),
-            ],
-            const SizedBox(height: 16),
-            Text('Productos por vencer', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (_nearExpiryProducts.isEmpty)
-              const Text('Ningún producto por vencer ahora mismo')
-            else ...[
-              Text('${_nearExpiryProducts.length} producto(s)',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              ..._nearExpiryProducts.map((p) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(p.isExpired ? 'Vencido' : 'Por vencer'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_formatExpiration(p.expirationDate!)),
-                        IconButton(
-                          icon: const Icon(Icons.add_box_outlined),
-                          tooltip: 'Agregar stock',
-                          onPressed: () => _quickAddStock(p),
-                        ),
-                      ],
-                    ),
-                  )),
-            ],
+            // Se muestran como grilla de tarjetas chicas (no una fila por
+            // producto) para que quepan varias por pantalla.
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('sin_stock'),
+              title: 'Productos sin stock',
+              subtitle: '${_outOfStockProducts.length} producto(s)',
+              initiallyExpanded: true,
+              children: [
+                if (_outOfStockProducts.isEmpty)
+                  const Text('Ningún producto sin stock ahora mismo')
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _outOfStockProducts
+                        .map((p) => _ProductStatusCard(
+                              product: p,
+                              subtitle: 'Sin stock',
+                              onAddStock: () => _quickAddStock(p),
+                            ))
+                        .toList(),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('stock_bajo'),
+              title: 'Productos con stock bajo',
+              subtitle: '${_lowStockProducts.length} producto(s)',
+              initiallyExpanded: true,
+              children: [
+                if (_lowStockProducts.isEmpty)
+                  const Text('Ningún producto con stock bajo ahora mismo')
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _lowStockProducts
+                        .map((p) => _ProductStatusCard(
+                              product: p,
+                              subtitle: 'Stock: ${formatNumberCl(p.stockQuantity)}',
+                              onAddStock: () => _quickAddStock(p),
+                            ))
+                        .toList(),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _Section(
+              key: const ValueKey('por_vencer'),
+              title: 'Productos por vencer',
+              subtitle: '${_nearExpiryProducts.length} producto(s)',
+              initiallyExpanded: true,
+              children: [
+                if (_nearExpiryProducts.isEmpty)
+                  const Text('Ningún producto por vencer ahora mismo')
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _nearExpiryProducts
+                        .map((p) => _ProductStatusCard(
+                              product: p,
+                              subtitle:
+                                  '${p.isExpired ? 'Vencido' : 'Por vencer'} · ${_formatExpiration(p.expirationDate!)}',
+                              onAddStock: () => _quickAddStock(p),
+                            ))
+                        .toList(),
+                  ),
+              ],
+            ),
           ],
         ],
       ),
@@ -481,6 +521,95 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo agregar stock: $e')));
     }
+  }
+}
+
+/// Sección plegable de Reportes: título + subtítulo corto (ej. "5
+/// producto(s)") siempre visibles, contenido que se muestra solo al
+/// tocarla. El subtítulo deja ver de un vistazo si hay algo ahí sin tener
+/// que abrirla, así que colapsar una sección no esconde la información,
+/// solo el detalle.
+class _Section extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  const _Section({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.initiallyExpanded = false,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+          subtitle: Text(subtitle),
+          initiallyExpanded: initiallyExpanded,
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta chica para las grillas de "sin stock" / "stock bajo" / "por
+/// vencer" — varias caben por fila, a diferencia de una fila completa por
+/// producto como antes.
+class _ProductStatusCard extends StatelessWidget {
+  final Product product;
+  final String subtitle;
+  final VoidCallback onAddStock;
+
+  const _ProductStatusCard({required this.product, required this.subtitle, required this.onAddStock});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 190,
+      child: Card(
+        margin: EdgeInsets.zero,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                product.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(subtitle, style: const TextStyle(color: Color(0xFF616161), fontSize: 12)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_box_outlined, size: 20),
+                    tooltip: 'Agregar stock',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: onAddStock,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
