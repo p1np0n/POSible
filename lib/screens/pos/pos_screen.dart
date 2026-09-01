@@ -782,6 +782,16 @@ class _PosScreenState extends State<PosScreen> {
     _refocusSearch();
   }
 
+  /// Editar el artículo completo (nombre, precio, foto, categoría, etc.)
+  /// sin salir de Ventas — antes solo se podía desde Lista de artículos.
+  Future<void> _editProduct(Product product) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ProductFormScreen(product: product, categories: _categories)),
+    );
+    if (changed == true) _loadData();
+    _refocusSearch();
+  }
+
   Future<void> _refreshOpenTicketCount() async {
     final session = context.read<CashSessionProvider>().current;
     if (session == null) {
@@ -1510,9 +1520,10 @@ class _PosScreenState extends State<PosScreen> {
                       ? const StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true)
                       : Text('Stock: ${formatNumberCl(product.stockQuantity)}'),
                 ),
-          // Ícono aparte para editar el stock (en vez de que el texto chico
-          // de arriba fuera el único lugar para tocar, que costaba acertar)
-          // — el resto de la fila sigue agregando el producto al carrito.
+          // Íconos aparte para editar stock y el artículo completo (en vez
+          // de que el texto chico de arriba fuera el único lugar para
+          // tocar, que costaba acertar) — el resto de la fila sigue
+          // agregando el producto al carrito.
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1522,6 +1533,12 @@ class _PosScreenState extends State<PosScreen> {
                   icon: const Icon(Icons.inventory_2_outlined, size: 20),
                   tooltip: 'Editar stock',
                   onPressed: () => _editStock(product),
+                ),
+              if (!product.isQuickItem)
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: 'Editar artículo',
+                  onPressed: () => _editProduct(product),
                 ),
             ],
           ),
