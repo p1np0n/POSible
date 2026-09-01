@@ -1502,22 +1502,29 @@ class _PosScreenState extends State<PosScreen> {
         return ListTile(
           leading: ProductAvatar(name: product.name, categoryId: product.categoryId, imageUrl: product.imageUrl),
           title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-          // El texto de stock es tocable (igual que el badge de stock en el
-          // mosaico, ver _stockBadge/_editStock) para poder corregirlo sin
-          // salir de Ventas — el resto de la fila sigue agregando el
-          // producto al carrito con normalidad.
           subtitle: !product.trackStock
               ? null
-              : GestureDetector(
-                  onTap: () => _editStock(product),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: outOfStock
-                        ? const StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true)
-                        : Text('Stock: ${formatNumberCl(product.stockQuantity)}'),
-                  ),
+              : Align(
+                  alignment: Alignment.centerLeft,
+                  child: outOfStock
+                      ? const StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true)
+                      : Text('Stock: ${formatNumberCl(product.stockQuantity)}'),
                 ),
-          trailing: _priceLabel(product, bold: true),
+          // Ícono aparte para editar el stock (en vez de que el texto chico
+          // de arriba fuera el único lugar para tocar, que costaba acertar)
+          // — el resto de la fila sigue agregando el producto al carrito.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _priceLabel(product, bold: true),
+              if (product.trackStock)
+                IconButton(
+                  icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                  tooltip: 'Editar stock',
+                  onPressed: () => _editStock(product),
+                ),
+            ],
+          ),
           enabled: cashSession.isOpen,
           onTap: () => _addToCart(product),
         );
