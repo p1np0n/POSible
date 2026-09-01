@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_semantic_colors.dart';
 
-enum StatusBadgeTone { danger, warning, info }
+enum StatusBadgeTone { ok, danger, warning, info }
 
-/// Etiqueta de estado (ej. "Agotado", "Inventario bajo") con un color y
-/// forma consistentes — reemplaza las variantes sueltas que había antes
-/// (texto rojo chico en un lado, scrim negro con texto blanco en otro).
+/// Etiqueta de estado (ej. "Stock: 10", "Agotado", "Inventario bajo") con un
+/// color y forma consistentes en toda la app: fondo suave + texto saturado
+/// del mismo tono (igual criterio que `errorContainer`/`onErrorContainer` de
+/// Material), en vez de las variantes sueltas que había antes (texto rojo
+/// chico en un lado, scrim negro con texto blanco en otro).
 class StatusBadge extends StatelessWidget {
   final String label;
   final StatusBadgeTone tone;
@@ -19,8 +21,9 @@ class StatusBadge extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final semantic = AppSemanticColors.of(context);
     final (Color background, Color foreground) = switch (tone) {
-      StatusBadgeTone.danger => (colorScheme.error, colorScheme.onError),
-      StatusBadgeTone.warning => (semantic.warning, semantic.onWarning),
+      StatusBadgeTone.ok => (semantic.successContainer, semantic.onSuccessContainer),
+      StatusBadgeTone.danger => (colorScheme.errorContainer, colorScheme.onErrorContainer),
+      StatusBadgeTone.warning => (semantic.warningContainer, semantic.onWarningContainer),
       StatusBadgeTone.info => (colorScheme.primary, colorScheme.onPrimary),
     };
     return Container(

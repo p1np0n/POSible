@@ -290,9 +290,7 @@ class _CartPanelState extends State<CartPanel> {
           ),
           Expanded(
             child: cart.items.isEmpty
-                ? const Center(
-                    child: Text('El carrito está vacío', style: TextStyle(color: const Color(0xFF616161))),
-                  )
+                ? const _CartEmptyState()
                 : ListView.builder(
                     itemCount: cart.items.length,
                     itemBuilder: (context, index) => _buildItemTile(cart.items[index]),
@@ -367,7 +365,10 @@ class _CartPanelState extends State<CartPanel> {
                 ),
                 if (!hasItems) ...[
                   const SizedBox(height: 2),
-                  const Text('El carrito está vacío', style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
+                  Text(
+                    'El carrito está vacío',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                  ),
                 ] else ...[
                   const SizedBox(height: 2),
                   CurrencyText(
@@ -391,6 +392,42 @@ class _CartPanelState extends State<CartPanel> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Estado vacío del carrito: ícono de carrito en un círculo con tinte del
+/// color de marca + texto explicativo — reemplaza el texto suelto que se
+/// veía igual que la pantalla "cargando" (nada, sobre fondo liso).
+class _CartEmptyState extends StatelessWidget {
+  const _CartEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(color: accent.withOpacity(0.12), shape: BoxShape.circle),
+              child: Icon(Icons.shopping_bag_outlined, size: 22, color: accent),
+            ),
+            const SizedBox(height: 12),
+            Text('El carrito está vacío', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Toca un producto de la lista para agregarlo a la venta.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
     );
   }
