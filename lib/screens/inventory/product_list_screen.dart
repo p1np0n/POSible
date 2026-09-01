@@ -684,7 +684,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                       imageUrl: product.imageUrl,
                                     ),
                               selected: selected,
-                              title: Text(product.name),
+                              title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,

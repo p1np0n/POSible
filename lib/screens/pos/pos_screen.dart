@@ -1429,7 +1429,7 @@ class _PosScreenState extends State<PosScreen> {
         final outOfStock = product.trackStock && product.stockQuantity <= 0;
         return ListTile(
           leading: ProductAvatar(name: product.name, categoryId: product.categoryId, imageUrl: product.imageUrl),
-          title: Text(product.name),
+          title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
           subtitle: outOfStock
               ? const Align(alignment: Alignment.centerLeft, child: StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true))
               : product.trackStock
