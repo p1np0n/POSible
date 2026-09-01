@@ -216,7 +216,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text('Buscando fotos: $_findImagesProgress de $_findImagesTotal',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                   const SizedBox(height: 8),
                 ],
               ),
