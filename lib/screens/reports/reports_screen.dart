@@ -1,7 +1,9 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/category.dart';
 import '../../models/product.dart';
+import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../services/stock_movement_repository.dart';
@@ -41,6 +43,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final ReportsRepository _repository = ReportsRepository();
   final StockMovementRepository _stockMovementRepository = StockMovementRepository();
   final ProductRepository _productRepository = ProductRepository();
+  final CategoryRepository _categoryRepository = CategoryRepository();
   ReportRange _range = ReportRange.today;
   DateTimeRange? _customRange;
   SalesSummary? _summary;
@@ -57,6 +60,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<Product> _outOfStockProducts = [];
   List<Product> _lowStockProducts = [];
   List<Product> _nearExpiryProducts = [];
+  List<Category> _categories = [];
+  // Filtro de categoría para las 3 grillas de estado del inventario (sin
+  // stock, stock bajo, por vencer) — null muestra todas las categorías.
+  String? _statusCategoryFilter;
   bool _loading = true;
   String? _error;
 
@@ -70,6 +77,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void initState() {
     super.initState();
     _load();
+    // Independiente del resto de _load(): las categorías no dependen del
+    // rango de fechas elegido y casi nunca cambian, así que no hace falta
+    // volver a pedirlas cada vez que se recarga el resto de Reportes.
+    _categoryRepository.getAll().then((categories) {
+      if (mounted) setState(() => _categories = categories);
+    });
+  }
+
+  List<Product> _filterByCategory(List<Product> products) {
+    final categoryId = _statusCategoryFilter;
+    if (categoryId == null) return products;
+    return products.where((p) => p.categoryId == categoryId).toList();
   }
 
   DateTime get _fromDate {
@@ -385,21 +404,45 @@ class _ReportsScreenState extends State<ReportsScreen> {
             // Estado del inventario ahora mismo — no depende del rango de
             // fechas elegido arriba, siempre muestra la situación actual.
             // Se muestran como grilla de tarjetas chicas (no una fila por
-            // producto) para que quepan varias por pantalla.
+            // producto) para que quepan varias por pantalla, y las 3
+            // comparten el mismo filtro de categoría de acá abajo.
             const SizedBox(height: 12),
+            if (_categories.isNotEmpty) ...[
+              Text('Filtrar por categoría', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Todas'),
+                    selected: _statusCategoryFilter == null,
+                    onSelected: (_) => setState(() => _statusCategoryFilter = null),
+                  ),
+                  ..._categories.map((c) => ChoiceChip(
+                        label: Text(c.name),
+                        selected: _statusCategoryFilter == c.id,
+                        onSelected: (_) => setState(() => _statusCategoryFilter = c.id),
+                      )),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             _Section(
               key: const ValueKey('sin_stock'),
               title: 'Productos sin stock',
-              subtitle: '${_outOfStockProducts.length} producto(s)',
+              subtitle: '${_filterByCategory(_outOfStockProducts).length} producto(s)',
               initiallyExpanded: true,
               children: [
-                if (_outOfStockProducts.isEmpty)
-                  const Text('Ningún producto sin stock ahora mismo')
+                if (_filterByCategory(_outOfStockProducts).isEmpty)
+                  Text(_statusCategoryFilter == null
+                      ? 'Ningún producto sin stock ahora mismo'
+                      : 'Ningún producto sin stock en esta categoría')
                 else
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _outOfStockProducts
+                    children: _filterByCategory(_outOfStockProducts)
                         .map((p) => _ProductStatusCard(
                               product: p,
                               subtitle: 'Sin stock',
@@ -413,16 +456,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
             _Section(
               key: const ValueKey('stock_bajo'),
               title: 'Productos con stock bajo',
-              subtitle: '${_lowStockProducts.length} producto(s)',
+              subtitle: '${_filterByCategory(_lowStockProducts).length} producto(s)',
               initiallyExpanded: true,
               children: [
-                if (_lowStockProducts.isEmpty)
-                  const Text('Ningún producto con stock bajo ahora mismo')
+                if (_filterByCategory(_lowStockProducts).isEmpty)
+                  Text(_statusCategoryFilter == null
+                      ? 'Ningún producto con stock bajo ahora mismo'
+                      : 'Ningún producto con stock bajo en esta categoría')
                 else
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _lowStockProducts
+                    children: _filterByCategory(_lowStockProducts)
                         .map((p) => _ProductStatusCard(
                               product: p,
                               subtitle: 'Stock: ${formatNumberCl(p.stockQuantity)}',
@@ -436,16 +481,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
             _Section(
               key: const ValueKey('por_vencer'),
               title: 'Productos por vencer',
-              subtitle: '${_nearExpiryProducts.length} producto(s)',
+              subtitle: '${_filterByCategory(_nearExpiryProducts).length} producto(s)',
               initiallyExpanded: true,
               children: [
-                if (_nearExpiryProducts.isEmpty)
-                  const Text('Ningún producto por vencer ahora mismo')
+                if (_filterByCategory(_nearExpiryProducts).isEmpty)
+                  Text(_statusCategoryFilter == null
+                      ? 'Ningún producto por vencer ahora mismo'
+                      : 'Ningún producto por vencer en esta categoría')
                 else
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _nearExpiryProducts
+                    children: _filterByCategory(_nearExpiryProducts)
                         .map((p) => _ProductStatusCard(
                               product: p,
                               subtitle:
