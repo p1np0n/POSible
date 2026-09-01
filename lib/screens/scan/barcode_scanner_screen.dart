@@ -37,6 +37,12 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       BarcodeFormat.qrCode,
     ],
     detectionSpeed: DetectionSpeed.noDuplicates,
+    // Resolución más alta = más detalle por cuadro para códigos chicos,
+    // borrosos o algo despegados — el valor por defecto de la librería
+    // suele quedarse corto justo en esos casos, que son los que más
+    // fallan. Sigue siendo liviano para el celular: es solo la resolución
+    // de captura para decodificar, no la que se ve en pantalla.
+    cameraResolution: const Size(1920, 1080),
   );
   final AudioPlayer _beepPlayer = AudioPlayer();
   bool _handled = false;
@@ -71,6 +77,34 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     } finally {
       if (mounted) setState(() => _starting = false);
     }
+  }
+
+  /// Salida de emergencia si la cámara sigue sin leer el código (mala luz,
+  /// código dañado, cámara que no enfoca de cerca, etc.) — sin esto, un
+  /// escaneo que no logra leer deja al cajero sin más opción que cancelar.
+  Future<void> _enterManually() async {
+    final controller = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Ingresar código a mano'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Código de barras'),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Usar'),
+          ),
+        ],
+      ),
+    );
+    if (code != null && code.isNotEmpty && mounted) Navigator.of(context).pop(code);
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -195,7 +229,14 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text('Escanear código de barras'),
-        actions: [_buildTorchButton()],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.keyboard_outlined),
+            tooltip: 'Ingresar código a mano',
+            onPressed: _enterManually,
+          ),
+          _buildTorchButton(),
+        ],
       ),
       // MobileScanner queda SIEMPRE montado (nunca se saca del árbol) —
       // mobile_scanner 7 necesita que el widget ya esté adjunto al
