@@ -80,7 +80,7 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 24),
-          const Text('Ventas de hoy', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+          const Text('Ventas de hoy', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
           const SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -97,13 +97,13 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
               Column(
                 children: [
                   Text(formatNumberCl(summary.transactionCount), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  const Text('Ventas', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const Text('Ventas', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
                 ],
               ),
               Column(
                 children: [
                   CurrencyText(summary.averageTicket, bold: true, style: const TextStyle(fontSize: 22)),
-                  const Text('Ticket promedio', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const Text('Ticket promedio', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
                 ],
               ),
             ],
@@ -112,7 +112,7 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
           Text('Por método de pago', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (summary.byPaymentMethod.isEmpty)
-            const Text('Sin ventas todavía', style: TextStyle(color: Colors.grey))
+            const Text('Sin ventas todavía', style: TextStyle(color: Colors.grey.shade700))
           else
             ...summary.byPaymentMethod.entries.map((entry) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -128,7 +128,7 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
           Text('Por categoría', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_byCategory.isEmpty)
-            const Text('Sin ventas todavía', style: TextStyle(color: Colors.grey))
+            const Text('Sin ventas todavía', style: TextStyle(color: Colors.grey.shade700))
           else
             ..._byCategory.map((c) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -145,7 +145,7 @@ class _InfoAdminReportsScreenState extends State<InfoAdminReportsScreen> {
             Text(
               'Actualizado a las ${_formatTime(_updatedAt!)}',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              style: const TextStyle(color: Colors.grey.shade700, fontSize: 12),
             ),
           const SizedBox(height: 16),
           FilledButton.icon(

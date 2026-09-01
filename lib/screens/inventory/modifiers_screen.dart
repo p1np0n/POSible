@@ -91,7 +91,7 @@ class _ModifiersScreenState extends State<ModifiersScreen> {
                   'Opciones para personalizar un producto al venderlo (ej. "Extra queso +\$500", '
                   '"Sin cebolla"). Si hay modificadores activos, al tocar un producto en Ventas '
                   'aparecerá primero la lista para elegir cuáles aplicar.',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 12),
                 Row(

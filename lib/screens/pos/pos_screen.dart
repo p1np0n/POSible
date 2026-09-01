@@ -480,6 +480,54 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
+  /// Posición de la pestaña de acceso rápido activa dentro de la secuencia
+  /// "Más vendidos" + pestañas personalizadas, o -1 si no hay ninguna
+  /// elegida (viendo "Todos" o filtrando por categoría). La usa el gesto de
+  /// deslizar para saber a cuál moverse.
+  int get _currentQuickTabIndex {
+    if (_showTopSelling) return 0;
+    if (_selectedPageId != null) {
+      final index = _pages.indexWhere((p) => p.id == _selectedPageId);
+      return index == -1 ? -1 : index + 1;
+    }
+    return -1;
+  }
+
+  void _selectQuickTabIndex(int index) {
+    if (index < 0) {
+      setState(() {
+        _showTopSelling = false;
+        _selectedPageId = null;
+      });
+    } else if (index == 0) {
+      setState(() {
+        _showTopSelling = true;
+        _selectedPageId = null;
+        _selectedCategoryId = null;
+      });
+    } else {
+      setState(() {
+        _showTopSelling = false;
+        _selectedPageId = _pages[index - 1].id;
+        _selectedCategoryId = null;
+      });
+    }
+    _refocusSearch();
+  }
+
+  /// Deslizar con el dedo sobre el mosaico/lista mueve a la pestaña de
+  /// acceso rápido siguiente (izquierda) o anterior (derecha) — un umbral
+  /// de velocidad evita que un scroll vertical normal se confunda con el
+  /// gesto.
+  void _handleQuickTabSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 200) return;
+    final current = _currentQuickTabIndex;
+    final next = velocity < 0 ? current + 1 : current - 1;
+    if (next < -1 || next >= _pages.length + 1) return;
+    _selectQuickTabIndex(next);
+  }
+
   /// El catálogo se carga ya ordenado A-Z desde el servidor; agregar un
   /// producto nuevo o "recién encontrado" directo al final de la lista en
   /// memoria (ver arriba) lo dejaría fuera de orden hasta la próxima vez
@@ -950,12 +998,19 @@ class _PosScreenState extends State<PosScreen> {
       ),
     );
 
-    final filtersAndGrid = RefreshIndicator(
-      onRefresh: _loadData,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    final filtersAndGrid = GestureDetector(
+      // Deslizar con el dedo hacia la izquierda o derecha sobre el mosaico
+      // mueve a la pestaña de acceso rápido siguiente/anterior, sin tener
+      // que ir a tocarla abajo — el umbral de velocidad en
+      // _handleQuickTabSwipe evita que se confunda con el scroll vertical
+      // normal de la lista/mosaico.
+      onHorizontalDragEnd: _handleQuickTabSwipe,
+      child: RefreshIndicator(
+        onRefresh: _loadData,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: DropdownButtonFormField<String?>(
               value: _selectedCategoryId,
               decoration: const InputDecoration(
@@ -994,6 +1049,7 @@ class _PosScreenState extends State<PosScreen> {
                             : _buildTileGrid(products, cashSession),
           ),
         ],
+      ),
       ),
     );
 
@@ -1081,59 +1137,70 @@ class _PosScreenState extends State<PosScreen> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _quickTabButton(
-                  label: 'Más vendidos',
-                  icon: Icons.trending_up,
-                  selected: _showTopSelling,
-                  onTap: () {
-                    final value = !_showTopSelling;
-                    setState(() {
-                      _showTopSelling = value;
-                      if (value) {
-                        _selectedPageId = null;
-                        _selectedCategoryId = null;
-                      }
-                    });
-                    _refocusSearch();
+          // Fijas (sin scroll horizontal): todas las pestañas se reparten el
+          // ancho disponible con Expanded, y el texto de cada una se achica
+          // solo si hace falta (FittedBox dentro de _quickTabButton) para
+          // que quepan siempre, aunque se agreguen muchas.
+          child: Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _quickTabButton(
+                        label: 'Más vendidos',
+                        icon: Icons.trending_up,
+                        selected: _showTopSelling,
+                        onTap: () {
+                          final value = !_showTopSelling;
+                          setState(() {
+                            _showTopSelling = value;
+                            if (value) {
+                              _selectedPageId = null;
+                              _selectedCategoryId = null;
+                            }
+                          });
+                          _refocusSearch();
+                        },
+                      ),
+                    ),
+                    for (final page in _pages) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _quickTabButton(
+                          label: page.name,
+                          selected: _selectedPageId == page.id,
+                          onTap: () {
+                            final value = _selectedPageId != page.id;
+                            setState(() {
+                              _selectedPageId = value ? page.id : null;
+                              _showTopSelling = false;
+                              if (value) _selectedCategoryId = null;
+                            });
+                            _refocusSearch();
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: Icon(Icons.add_circle_outline, color: onSurface),
+                tooltip: 'Crear pestaña',
+                onPressed: _createPage,
+              ),
+              if (_selectedPageId != null)
+                IconButton(
+                  icon: Icon(Icons.settings_outlined, color: onSurface),
+                  tooltip: 'Editar esta pestaña',
+                  onPressed: () {
+                    final page = _pages.where((p) => p.id == _selectedPageId);
+                    if (page.isNotEmpty) _managePage(page.first);
                   },
                 ),
-                for (final page in _pages) ...[
-                  const SizedBox(width: 8),
-                  _quickTabButton(
-                    label: page.name,
-                    selected: _selectedPageId == page.id,
-                    onTap: () {
-                      final value = _selectedPageId != page.id;
-                      setState(() {
-                        _selectedPageId = value ? page.id : null;
-                        _showTopSelling = false;
-                        if (value) _selectedCategoryId = null;
-                      });
-                      _refocusSearch();
-                    },
-                  ),
-                ],
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: Icon(Icons.add_circle_outline, color: onSurface),
-                  tooltip: 'Crear pestaña',
-                  onPressed: _createPage,
-                ),
-                if (_selectedPageId != null)
-                  IconButton(
-                    icon: Icon(Icons.settings_outlined, color: onSurface),
-                    tooltip: 'Editar esta pestaña',
-                    onPressed: () {
-                      final page = _pages.where((p) => p.id == _selectedPageId);
-                      if (page.isNotEmpty) _managePage(page.first);
-                    },
-                  ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -1143,7 +1210,10 @@ class _PosScreenState extends State<PosScreen> {
   /// Botón cuadrado (esquinas apenas redondeadas, no en píldora) y más
   /// grande que un Chip normal de Material — para que "Más vendidos" y cada
   /// pestaña personalizada sean fáciles de tocar y de leer de un vistazo
-  /// mientras se vende.
+  /// mientras se vende. Ocupa el ancho que le da el Expanded del que
+  /// cuelga (ver _buildQuickSaleBar) — con FittedBox el texto se achica
+  /// solo en vez de cortarse con "..." cuando hay muchas pestañas y cada
+  /// una queda angosta.
   Widget _quickTabButton({
     required String label,
     IconData? icon,
@@ -1157,8 +1227,8 @@ class _PosScreenState extends State<PosScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 88, minHeight: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(10),
@@ -1172,12 +1242,14 @@ class _PosScreenState extends State<PosScreen> {
               Icon(icon, size: 20, color: fg),
               const SizedBox(height: 4),
             ],
-            Text(
-              label,
-              style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 14),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 14),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+              ),
             ),
           ],
         ),
@@ -1264,9 +1336,9 @@ class _PosScreenState extends State<PosScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_circle_outline, size: 32, color: Colors.grey),
+              Icon(Icons.add_circle_outline, size: 32, color: Colors.grey.shade700),
               SizedBox(height: 6),
-              Text('Agregar\nproducto', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('Agregar\nproducto', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
             ],
           ),
         ),

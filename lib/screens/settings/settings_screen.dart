@@ -332,7 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'todavía no tienen foto, y se les busca una en internet (requiere activar la '
                 'función "fill-missing-photos" en Supabase — ver LEEME.md). Con este botón '
                 'puedes correrlo ahora mismo, sin esperar a la noche.',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
@@ -348,7 +348,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'UPCitemdb — todo gratis, sin configurar nada. Si ninguna encuentra una '
                 'foto, y pones tu propia clave de Google Custom Search acá abajo, se '
                 'intenta también ahí como último recurso.',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -467,7 +467,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 16),
               Text('Cuenta', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text(email, style: const TextStyle(color: Colors.grey)),
+              Text(email, style: const TextStyle(color: Colors.grey.shade700)),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () {
@@ -483,7 +483,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     'Si tu correo ya inició sesión antes en este dispositivo, al cerrar sesión '
                     'aparece el acceso rápido con PIN para el próximo cajero.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
                   ),
                 ),
             ],

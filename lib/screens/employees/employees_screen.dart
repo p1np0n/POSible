@@ -145,7 +145,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             'Los empleados que se registran solos desde la pantalla de inicio de sesión '
             'aparecen aquí sin aprobar hasta que los apruebes. También puedes crearlos tú '
             'directamente con "Nuevo empleado" — quedan aprobados de inmediato.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: Colors.grey.shade700),
           ),
           const SizedBox(height: 16),
           if (_loading)

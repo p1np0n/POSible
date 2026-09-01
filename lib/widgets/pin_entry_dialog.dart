@@ -51,7 +51,7 @@ class _PinEntryDialogState extends State<_PinEntryDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
-            Text(widget.subtitle!, style: const TextStyle(color: Colors.grey)),
+            Text(widget.subtitle!, style: const TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 12),
           ],
           PinPad(
