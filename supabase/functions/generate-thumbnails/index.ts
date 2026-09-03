@@ -83,14 +83,41 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
-    if (authHeader !== `Bearer ${serviceRoleKey}`) {
-      return json({ error: "Esta tarea solo se puede invocar con la service_role key" }, 401);
-    }
+    if (!authHeader) return json({ error: "No autorizado" }, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // La app llama a esta función con la sesión del usuario que tocó el
+    // botón o que acaba de subir una foto (no con la service_role key) —
+    // igual que "fill-missing-photos", así que el chequeo tiene que
+    // aceptar ambos casos: una llamada de sistema (service_role directo,
+    // sin restringir a una tienda) o una de un usuario aprobado
+    // (restringida a los productos de SU tienda, para que una tienda no
+    // pueda generar miniaturas de productos de otra).
+    const isSystemCall = authHeader === `Bearer ${serviceRoleKey}`;
+    let storeId: string | null = null;
+
+    if (!isSystemCall) {
+      const callerClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: userError } = await callerClient.auth.getUser();
+      if (userError || !userData.user) return json({ error: "No autorizado" }, 401);
+
+      const { data: profile } = await adminClient
+        .from("profiles")
+        .select("approved, store_id")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      if (!profile?.approved) {
+        return json({ error: "Solo usuarios aprobados pueden hacer esto" }, 403);
+      }
+      storeId = (profile.store_id as string | null) ?? null;
+    }
 
     let limit = DEFAULT_BATCH_LIMIT;
     let productId: string | null = null;
@@ -108,21 +135,25 @@ Deno.serve(async (req) => {
 
     let products: ProductRow[];
     if (productId !== null) {
-      const { data, error } = await adminClient
+      let query = adminClient
         .from("products")
         .select("id, image_url")
         .eq("id", productId)
         .not("image_url", "is", null)
         .limit(1);
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
       products = (data ?? []) as ProductRow[];
     } else {
-      const { data, error } = await adminClient
+      let query = adminClient
         .from("products")
         .select("id, image_url")
         .not("image_url", "is", null)
         .is("thumbnail_url", null)
         .limit(limit);
+      if (storeId) query = query.eq("store_id", storeId);
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
       products = (data ?? []) as ProductRow[];
     }
