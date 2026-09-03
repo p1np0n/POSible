@@ -8,6 +8,7 @@ import 'models/employee_profile.dart';
 import 'providers/app_preferences_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/cash_session_provider.dart';
+import 'providers/product_cache_provider.dart';
 import 'providers/store_provider.dart';
 import 'screens/auth/lock_gate.dart';
 import 'screens/auth/login_screen.dart';
@@ -44,6 +45,7 @@ class PosibleApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CashSessionProvider()),
         ChangeNotifierProvider(create: (_) => StoreProvider()),
+        ChangeNotifierProvider(create: (_) => ProductCacheProvider()),
         ChangeNotifierProvider(create: (_) => AppPreferencesProvider()..load()),
       ],
       child: Consumer<AppPreferencesProvider>(
