@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 
-/// Paleta fija para el color de fondo del avatar cuando el producto no
-/// tiene foto — deliberadamente sin naranja/rojo, para no confundirse con
-/// el color de marca ni con los `StatusBadge` de "Agotado"/"Inventario
-/// bajo".
+/// Paleta fija de tintes pastel (fondo claro + texto saturado del mismo
+/// tono) para el avatar cuando el producto no tiene foto — como una
+/// vitrina con etiquetas de color, en vez de un círculo sólido con
+/// iniciales blancas. Deliberadamente sin naranja/rojo, para no
+/// confundirse con el color de marca ni con los `StatusBadge` de
+/// "Agotado"/"Inventario bajo".
 const _palette = [
-  Color(0xFF3F51B5),
-  Color(0xFF00897B),
-  Color(0xFF7B1FA2),
-  Color(0xFF5D4037),
-  Color(0xFF00838F),
-  Color(0xFF558B2F),
-  Color(0xFF6D4C41),
-  Color(0xFF455A64),
+  (bg: Color(0xFFE6ECFB), fg: Color(0xFF3F51B5)),
+  (bg: Color(0xFFDDF3EE), fg: Color(0xFF00695C)),
+  (bg: Color(0xFFF1E3F7), fg: Color(0xFF7B1FA2)),
+  (bg: Color(0xFFEFE3DC), fg: Color(0xFF5D4037)),
+  (bg: Color(0xFFDCF0F3), fg: Color(0xFF00838F)),
+  (bg: Color(0xFFEAF3DD), fg: Color(0xFF558B2F)),
+  (bg: Color(0xFFF3E6DC), fg: Color(0xFF6D4C41)),
+  (bg: Color(0xFFE3E8EC), fg: Color(0xFF455A64)),
 ];
 
-Color _colorFor(String seed) => _palette[seed.hashCode.abs() % _palette.length];
+({Color bg, Color fg}) _colorFor(String seed) => _palette[seed.hashCode.abs() % _palette.length];
 
 String _initialsFor(String name) {
   final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
@@ -53,12 +55,13 @@ class ProductAvatar extends StatelessWidget {
       );
     }
     final seed = (categoryId != null && categoryId!.isNotEmpty) ? categoryId! : name;
+    final colors = _colorFor(seed);
     return CircleAvatar(
       radius: radius,
-      backgroundColor: _colorFor(seed),
+      backgroundColor: colors.bg,
       child: Text(
         _initialsFor(name),
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: radius * 0.6),
+        style: TextStyle(color: colors.fg, fontWeight: FontWeight.bold, fontSize: radius * 0.6),
       ),
     );
   }

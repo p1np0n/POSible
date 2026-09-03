@@ -15,6 +15,7 @@ import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
+import '../../providers/store_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/customer_repository.dart';
 import '../../services/discount_repository.dart';
@@ -24,7 +25,9 @@ import '../../services/pos_page_repository.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/currency_format_cl.dart';
+import '../../utils/date_format_es.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
@@ -881,11 +884,66 @@ class _PosScreenState extends State<PosScreen> {
     _refreshOpenTicketCount();
   }
 
+  /// Fila de encabezado con el nombre de la pantalla y la fecha de hoy a la
+  /// izquierda, y un chip verde "Caja abierta" a la derecha mientras haya
+  /// un turno en curso — antes esta pantalla no tenía ningún título propio,
+  /// solo la barra de búsqueda.
+  Widget _buildTitleRow(BuildContext context, CashSessionProvider cashSession) {
+    final storeName = context.watch<StoreProvider>().myStore?.name ?? 'Tienda';
+    final today = formatDayHeaderEs(DateTime.now())
+        .replaceFirst(', ', ' ')
+        .replaceFirst(RegExp(r' de \d{4}$'), '');
+    final semantic = AppSemanticColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Ventas', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 2),
+                Text(
+                  '$storeName · $today',
+                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          if (cashSession.isOpen)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(color: semantic.successContainer, borderRadius: BorderRadius.circular(999)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(color: semantic.onSuccessContainer, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Caja abierta',
+                    style: TextStyle(color: semantic.onSuccessContainer, fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
     final prefs = context.watch<AppPreferencesProvider>();
     final products = _filteredProducts;
+    final titleRow = _buildTitleRow(context, cashSession);
 
     final banner = (!cashSession.loading && !cashSession.isOpen)
         ? MaterialBanner(
@@ -896,27 +954,31 @@ class _PosScreenState extends State<PosScreen> {
           )
         : null;
 
-    // Barra de arriba de color (sigue el color primario del tema, como el
-    // AppBar del menú, para que se vea como una sola barra continua): el
-    // buscador queda escondido detrás de un ícono de lupa hasta que se
-    // toca, para que por defecto se vea limpia. El lector de código de
-    // barras USB ya NO fuerza que este campo quede desplegado (eso tapaba
-    // el botón de menú) — en su lugar, mientras está colapsado se mantiene
-    // un campo de tamaño cero con el foco (ver más abajo), para que el
-    // lector siga escribiendo ahí y agregando al carrito solo, sin ocupar
+    // Barra de arriba clara (tarjeta blanca con borde inferior, igual que el
+    // resto de los inputs del nuevo tema, en vez del bloque de color sólido
+    // de antes): el buscador queda escondido detrás de un ícono de lupa
+    // hasta que se toca, para que por defecto se vea limpia. El lector de
+    // código de barras USB ya NO fuerza que este campo quede desplegado (eso
+    // tapaba el botón de menú) — en su lugar, mientras está colapsado se
+    // mantiene un campo de tamaño cero con el foco (ver más abajo), para que
+    // el lector siga escribiendo ahí y agregando al carrito solo, sin ocupar
     // el lugar del buscador visible ni esconder el menú.
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final onPrimary = Theme.of(context).colorScheme.onSurface;
     final searchExpanded = _searchExpanded;
     // Todo (menú, título, pestañas, buscador e íconos) en una sola línea:
     // cuando el buscador está colapsado (el caso normal) deja ver el resto;
     // al desplegarlo, ocupa el espacio de las pestañas mientras se escribe.
     final hasDrawer = Scaffold.maybeOf(context)?.hasDrawer ?? false;
     final searchBar = Material(
-      color: Theme.of(context).colorScheme.primary,
-      child: SafeArea(
+      color: Theme.of(context).cardColor,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+        ),
+        child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               if (searchExpanded) ...[
@@ -1018,6 +1080,7 @@ class _PosScreenState extends State<PosScreen> {
             ],
           ),
         ),
+        ),
       ),
     );
 
@@ -1106,6 +1169,7 @@ class _PosScreenState extends State<PosScreen> {
                       flex: 3,
                       child: Column(
                         children: [
+                          titleRow,
                           if (banner != null) banner,
                           searchBar,
                           Expanded(child: filtersAndGrid),
@@ -1129,6 +1193,7 @@ class _PosScreenState extends State<PosScreen> {
         // venta rápida quedan al final, abajo de todo.
         return Column(
           children: [
+            titleRow,
             if (banner != null) banner,
             searchBar,
             ConstrainedBox(
@@ -1398,31 +1463,22 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   /// Solo aparece si el producto controla inventario (igual que "Agotado").
+  /// Color según estado (verde con stock normal, ámbar con stock bajo, rojo
+  /// agotado) — antes era siempre un pill gris/negro sin distinguir estado.
   /// Tocarlo abre el popup para editar el stock (ver _editStock) — el resto
   /// del mosaico sigue agregando el producto al carrito con normalidad.
   Widget _stockBadge(Product product, {required bool overlay}) {
     if (!product.trackStock) return const SizedBox.shrink();
-    final label = product.isSoldByWeight
-        ? product.stockQuantity.toStringAsFixed(3)
-        : formatNumberCl(product.stockQuantity);
-    final fg = overlay ? Colors.white : Colors.black87;
+    final outOfStock = product.stockQuantity <= 0;
+    final label = outOfStock
+        ? 'Agotado'
+        : 'Stock: ${product.isSoldByWeight ? product.stockQuantity.toStringAsFixed(3) : formatNumberCl(product.stockQuantity)}';
+    final tone = outOfStock
+        ? StatusBadgeTone.danger
+        : (product.isLowStock ? StatusBadgeTone.warning : StatusBadgeTone.ok);
     return GestureDetector(
       onTap: () => _editStock(product),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: BoxDecoration(
-          color: overlay ? Colors.black.withOpacity(0.6) : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inventory_2_outlined, size: 12, color: fg),
-            const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
-          ],
-        ),
-      ),
+      child: StatusBadge(label: label, tone: tone, dense: true),
     );
   }
 
@@ -1504,13 +1560,8 @@ class _PosScreenState extends State<PosScreen> {
             maxLines: 2,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
           ),
-          if (outOfStock)
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true),
-            ),
         ],
       ),
     );

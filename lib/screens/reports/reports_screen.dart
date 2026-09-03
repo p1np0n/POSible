@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/category.dart';
 import '../../models/product.dart';
@@ -7,6 +8,7 @@ import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/reports_repository.dart';
 import '../../services/stock_movement_repository.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
@@ -262,7 +264,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               '${percentChange >= 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}% vs período anterior',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: percentChange >= 0 ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.w700,
+                                color: percentChange >= 0
+                                    ? AppSemanticColors.of(context).success
+                                    : Theme.of(context).colorScheme.error,
                               ),
                             ),
                         ],
@@ -273,8 +278,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   Expanded(
                     child: _StatCard(
                       label: 'Transacciones',
-                      child: Text(formatNumberCl(summary.transactionCount),
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      child: Text(formatNumberCl(summary.transactionCount)),
                     ),
                   ),
                 ],
@@ -288,13 +292,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: CurrencyText(_inboundCostTotal, bold: true),
             ),
             const SizedBox(height: 16),
-            Text('Hoy vs. ayer', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            _BarChartFrame(
-              barCount: 2,
-              values: [_yesterdayTotal, _todayTotal],
-              labelFor: (index) => index == 0 ? 'Ayer' : 'Hoy',
-              color: Theme.of(context).colorScheme.primary,
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Hoy vs. ayer', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 18),
+                    _TodayVsYesterdayChart(yesterday: _yesterdayTotal, today: _todayTotal),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             // El resto va en secciones plegables: antes era una sola lista
@@ -660,6 +669,10 @@ class _ProductStatusCard extends StatelessWidget {
   }
 }
 
+/// Tarjeta de KPI: etiqueta chica gris arriba y un número grande (Space
+/// Grotesk 26px/700, ej. precios y totales) abajo — el estilo grande se
+/// aplica vía `DefaultTextStyle` para que cualquier `CurrencyText`/`Text`
+/// sin estilo propio dentro de [child] lo herede automáticamente.
 class _StatCard extends StatelessWidget {
   final String label;
   final Widget child;
@@ -668,15 +681,19 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: const Color(0xFF616161))),
-            const SizedBox(height: 8),
-            child,
+            Text(label, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12.5, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            DefaultTextStyle.merge(
+              style: GoogleFonts.spaceGrotesk(fontSize: 26, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+              child: child,
+            ),
           ],
         ),
       ),
@@ -778,6 +795,59 @@ class _MonthlyBarChart extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Comparación "Hoy vs. ayer": dos barras simples con el monto arriba y la
+/// etiqueta abajo (sin grilla ni eje) — la barra de "ayer" queda neutra y la
+/// de "hoy" en el color de marca, para que se note de un vistazo cuál es
+/// cuál sin tener que leer la leyenda.
+class _TodayVsYesterdayChart extends StatelessWidget {
+  final double yesterday;
+  final double today;
+
+  const _TodayVsYesterdayChart({required this.yesterday, required this.today});
+
+  static const _maxBarHeight = 150.0;
+  static const _barWidth = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final maxValue = today > yesterday ? today : yesterday;
+    double heightFor(double value) => maxValue <= 0 ? 4 : (value / maxValue) * _maxBarHeight;
+
+    Widget bar({required double value, required String label, required Color color}) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            formatCurrencyCl(value),
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: _barWidth,
+            height: heightFor(value).clamp(4, _maxBarHeight),
+            decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(top: Radius.circular(8))),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+        ],
+      );
+    }
+
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          bar(value: yesterday, label: 'Ayer', color: colorScheme.outlineVariant),
+          const SizedBox(width: 56),
+          bar(value: today, label: 'Hoy', color: colorScheme.primary),
+        ],
+      ),
     );
   }
 }
