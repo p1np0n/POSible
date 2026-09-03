@@ -89,6 +89,7 @@ class _PosScreenState extends State<PosScreen> {
   bool _showTopSelling = false;
   String _search = '';
   int _searchSyncId = 0;
+  Timer? _searchSyncDebounce;
   bool _loading = true;
   String? _error;
   int _openTicketCount = 0;
@@ -140,6 +141,7 @@ class _PosScreenState extends State<PosScreen> {
   @override
   void dispose() {
     _scannerFocusWatchdog?.cancel();
+    _searchSyncDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -548,7 +550,13 @@ class _PosScreenState extends State<PosScreen> {
 
   void _onSearchChanged(String value) {
     setState(() => _search = value);
-    _syncSearchFromServer(value);
+    // Sin esperar un poco, cada letra tecleada mandaba su propia consulta
+    // al servidor (buscar "coca cola" eran 9 consultas en vez de 1) — el
+    // filtro local ya responde al instante con lo que hay en memoria, así
+    // que esta sincronización con el servidor puede esperar a que la
+    // persona deje de escribir.
+    _searchSyncDebounce?.cancel();
+    _searchSyncDebounce = Timer(const Duration(milliseconds: 400), () => _syncSearchFromServer(value));
   }
 
   /// "_products" se carga una sola vez al entrar a Ventas. Si mientras
@@ -1481,7 +1489,7 @@ class _PosScreenState extends State<PosScreen> {
       fit: StackFit.expand,
       children: [
         Image.network(
-          product.imageUrl!,
+          product.thumbnailUrl ?? product.imageUrl!,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200),
         ),
@@ -1566,7 +1574,11 @@ class _PosScreenState extends State<PosScreen> {
         final product = products[index];
         final outOfStock = product.trackStock && product.stockQuantity <= 0;
         return ListTile(
-          leading: ProductAvatar(name: product.name, categoryId: product.categoryId, imageUrl: product.imageUrl),
+          leading: ProductAvatar(
+            name: product.name,
+            categoryId: product.categoryId,
+            imageUrl: product.thumbnailUrl ?? product.imageUrl,
+          ),
           title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
           subtitle: !product.trackStock
               ? null
@@ -1765,7 +1777,9 @@ class _ProductPickerDialogState extends State<_ProductPickerDialog> {
                             final p = _results[index];
                             return ListTile(
                               leading: CircleAvatar(
-                                backgroundImage: p.imageUrl != null ? NetworkImage(p.imageUrl!) : null,
+                                backgroundImage: (p.thumbnailUrl ?? p.imageUrl) != null
+                                    ? NetworkImage((p.thumbnailUrl ?? p.imageUrl)!)
+                                    : null,
                                 child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
                               ),
                               title: Text(p.name),

@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingGoogleSearchConfig = false;
   bool _changingPassword = false;
   bool _fillingPhotos = false;
+  bool _generatingThumbnails = false;
 
   @override
   void initState() {
@@ -155,6 +156,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final message = await _repository.fillMissingPhotosNow();
     if (mounted) {
       setState(() => _fillingPhotos = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _generateThumbnailsNow() async {
+    setState(() => _generatingThumbnails = true);
+    final message = await _repository.generateThumbnailsNow();
+    if (mounted) {
+      setState(() => _generatingThumbnails = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
@@ -376,6 +386,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: _savingGoogleSearchConfig
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Guardar'),
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Text('Ahorrar ancho de banda de las fotos', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text(
+                'Las fotos nuevas que subas generan sola una versión chica (miniatura) que '
+                'usan el mosaico de Ventas y las listas en vez de la foto completa — pesa '
+                'mucho menos ancho de banda. Para que los productos que ya tenían foto de '
+                'antes también la tengan, corre esto una vez (requiere activar la función '
+                '"generate-thumbnails" en Supabase — ver LEEME.md). Si dice que quedan más '
+                'pendientes, tócalo de nuevo.',
+                style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _generatingThumbnails ? null : _generateThumbnailsNow,
+                child: _generatingThumbnails
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Generar miniaturas de fotos existentes'),
               ),
               const SizedBox(height: 32),
               const Divider(),

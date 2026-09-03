@@ -953,3 +953,35 @@ columna nueva. No borra nada de lo que ya tienes.
   "Productos sin stock" y "Productos con stock bajo" (estas dos no
   dependen del rango de fechas elegido arriba, siempre muestran el
   estado actual).
+
+## Ahorro de ancho de banda: miniaturas de fotos + buscador de Ventas más liviano
+
+Si Supabase te avisó que te estás acercando al límite de ancho de banda
+mensual (5GB en el plan free), esto ayuda bastante: las fotos de producto
+son, con diferencia, lo que más pesa de la app, y hasta ahora se mostraba
+la foto completa (hasta 1024px) hasta en el ícono chico de una lista.
+
+- **Miniaturas de fotos**: hay una Edge Function nueva, "generate-thumbnails"
+  (activarla en Supabase → Edge Functions, igual que las demás — ver más
+  abajo), que genera una versión chica (220px, liviana) de cada foto. Las
+  fotos que subas de ahora en adelante generan su miniatura solas, sin que
+  hagas nada. Para las que ya tenías antes de este cambio, ve a
+  **Configuración → "Generar miniaturas de fotos existentes"** y toca el
+  botón (si dice que quedan más pendientes, tócalo de nuevo hasta que
+  diga que no queda ninguna). El mosaico de Ventas, Lista de artículos y
+  los demás lugares donde se ve una foto chica ya usan la miniatura en vez
+  de la foto completa — la foto completa se sigue guardando igual, por si
+  la necesitas en el futuro.
+  - **Cómo activar la función**: en tu proyecto de Supabase, ve a "Edge
+    Functions", crea una función nueva llamada exactamente
+    "generate-thumbnails", pega todo el contenido de
+    `supabase/functions/generate-thumbnails/index.ts` y dale Deploy.
+  - **También hay que volver a correr `sql/schema.sql`** en el editor SQL
+    de Supabase — agrega la columna `thumbnail_url` a `products`. No borra
+    nada existente.
+- **El buscador de Ventas ya no manda una consulta por cada letra**: antes,
+  escribir "coca cola" en el buscador de Ventas mandaba 9 consultas al
+  servidor (una por letra); ahora espera un instante después de que dejas
+  de escribir antes de sincronizar con el servidor — el filtro local (lo
+  que ya ves mientras escribes) sigue siendo instantáneo, esto solo afecta
+  a una sincronización de respaldo que corre por detrás.

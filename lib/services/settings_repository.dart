@@ -95,4 +95,41 @@ class SettingsRepository {
       return 'No se pudo conectar con la función "fill-missing-photos". ¿Ya la creaste en Supabase? ($e)';
     }
   }
+
+  /// Llama a la Edge Function "generate-thumbnails" (ver LEEME.md para
+  /// activarla) para generarle una miniatura chica a los productos que
+  /// tienen foto pero todavía no tienen una — una tanda por corrida.
+  /// Devuelve un mensaje para mostrarle al usuario.
+  Future<String> generateThumbnailsNow() async {
+    try {
+      final res = await _client.functions.invoke('generate-thumbnails', body: {'limit': 200});
+      final data = res.data;
+      if (res.status == 200 && data is Map) {
+        final updated = data['updated'] ?? 0;
+        final processed = data['processed'] ?? 0;
+        if (processed == 0) return 'No hay fotos pendientes de miniatura.';
+        final hasMore = data['hasMore'] == true;
+        return 'Listo: se generó miniatura a $updated de $processed foto(s) revisadas.'
+            '${hasMore ? ' Quedan más pendientes — toca el botón de nuevo para seguir.' : ''}';
+      }
+      if (data is Map && data['error'] != null) return 'Error: ${data['error']}';
+      return 'Error inesperado (código ${res.status})';
+    } catch (e) {
+      return 'No se pudo conectar con la función "generate-thumbnails". ¿Ya la creaste en Supabase? ($e)';
+    }
+  }
+
+  /// Le pide a la misma función que le genere (o regenere) la miniatura a
+  /// UN producto puntual — se llama sola justo después de subirle una foto
+  /// nueva, sin bloquear el guardado si falla (la miniatura es una mejora
+  /// de ancho de banda, no algo de lo que dependa poder vender el producto).
+  Future<void> generateThumbnailForProduct(String productId) async {
+    try {
+      await _client.functions.invoke('generate-thumbnails', body: {'productId': productId});
+    } catch (_) {
+      // Silencioso a propósito: si la función no está desplegada todavía,
+      // el producto simplemente se queda mostrando la foto completa hasta
+      // que se despliegue y se corra el backfill manual.
+    }
+  }
 }

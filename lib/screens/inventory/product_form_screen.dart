@@ -61,6 +61,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _trackStock = true;
   String? _categoryId;
   String? _imageUrl;
+  // true si se subió una foto nueva en esta sesión de edición (no si ya
+  // tenía una de antes) — así al guardar solo se le pide a
+  // "generate-thumbnails" que genere miniatura cuando hace falta, no en
+  // cada edición de precio/stock/etc.
+  bool _photoChangedThisSession = false;
   double? _suggestedPrice;
   String _pricingType = 'fixed';
   bool _promoEnabled = false;
@@ -213,10 +218,21 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     );
 
     try {
+      String savedProductId;
       if (_isEditing) {
-        await _repository.update(widget.product!.id, product);
+        savedProductId = widget.product!.id;
+        await _repository.update(savedProductId, product);
       } else {
-        await _repository.create(product);
+        savedProductId = (await _repository.create(product)).id;
+      }
+      // Si se subió/eligió una foto nueva en esta sesión, se le pide a la
+      // Edge Function que le genere la miniatura ahora — sin esperar la
+      // respuesta ni bloquear el guardado (es una mejora de ancho de
+      // banda, no algo de lo que dependa poder vender el producto; si la
+      // función no está desplegada, no pasa nada, sigue mostrando la foto
+      // completa hasta que se despliegue y se corra el backfill manual).
+      if (_photoChangedThisSession && _imageUrl != null) {
+        unawaited(_settingsRepository.generateThumbnailForProduct(savedProductId));
       }
       // Aportamos este producto al catálogo global (compartido entre todas
       // tus tiendas), con o sin código de barras, para que las demás tiendas
@@ -292,7 +308,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _looking = false;
       if (entry != null) {
         if (_nameController.text.trim().isEmpty) _nameController.text = entry.name;
-        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) {
+          _imageUrl = entry.imageUrl;
+          _photoChangedThisSession = true;
+        }
         _suggestedPrice = entry.suggestedPrice;
         if (entry.suggestedPrice != null &&
             entry.suggestedPrice! > 0 &&
@@ -348,7 +367,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (!mounted) return;
     setState(() {
       _nameController.text = entry.name;
-      if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) _imageUrl = entry.imageUrl;
+      if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) {
+        _imageUrl = entry.imageUrl;
+        _photoChangedThisSession = true;
+      }
       if (entry.barcode != null && entry.barcode!.isNotEmpty) _barcodeController.text = entry.barcode!;
       _suggestedPrice = entry.suggestedPrice;
       if (entry.suggestedPrice != null && entry.suggestedPrice! > 0) {
@@ -426,7 +448,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       final result = await _photoService.pickAndUploadPhoto(source);
       if (result == null || !mounted) return;
       final (url, bytes) = result;
-      setState(() => _imageUrl = url);
+      setState(() {
+        _imageUrl = url;
+        _photoChangedThisSession = true;
+      });
       if (_nameController.text.trim().isEmpty) {
         unawaited(_suggestNameFromPhoto(bytes));
       }
