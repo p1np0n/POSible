@@ -681,7 +681,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   : ProductAvatar(
                                       name: product.name,
                                       categoryId: product.categoryId,
-                                      imageUrl: product.imageUrl,
+                                      imageUrl: product.thumbnailUrl ?? product.imageUrl,
                                     ),
                               selected: selected,
                               title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),

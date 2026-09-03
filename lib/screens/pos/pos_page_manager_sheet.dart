@@ -246,7 +246,9 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
                 ...searchResults.map((p) => ListTile(
                       dense: true,
                       leading: CircleAvatar(
-                        backgroundImage: p.imageUrl != null ? NetworkImage(p.imageUrl!) : null,
+                        backgroundImage: (p.thumbnailUrl ?? p.imageUrl) != null
+                            ? NetworkImage((p.thumbnailUrl ?? p.imageUrl)!)
+                            : null,
                         child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
                       ),
                       title: Text(p.name),

@@ -109,6 +109,12 @@ alter table products add column if not exists promo_ends_at timestamptz;
 -- descuento a mano.
 alter table products add column if not exists expiration_date date;
 
+-- Versión chica de "image_url", generada por la Edge Function
+-- "generate-thumbnails" (ver LEEME.md) — el mosaico de Ventas y las listas
+-- la usan en vez de la foto completa para gastar mucho menos ancho de
+-- banda; la actualiza solo la función, la app nunca la escribe directo.
+alter table products add column if not exists thumbnail_url text;
+
 -- Columna calculada (PostgREST la expone como si fuera una columna más de
 -- "products") para poder filtrar por nombre/código sin distinguir tildes:
 -- la app manda el término de búsqueda ya pasado por el mismo

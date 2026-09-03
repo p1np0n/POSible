@@ -7,6 +7,14 @@ class Product {
   final String? sku;
   final String? barcode;
   final String? imageUrl;
+
+  /// Versión chica de [imageUrl] (generada por la Edge Function
+  /// "generate-thumbnails" — ver LEEME.md), pensada para mostrarse en
+  /// mosaicos/listas/avatares en vez de la foto completa, que pesa mucho
+  /// más de lo necesario para un ícono chico. null si todavía no se generó
+  /// (productos con foto de antes de este cambio, o mientras corre la
+  /// función) — los lugares que la muestran caen de vuelta a [imageUrl].
+  final String? thumbnailUrl;
   final double stockQuantity;
   final bool trackStock;
   final bool active;
@@ -59,6 +67,7 @@ class Product {
     this.sku,
     this.barcode,
     this.imageUrl,
+    this.thumbnailUrl,
     required this.stockQuantity,
     required this.trackStock,
     required this.active,
@@ -153,7 +162,14 @@ class Product {
   /// barras), el nombre (ej. el nombre propio de un botón de venta rápida
   /// en una pestaña, distinto del nombre real del producto) y/o el stock
   /// (ej. al editarlo rápido desde el mosaico de Ventas).
-  Product copyWith({String? name, double? price, String? imageUrl, double? stockQuantity, bool? archived}) =>
+  Product copyWith({
+    String? name,
+    double? price,
+    String? imageUrl,
+    String? thumbnailUrl,
+    double? stockQuantity,
+    bool? archived,
+  }) =>
       Product(
         id: id,
         name: name ?? this.name,
@@ -163,6 +179,7 @@ class Product {
         sku: sku,
         barcode: barcode,
         imageUrl: imageUrl ?? this.imageUrl,
+        thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
         stockQuantity: stockQuantity ?? this.stockQuantity,
         trackStock: trackStock,
         active: active,
@@ -187,6 +204,7 @@ class Product {
         sku: map['sku'] as String?,
         barcode: map['barcode'] as String?,
         imageUrl: map['image_url'] as String?,
+        thumbnailUrl: map['thumbnail_url'] as String?,
         stockQuantity: (map['stock_quantity'] as num).toDouble(),
         trackStock: map['track_stock'] as bool,
         active: map['active'] as bool,

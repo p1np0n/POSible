@@ -145,7 +145,7 @@ class _ArchivedProductsScreenState extends State<ArchivedProductsScreen> {
                                   leading: ProductAvatar(
                                     name: product.name,
                                     categoryId: product.categoryId,
-                                    imageUrl: product.imageUrl,
+                                    imageUrl: product.thumbnailUrl ?? product.imageUrl,
                                   ),
                                   title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                                   subtitle: Text(
