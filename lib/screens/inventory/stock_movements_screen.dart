@@ -5,6 +5,7 @@ import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../models/stock_movement.dart';
 import '../../providers/app_preferences_provider.dart';
+import '../../providers/product_cache_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/stock_movement_repository.dart';
@@ -57,21 +58,27 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
     super.dispose();
   }
 
+  /// Los productos vienen del caché compartido con Ventas (ver
+  /// ProductCacheProvider) — se piden una sola vez por sesión, no cada vez
+  /// que se vuelve a esta pestaña, para no gastar ancho de banda de más.
+  /// Movimientos recientes y el total de uso propio sí se piden frescos
+  /// siempre, son livianos y pueden haber cambiado desde otro dispositivo.
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
+      final productCache = context.read<ProductCacheProvider>();
       final results = await Future.wait([
-        _productRepository.getAll(),
+        productCache.ensureLoaded(),
         _categoryRepository.getAll(),
         _movementRepository.getRecent(),
         _movementRepository.getOwnerUseTotal(),
       ]);
       if (!mounted) return;
       setState(() {
-        _products = results[0] as List<Product>;
+        _products = productCache.products;
         _categories = results[1] as List<Category>;
         _movements = results[2] as List<StockMovement>;
         _ownerUseTotal = results[3] as double;
@@ -84,6 +91,15 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Vuelve a pedir el catálogo entero al servidor (a diferencia de
+  /// [_load], que reusa el caché compartido si ya estaba cargado) — para
+  /// cuando de verdad hace falta ver un cambio reflejado al toque: tras
+  /// registrar un movimiento, crear un producto, o importar una factura.
+  Future<void> _reloadCatalogAndData() async {
+    await context.read<ProductCacheProvider>().refresh();
+    await _load();
   }
 
   List<Product> get _articleTabProducts {
@@ -141,7 +157,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
       MaterialPageRoute(builder: (_) => InvoiceScanScreen(products: _products)),
     );
     if (result == null || !mounted) return;
-    _load();
+    _reloadCatalogAndData();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
         '${result['updated']} producto(s) actualizados, ${result['created']} creados. '
@@ -178,7 +194,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
       _search = '';
       _selectedCategoryId = null;
     });
-    _load();
+    _reloadCatalogAndData();
   }
 
   Future<void> _promptMovement(Product product) async {
@@ -313,7 +329,7 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
       if (!mounted) return;
       _searchController.clear();
       setState(() => _search = '');
-      _load();
+      _reloadCatalogAndData();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(type == 'in'
             ? '+${formatNumberCl(quantity)} ${product.name}'
@@ -361,7 +377,10 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
     final products = _articleTabProducts;
 
     return RefreshIndicator(
-      onRefresh: _load,
+      // Deslizar hacia abajo para refrescar vuelve a pedir el catálogo
+      // completo (no solo lo que ya estaba en caché) — el gesto natural
+      // para "quiero ver los cambios ahora mismo".
+      onRefresh: _reloadCatalogAndData,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -445,7 +464,10 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
     final movements = _filteredMovements;
 
     return RefreshIndicator(
-      onRefresh: _load,
+      // Deslizar hacia abajo para refrescar vuelve a pedir el catálogo
+      // completo (no solo lo que ya estaba en caché) — el gesto natural
+      // para "quiero ver los cambios ahora mismo".
+      onRefresh: _reloadCatalogAndData,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [

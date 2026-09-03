@@ -985,3 +985,14 @@ la foto completa (hasta 1024px) hasta en el ícono chico de una lista.
   de escribir antes de sincronizar con el servidor — el filtro local (lo
   que ya ves mientras escribes) sigue siendo instantáneo, esto solo afecta
   a una sincronización de respaldo que corre por detrás.
+- **El catálogo de productos ya no se vuelve a descargar completo cada vez
+  que cambias de pestaña**: antes, Ventas y Movimientos de stock pedían
+  el catálogo entero cada vez que se entraba a esas pantallas — cambiar
+  de Ventas a Turno y volver, varias veces por turno, bajaba todo el
+  catálogo de nuevo cada vez. Ahora se pide una sola vez por sesión y se
+  comparte entre esas dos pantallas; **deslizar hacia abajo para
+  refrescar** ("pull to refresh", el mismo gesto de siempre) sí vuelve a
+  pedirlo completo — úsalo si sabes que otro dispositivo cambió algo y
+  quieres verlo ya. Crear o editar un producto completo, ajustar stock, o
+  importar una factura también actualizan el catálogo solos, sin que
+  tengas que hacer nada.

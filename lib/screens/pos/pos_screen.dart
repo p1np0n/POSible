@@ -15,6 +15,7 @@ import '../../models/product.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
+import '../../providers/product_cache_provider.dart';
 import '../../providers/store_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/customer_repository.dart';
@@ -153,8 +154,9 @@ class _PosScreenState extends State<PosScreen> {
       _error = null;
     });
     try {
+      final productCache = context.read<ProductCacheProvider>();
       final results = await Future.wait([
-        _productRepository.getAll(),
+        productCache.ensureLoaded(),
         _categoryRepository.getAll(),
         _modifierRepository.getAll(onlyActive: true),
         _reportsRepository.getTopSellingProductIds(),
@@ -168,7 +170,11 @@ class _PosScreenState extends State<PosScreen> {
       for (final item in allItems) {
         grouped.putIfAbsent(item.pageId, () => []).add(item);
       }
-      var products = results[0] as List<Product>;
+      // El catálogo en sí viene del caché compartido (ver
+      // ProductCacheProvider) — se pide una sola vez por sesión, no cada
+      // vez que se vuelve a esta pestaña, para no gastar ancho de banda de
+      // más. "Actualizar catálogo" (botón de la barra) lo refresca a mano.
+      var products = productCache.products;
       // Una pestaña puede tener agregado un producto que, por lo que sea, no
       // quedó en este catálogo recién cargado (ej. se agregó desde otra
       // pantalla justo antes) — sin esto, esa pestaña lo mostraría como
@@ -187,7 +193,11 @@ class _PosScreenState extends State<PosScreen> {
         // Un producto archivado no debe volver a aparecer en Ventas por
         // este camino tampoco (ver getAll(), que ya lo excluye del
         // catálogo principal más arriba).
-        products = [...products, ...missing.where((p) => !p.archived)];
+        final newlyFound = missing.where((p) => !p.archived).toList();
+        products = [...products, ...newlyFound];
+        for (final p in newlyFound) {
+          productCache.upsertLocal(p);
+        }
       }
       setState(() {
         _products = products;
@@ -471,6 +481,7 @@ class _PosScreenState extends State<PosScreen> {
       ));
       if (!mounted) return;
       setState(() => _products = _sortedByName([..._products, created]));
+      context.read<ProductCacheProvider>().upsertLocal(created);
       try {
         await _catalogRepository.upsert(barcode: barcode, name: name, suggestedPrice: price, source: 'store');
       } catch (_) {
@@ -575,6 +586,10 @@ class _PosScreenState extends State<PosScreen> {
     final missing = results.where((p) => !knownIds.contains(p.id)).toList();
     if (missing.isEmpty) return;
     setState(() => _products = _sortedByName([..._products, ...missing]));
+    final productCache = context.read<ProductCacheProvider>();
+    for (final p in missing) {
+      productCache.upsertLocal(p);
+    }
   }
 
   /// Productos de una pestaña personalizada: los agregados uno por uno, más
@@ -668,11 +683,11 @@ class _PosScreenState extends State<PosScreen> {
     try {
       await _productRepository.adjustStock(product.id, newStock - product.stockQuantity);
       if (!mounted) return;
+      final updated = product.copyWith(stockQuantity: newStock);
       setState(() {
-        _products = _products
-            .map((p) => p.id == product.id ? p.copyWith(stockQuantity: newStock) : p)
-            .toList();
+        _products = _products.map((p) => p.id == product.id ? updated : p).toList();
       });
+      context.read<ProductCacheProvider>().upsertLocal(updated);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al actualizar el stock: $e')));
@@ -792,11 +807,21 @@ class _PosScreenState extends State<PosScreen> {
     _refocusSearch();
   }
 
+  /// Vuelve a pedir el catálogo entero al servidor (a diferencia de
+  /// [_loadData], que reusa el caché compartido si ya estaba cargado) —
+  /// para cuando de verdad hace falta ver un cambio reflejado al toque:
+  /// tras crear/editar un producto completo, o al tocar "Actualizar
+  /// catálogo" a mano.
+  Future<void> _reloadCatalogAndData() async {
+    await context.read<ProductCacheProvider>().refresh();
+    await _loadData();
+  }
+
   Future<void> _addProduct() async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ProductFormScreen(categories: _categories)),
     );
-    if (changed == true) _loadData();
+    if (changed == true) await _reloadCatalogAndData();
     _refocusSearch();
   }
 
@@ -806,7 +831,7 @@ class _PosScreenState extends State<PosScreen> {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ProductFormScreen(product: product, categories: _categories)),
     );
-    if (changed == true) _loadData();
+    if (changed == true) await _reloadCatalogAndData();
     _refocusSearch();
   }
 
@@ -1092,7 +1117,11 @@ class _PosScreenState extends State<PosScreen> {
       // normal de la lista/mosaico.
       onHorizontalDragEnd: _handleQuickTabSwipe,
       child: RefreshIndicator(
-        onRefresh: _loadData,
+        // Deslizar hacia abajo para refrescar ahora vuelve a pedir el
+        // catálogo completo (no solo lo que ya estaba en caché) — es el
+        // gesto natural para "quiero ver los cambios ahora mismo" sin
+        // tener que agregar un botón aparte.
+        onRefresh: _reloadCatalogAndData,
         child: Column(
           children: [
             Padding(
