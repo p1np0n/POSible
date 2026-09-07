@@ -637,6 +637,43 @@ as $$
   select coalesce((select is_super_admin from public.profiles where id = auth.uid()), false);
 $$;
 
+-- Seguridad: la política de "profiles" para update (más abajo) exige estar
+-- aprobado, pero RLS es por fila, no por columna — sin esto, cualquier
+-- empleado aprobado podía, llamando directo a la API REST (sin pasar por la
+-- app), poner is_super_admin = true en su propio perfil o mover cualquier
+-- perfil de su tienda a otra, y de ahí escalar privilegios (ver
+-- manage-employee, que confía en is_super_admin para saltarse el límite de
+-- tienda al restablecer una contraseña). Este trigger bloquea cambiar esas
+-- dos columnas salvo que quien hace el update ya sea super admin.
+--
+-- El chequeo se salta cuando auth.uid() es null (no hay sesión de usuario
+-- autenticado) porque ese es exactamente el caso de correr sql/schema.sql
+-- de nuevo a mano en el editor SQL de Supabase (el bootstrap del
+-- administrador principal, más abajo, hace ese update sin pasar por la
+-- API) — nunca el de un empleado usando la app o la API REST con su propia
+-- sesión, que es el único camino que hay que bloquear.
+create or replace function public.prevent_privilege_escalation()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.uid() is not null and not public.is_super_admin() then
+    if new.is_super_admin is distinct from old.is_super_admin then
+      raise exception 'No autorizado para cambiar este campo';
+    end if;
+    if new.store_id is distinct from old.store_id then
+      raise exception 'No autorizado para cambiar este campo';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_privilege_escalation on profiles;
+create trigger prevent_privilege_escalation
+  before update on profiles
+  for each row execute function public.prevent_privilege_escalation();
+
 -- Los perfiles y la aprobación de empleados quedan limitados a la propia
 -- tienda: un dueño de tienda no puede ver ni aprobar empleados de otra. El
 -- administrador principal sí puede VER los de cualquier tienda (para poder
