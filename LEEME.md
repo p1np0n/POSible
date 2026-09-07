@@ -1021,3 +1021,18 @@ Supabase para que quede aplicado (ya lo apliqué directamente en tu
 proyecto real también, así que en principio ya está activo — correrlo de
 nuevo no hace daño, es idempotente). No hace falta redeployar ninguna
 Edge Function para esto.
+
+## Seguridad: el aviso de inventario bajo ya no mezcla productos de otras tiendas
+
+La función "notify-low-stock" (el aviso por correo cuando algo se queda con
+poco stock) revisaba el inventario de **todas las tiendas juntas** en vez de
+solo la tuya, y siempre mandaba el correo a la dirección configurada en la
+primera tienda que se creó — sin importar cuál tienda lo disparara. Ya está
+arreglado: cada tienda revisa y recibe solo lo suyo. De paso, si el nombre
+de un producto tuviera caracteres raros de HTML, ya no quedan sin escapar
+en el correo.
+
+**No hace falta que hagas nada** — ya redesplegué la función en tu proyecto
+real. Si la activaste con un cron diario (Database → Cron Jobs), sigue
+funcionando igual, ahora revisando cada tienda con correo configurado por
+separado.
