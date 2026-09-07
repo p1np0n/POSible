@@ -14,6 +14,7 @@ import '../../utils/date_format_es.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/product_avatar.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'invoice_scan_screen.dart';
 import 'product_form_screen.dart';
@@ -327,8 +328,10 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
         costAtTime: (type == 'owner_use' || type == 'in') ? product.cost : null,
       );
       if (!mounted) return;
-      _searchController.clear();
-      setState(() => _search = '');
+      // A propósito NO se limpia el buscador acá: registrar varios
+      // movimientos seguidos sobre productos parecidos (ej. "coca") es
+      // mucho más cómodo si la búsqueda queda como estaba, en vez de
+      // tener que volver a escribirla después de cada uno.
       _reloadCatalogAndData();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(type == 'in'
@@ -440,6 +443,11 @@ class _StockMovementsScreenState extends State<StockMovementsScreen> {
             ...products.map((p) => Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
+                    leading: ProductAvatar(
+                      name: p.name,
+                      categoryId: p.categoryId,
+                      imageUrl: p.thumbnailUrl ?? p.imageUrl,
+                    ),
                     title: Text(p.name),
                     subtitle: Text(_categoryName(p.categoryId) ?? 'Sin categoría'),
                     trailing: p.trackStock
