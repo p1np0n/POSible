@@ -996,3 +996,28 @@ la foto completa (hasta 1024px) hasta en el ícono chico de una lista.
   quieres verlo ya. Crear o editar un producto completo, ajustar stock, o
   importar una factura también actualizan el catálogo solos, sin que
   tengas que hacer nada.
+
+## Seguridad: arreglo de un problema serio (cualquier empleado podía volverse administrador principal)
+
+Una auditoría de seguridad encontró que la regla que protege la tabla de
+empleados (`profiles`) en Supabase revisaba que la persona estuviera
+aprobada, pero **no revisaba qué campos podía cambiar** — así que un
+empleado cualquiera, aprobado, podía (llamando directo a la API de
+Supabase, no desde la app) marcarse a sí mismo como "administrador
+principal". Eso es grave porque el administrador principal puede
+restablecer la contraseña de cualquier usuario de cualquier tienda desde
+"Tiendas" — o sea, en el peor caso alguien podía terminar con acceso a
+cuentas de otros negocios.
+
+**Ya está arreglado**: se agregó una regla en la base de datos (un
+"trigger") que bloquea cualquier intento de cambiar quién es
+administrador principal o a qué tienda pertenece un perfil, a menos que
+quien lo haga ya sea administrador principal. No afecta nada de lo que
+ya usas — aprobar, quitar o crear empleados sigue funcionando exactamente
+igual.
+
+**Tienes que volver a correr `sql/schema.sql`** en el editor SQL de
+Supabase para que quede aplicado (ya lo apliqué directamente en tu
+proyecto real también, así que en principio ya está activo — correrlo de
+nuevo no hace daño, es idempotente). No hace falta redeployar ninguna
+Edge Function para esto.
