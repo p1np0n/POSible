@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/time_clock_entry.dart';
+import '../utils/query_timeout.dart';
 
 class TimeClockRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -16,7 +17,8 @@ class TimeClockRepository {
         .isFilter('clock_out', null)
         .order('clock_in', ascending: false)
         .limit(1)
-        .maybeSingle();
+        .maybeSingle()
+        .withTimeout();
     return data == null ? null : TimeClockEntry.fromMap(data);
   }
 
@@ -28,7 +30,8 @@ class TimeClockRepository {
         .select()
         .eq('user_id', userId)
         .order('clock_in', ascending: false)
-        .limit(limit);
+        .limit(limit)
+        .withTimeout();
     return (data as List).map((e) => TimeClockEntry.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -38,12 +41,14 @@ class TimeClockRepository {
       'user_id': user.id,
       'user_email': user.email,
       'store_id': CurrentStore.id,
-    });
+    }).withTimeout();
   }
 
   Future<void> clockOut(String id) async {
     await _client
         .from('time_clock_entries')
-        .update({'clock_out': DateTime.now().toIso8601String()}).eq('id', id);
+        .update({'clock_out': DateTime.now().toIso8601String()})
+        .eq('id', id)
+        .withTimeout();
   }
 }

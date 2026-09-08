@@ -2,23 +2,33 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/sale.dart';
 import '../models/sale_item.dart';
+import '../utils/query_timeout.dart';
 
 class ReceiptsRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<List<Sale>> getRecent({int limit = 300}) async {
-    final data = await _client.from('sales').select().order('created_at', ascending: false).limit(limit);
+    final data = await _client
+        .from('sales')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit)
+        .withTimeout();
     return (data as List).map((e) => Sale.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<Sale>> getForSession(String cashSessionId) async {
-    final data =
-        await _client.from('sales').select().eq('cash_session_id', cashSessionId).order('created_at');
+    final data = await _client
+        .from('sales')
+        .select()
+        .eq('cash_session_id', cashSessionId)
+        .order('created_at')
+        .withTimeout();
     return (data as List).map((e) => Sale.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<SaleItem>> getItems(String saleId) async {
-    final data = await _client.from('sale_items').select().eq('sale_id', saleId);
+    final data = await _client.from('sale_items').select().eq('sale_id', saleId).withTimeout();
     return (data as List).map((e) => SaleItem.fromMap(e as Map<String, dynamic>)).toList();
   }
 }

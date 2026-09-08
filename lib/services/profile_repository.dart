@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/employee_profile.dart';
+import '../utils/query_timeout.dart';
 
 class ProfileRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -11,13 +12,13 @@ class ProfileRepository {
   Future<EmployeeProfile?> getMyProfile() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return null;
-    final data = await _client.from('profiles').select().eq('id', userId).maybeSingle();
+    final data = await _client.from('profiles').select().eq('id', userId).maybeSingle().withTimeout();
     if (data == null) return null;
     return EmployeeProfile.fromMap(data);
   }
 
   Future<List<EmployeeProfile>> getAll() async {
-    final data = await _client.from('profiles').select().order('created_at');
+    final data = await _client.from('profiles').select().order('created_at').withTimeout();
     return (data as List).map((e) => EmployeeProfile.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -25,16 +26,17 @@ class ProfileRepository {
   /// principal, desde "Tiendas", para poder restablecerles el PIN sin
   /// necesidad de iniciar sesión en esa tienda.
   Future<List<EmployeeProfile>> getForStore(String storeId) async {
-    final data = await _client.from('profiles').select().eq('store_id', storeId).order('created_at');
+    final data =
+        await _client.from('profiles').select().eq('store_id', storeId).order('created_at').withTimeout();
     return (data as List).map((e) => EmployeeProfile.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<void> setApproved(String id, bool approved) async {
-    await _client.from('profiles').update({'approved': approved}).eq('id', id);
+    await _client.from('profiles').update({'approved': approved}).eq('id', id).withTimeout();
   }
 
   Future<void> remove(String id) async {
-    await _client.from('profiles').delete().eq('id', id);
+    await _client.from('profiles').delete().eq('id', id).withTimeout();
   }
 
   /// Crea un empleado con correo y PIN desde el panel web, ya aprobado.

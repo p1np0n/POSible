@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/discount.dart';
+import '../utils/query_timeout.dart';
 
 class DiscountRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -11,27 +12,27 @@ class DiscountRepository {
     if (onlyActive) {
       query = query.eq('active', true);
     }
-    final data = await query.order('name');
+    final data = await query.order('name').withTimeout();
     return (data as List).map((e) => Discount.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<Discount?> getById(String id) async {
-    final data = await _client.from('discounts').select().eq('id', id).maybeSingle();
+    final data = await _client.from('discounts').select().eq('id', id).maybeSingle().withTimeout();
     return data == null ? null : Discount.fromMap(data);
   }
 
   Future<Discount> create(Discount discount) async {
     final data = await _client
         .from('discounts')
-        .insert({...discount.toMap(), 'store_id': CurrentStore.id}).select().single();
+        .insert({...discount.toMap(), 'store_id': CurrentStore.id}).select().single().withTimeout();
     return Discount.fromMap(data);
   }
 
   Future<void> update(String id, Discount discount) async {
-    await _client.from('discounts').update(discount.toMap()).eq('id', id);
+    await _client.from('discounts').update(discount.toMap()).eq('id', id).withTimeout();
   }
 
   Future<void> delete(String id) async {
-    await _client.from('discounts').delete().eq('id', id);
+    await _client.from('discounts').delete().eq('id', id).withTimeout();
   }
 }

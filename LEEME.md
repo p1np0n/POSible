@@ -1077,3 +1077,25 @@ tienda, y ver/cambiar las claves guardadas en Configuración (por ejemplo,
 las de búsqueda de fotos por Google). Esto no es un error, es una
 limitación conocida — permisos distintos por tipo de empleado queda como
 mejora pendiente para más adelante.
+
+## Limpieza: consultas más rápidas (índices) y con límite de tiempo consistente
+
+Dos mejoras de rendimiento de la misma auditoría, sin cambiar nada de lo que ya ves en la app:
+
+- **Índices nuevos en la base de datos**: además del que ya existía para
+  Reportes, se agregaron índices por tienda a `customers`, `cash_sessions`,
+  `cash_movements`, `discounts`, `modifiers`, `open_tickets`,
+  `time_clock_entries`, `stock_movements`, `store_settings`, y a
+  `sale_items` (por venta y por tienda). Sin esto, a medida que crece el
+  historial de una tienda, esas consultas iban a ir cada vez más lentas.
+- **Límite de tiempo consistente en las consultas**: la mayoría de las
+  consultas a Supabase ya tenían un límite de 15 segundos para no quedarse
+  "cargando" para siempre si la conexión falla — ahora lo tienen todas las
+  demás pantallas también (caja, clientes, descuentos, modificadores,
+  tickets en espera, fotos, pestañas de Ventas, catálogo global, empleados,
+  recibos, ventas, configuración, tiendas y reloj de entrada/salida).
+
+**Ya apliqué los índices directamente en tu proyecto real de Supabase.**
+También tienes que volver a correr `sql/schema.sql` en el editor SQL de
+Supabase para que quede igual en el archivo (no hace daño, es idempotente).
+No hace falta redeployar ninguna Edge Function para esto.

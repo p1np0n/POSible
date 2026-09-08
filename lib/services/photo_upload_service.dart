@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../utils/query_timeout.dart';
+
 class PhotoUploadService {
   static const _bucket = 'product-photos';
 
@@ -33,11 +35,14 @@ class PhotoUploadService {
     final extension = file.name.contains('.') ? file.name.split('.').last : 'jpg';
     final path = 'products/${DateTime.now().millisecondsSinceEpoch}.$extension';
 
-    await _client.storage.from(_bucket).uploadBinary(
+    await _client.storage
+        .from(_bucket)
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(upsert: true),
-        );
+        )
+        .withTimeout();
 
     final url = _client.storage.from(_bucket).getPublicUrl(path);
     return (url, bytes);

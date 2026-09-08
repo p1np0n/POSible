@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/store_settings.dart';
+import '../utils/query_timeout.dart';
 
 class SettingsRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -9,7 +10,8 @@ class SettingsRepository {
   Future<StoreSettings> getSettings() async {
     final storeId = CurrentStore.id;
     if (storeId == null) return StoreSettings(taxRatePercent: 0);
-    final data = await _client.from('store_settings').select().eq('store_id', storeId).maybeSingle();
+    final data =
+        await _client.from('store_settings').select().eq('store_id', storeId).maybeSingle().withTimeout();
     if (data == null) return StoreSettings(taxRatePercent: 0);
     return StoreSettings.fromMap(data);
   }
@@ -19,7 +21,7 @@ class SettingsRepository {
       'store_id': CurrentStore.id,
       'tax_rate_percent': taxRatePercent,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'store_id');
+    }, onConflict: 'store_id').withTimeout();
   }
 
   Future<void> updateDefaultMargin(double defaultMarginPercent) async {
@@ -27,7 +29,7 @@ class SettingsRepository {
       'store_id': CurrentStore.id,
       'default_margin_percent': defaultMarginPercent,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'store_id');
+    }, onConflict: 'store_id').withTimeout();
   }
 
   Future<void> updateLowStockNotifyEmail(String? email) async {
@@ -35,7 +37,7 @@ class SettingsRepository {
       'store_id': CurrentStore.id,
       'low_stock_notify_email': email,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'store_id');
+    }, onConflict: 'store_id').withTimeout();
   }
 
   Future<void> updateOcrApiKey(String? apiKey) async {
@@ -43,7 +45,7 @@ class SettingsRepository {
       'store_id': CurrentStore.id,
       'ocr_api_key': apiKey,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'store_id');
+    }, onConflict: 'store_id').withTimeout();
   }
 
   Future<void> updateGoogleSearchConfig({required String? apiKey, required String? engineId}) async {
@@ -52,7 +54,7 @@ class SettingsRepository {
       'google_search_api_key': apiKey,
       'google_search_engine_id': engineId,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'store_id');
+    }, onConflict: 'store_id').withTimeout();
   }
 
   /// Llama a la Edge Function "notify-low-stock" (ver LEEME.md para

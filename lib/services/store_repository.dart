@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/store.dart';
+import '../utils/query_timeout.dart';
 
 class MyStoreInfo {
   final bool isSuperAdmin;
@@ -20,14 +21,15 @@ class StoreRepository {
         .from('profiles')
         .select('is_super_admin, store_id')
         .eq('id', userId)
-        .maybeSingle();
+        .maybeSingle()
+        .withTimeout();
     if (profile == null) return MyStoreInfo(isSuperAdmin: false, store: null);
 
     final isSuperAdmin = profile['is_super_admin'] as bool? ?? false;
     final storeId = profile['store_id'] as String?;
     if (storeId == null) return MyStoreInfo(isSuperAdmin: isSuperAdmin, store: null);
 
-    final storeData = await _client.from('stores').select().eq('id', storeId).maybeSingle();
+    final storeData = await _client.from('stores').select().eq('id', storeId).maybeSingle().withTimeout();
     return MyStoreInfo(
       isSuperAdmin: isSuperAdmin,
       store: storeData == null ? null : Store.fromMap(storeData),
@@ -38,7 +40,7 @@ class StoreRepository {
   /// base de datos devuelven todas las tiendas si eres administrador, o
   /// únicamente la tuya si no lo eres.
   Future<List<Store>> getAllStores() async {
-    final data = await _client.from('stores').select().order('created_at');
+    final data = await _client.from('stores').select().order('created_at').withTimeout();
     return (data as List).map((e) => Store.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -53,6 +55,6 @@ class StoreRepository {
     if (featureCustomers != null) updates['feature_customers'] = featureCustomers;
     if (featureEmployees != null) updates['feature_employees'] = featureEmployees;
     if (updates.isEmpty) return;
-    await _client.from('stores').update(updates).eq('id', storeId);
+    await _client.from('stores').update(updates).eq('id', storeId).withTimeout();
   }
 }
