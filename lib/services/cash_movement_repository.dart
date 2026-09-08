@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/cash_movement.dart';
+import '../utils/query_timeout.dart';
 
 class CashMovementRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -11,7 +12,8 @@ class CashMovementRepository {
         .from('cash_movements')
         .select()
         .eq('cash_session_id', cashSessionId)
-        .order('created_at');
+        .order('created_at')
+        .withTimeout();
     return (data as List).map((e) => CashMovement.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -29,6 +31,6 @@ class CashMovementRepository {
       'user_id': _client.auth.currentUser?.id,
       'user_email': _client.auth.currentUser?.email,
       'store_id': CurrentStore.id,
-    });
+    }).withTimeout();
   }
 }

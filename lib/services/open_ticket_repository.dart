@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/open_ticket.dart';
+import '../utils/query_timeout.dart';
 
 class OpenTicketRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -13,7 +14,7 @@ class OpenTicketRepository {
   /// traer). Ahora quedan visibles hasta que alguien los retome o los
   /// borre a mano, cruzando turnos.
   Future<List<OpenTicket>> getAll() async {
-    final data = await _client.from('open_tickets').select().order('created_at');
+    final data = await _client.from('open_tickets').select().order('created_at').withTimeout();
     return (data as List).map((e) => OpenTicket.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -33,10 +34,10 @@ class OpenTicketRepository {
       'user_id': _client.auth.currentUser?.id,
       'user_email': _client.auth.currentUser?.email,
       'store_id': CurrentStore.id,
-    });
+    }).withTimeout();
   }
 
   Future<void> delete(String id) async {
-    await _client.from('open_tickets').delete().eq('id', id);
+    await _client.from('open_tickets').delete().eq('id', id).withTimeout();
   }
 }

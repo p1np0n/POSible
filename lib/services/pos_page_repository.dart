@@ -3,34 +3,37 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/current_store.dart';
 import '../models/pos_page.dart';
 import '../models/pos_page_item.dart';
+import '../utils/query_timeout.dart';
 
 class PosPageRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<List<PosPage>> getAll() async {
-    final data = await _client.from('pos_pages').select().order('sort_order').order('created_at');
+    final data =
+        await _client.from('pos_pages').select().order('sort_order').order('created_at').withTimeout();
     return (data as List).map((e) => PosPage.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<PosPage> create(String name) async {
-    final data =
-        await _client.from('pos_pages').insert({'name': name, 'store_id': CurrentStore.id}).select().single();
+    final data = await _client
+        .from('pos_pages')
+        .insert({'name': name, 'store_id': CurrentStore.id}).select().single().withTimeout();
     return PosPage.fromMap(data);
   }
 
   Future<void> rename(String id, String name) async {
-    await _client.from('pos_pages').update({'name': name}).eq('id', id);
+    await _client.from('pos_pages').update({'name': name}).eq('id', id).withTimeout();
   }
 
   Future<void> delete(String id) async {
-    await _client.from('pos_pages').delete().eq('id', id);
+    await _client.from('pos_pages').delete().eq('id', id).withTimeout();
   }
 
   /// Todos los artículos de todas las pestañas de la tienda actual, de una
   /// sola vez (se agrupan por pestaña en la app) — más simple que consultar
   /// pestaña por pestaña.
   Future<List<PosPageItem>> getAllItems() async {
-    final data = await _client.from('pos_page_items').select().order('sort_order');
+    final data = await _client.from('pos_page_items').select().order('sort_order').withTimeout();
     return (data as List).map((e) => PosPageItem.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -46,7 +49,7 @@ class PosPageRepository {
       'store_id': CurrentStore.id,
       'custom_name': customName,
       'custom_price': customPrice,
-    });
+    }).withTimeout();
   }
 
   /// Cambia el nombre y/o precio propios de un botón ya agregado a una
@@ -56,7 +59,7 @@ class PosPageRepository {
     await _client.from('pos_page_items').update({
       'custom_name': customName,
       'custom_price': customPrice,
-    }).eq('id', itemId);
+    }).eq('id', itemId).withTimeout();
   }
 
   Future<void> addCategory(String pageId, String categoryId) async {
@@ -64,10 +67,10 @@ class PosPageRepository {
       'page_id': pageId,
       'category_id': categoryId,
       'store_id': CurrentStore.id,
-    });
+    }).withTimeout();
   }
 
   Future<void> removeItem(String itemId) async {
-    await _client.from('pos_page_items').delete().eq('id', itemId);
+    await _client.from('pos_page_items').delete().eq('id', itemId).withTimeout();
   }
 }

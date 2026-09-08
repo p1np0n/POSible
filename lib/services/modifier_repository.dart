@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/modifier.dart';
+import '../utils/query_timeout.dart';
 
 class ModifierRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -11,22 +12,22 @@ class ModifierRepository {
     if (onlyActive) {
       query = query.eq('active', true);
     }
-    final data = await query.order('name');
+    final data = await query.order('name').withTimeout();
     return (data as List).map((e) => Modifier.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   Future<Modifier> create(Modifier modifier) async {
     final data = await _client
         .from('modifiers')
-        .insert({...modifier.toMap(), 'store_id': CurrentStore.id}).select().single();
+        .insert({...modifier.toMap(), 'store_id': CurrentStore.id}).select().single().withTimeout();
     return Modifier.fromMap(data);
   }
 
   Future<void> update(String id, Modifier modifier) async {
-    await _client.from('modifiers').update(modifier.toMap()).eq('id', id);
+    await _client.from('modifiers').update(modifier.toMap()).eq('id', id).withTimeout();
   }
 
   Future<void> delete(String id) async {
-    await _client.from('modifiers').delete().eq('id', id);
+    await _client.from('modifiers').delete().eq('id', id).withTimeout();
   }
 }

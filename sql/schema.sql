@@ -316,6 +316,23 @@ create unique index if not exists sales_receipt_number_idx on sales(receipt_numb
 -- puede no volver nunca (Reportes se quedaba cargando para siempre).
 create index if not exists sales_store_created_idx on sales(store_id, created_at);
 
+-- Igual que el índice de arriba: todas estas tablas se consultan siempre
+-- filtrando por tienda, y sin un índice esa búsqueda revisa la tabla
+-- entera fila por fila. Con pocas filas no se nota, pero a medida que
+-- crece el historial (turnos, movimientos de caja, etc.) se vuelve cada
+-- vez más lento — mejor tenerlos desde ahora.
+create index if not exists customers_store_idx on customers(store_id);
+create index if not exists cash_sessions_store_idx on cash_sessions(store_id);
+create index if not exists cash_movements_store_idx on cash_movements(store_id);
+create index if not exists discounts_store_idx on discounts(store_id);
+create index if not exists modifiers_store_idx on modifiers(store_id);
+create index if not exists open_tickets_store_idx on open_tickets(store_id);
+create index if not exists time_clock_entries_store_idx on time_clock_entries(store_id);
+create index if not exists stock_movements_store_idx on stock_movements(store_id);
+create index if not exists store_settings_store_idx on store_settings(store_id);
+create index if not exists sale_items_sale_id_idx on sale_items(sale_id);
+create index if not exists sale_items_store_idx on sale_items(store_id);
+
 -- Pago dividido: permite cobrar una venta repartida entre efectivo, tarjeta
 -- y otro método (ej. mitad efectivo, mitad tarjeta). "payment_method" pasa
 -- a valer 'mixed' cuando se usó más de un método.

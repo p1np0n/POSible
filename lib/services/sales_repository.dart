@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/current_store.dart';
 import '../models/cart_item.dart';
+import '../utils/query_timeout.dart';
 
 class SalesRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -48,7 +49,7 @@ class SalesRepository {
       'loyalty_points_earned': loyaltyPointsEarned,
       'user_id': _client.auth.currentUser?.id,
       'store_id': CurrentStore.id,
-    }).select().single();
+    }).select().single().withTimeout();
 
     final saleId = saleData['id'] as String;
 
@@ -65,14 +66,14 @@ class SalesRepository {
             })
         .toList();
 
-    await _client.from('sale_items').insert(itemRows);
+    await _client.from('sale_items').insert(itemRows).withTimeout();
 
     for (final item in items) {
       if (item.product.trackStock) {
         await _client.rpc('adjust_product_stock', params: {
           'p_id': item.product.id,
           'p_delta': -item.quantity,
-        });
+        }).withTimeout();
       }
     }
 

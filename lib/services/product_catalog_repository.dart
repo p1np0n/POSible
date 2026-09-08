@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/catalog_entry.dart';
+import '../utils/query_timeout.dart';
 import '../utils/search_normalize.dart';
 
 /// Catálogo global de productos: es UNO SOLO, compartido entre todas tus
@@ -13,7 +14,8 @@ class ProductCatalogRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<CatalogEntry?> findByBarcode(String barcode) async {
-    final data = await _client.from('product_catalog').select().eq('barcode', barcode).maybeSingle();
+    final data =
+        await _client.from('product_catalog').select().eq('barcode', barcode).maybeSingle().withTimeout();
     if (data == null) return null;
     return CatalogEntry.fromMap(data);
   }
@@ -28,7 +30,8 @@ class ProductCatalogRepository {
         .select()
         .ilike('product_catalog_search_text', '%$term%')
         .order('name')
-        .limit(20);
+        .limit(20)
+        .withTimeout();
     return (data as List).map((e) => CatalogEntry.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -39,7 +42,7 @@ class ProductCatalogRepository {
     if (search != null && search.trim().isNotEmpty) {
       query = query.ilike('product_catalog_search_text', '%${normalizeForSearch(search)}%');
     }
-    final data = await query.order('name');
+    final data = await query.order('name').withTimeout();
     return (data as List).map((e) => CatalogEntry.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -63,7 +66,7 @@ class ProductCatalogRepository {
         'suggested_price': suggestedPrice,
         'source': source,
         'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'barcode');
+      }, onConflict: 'barcode').withTimeout();
     } else {
       await _client.from('product_catalog').insert({
         'name': name,
@@ -71,7 +74,7 @@ class ProductCatalogRepository {
         'image_url': imageUrl,
         'suggested_price': suggestedPrice,
         'source': source,
-      });
+      }).withTimeout();
     }
   }
 
@@ -82,7 +85,7 @@ class ProductCatalogRepository {
       'brand': entry.brand,
       'image_url': entry.imageUrl,
       'suggested_price': entry.suggestedPrice,
-    });
+    }).withTimeout();
   }
 
   Future<void> update(String id, CatalogEntry entry) async {
@@ -93,10 +96,10 @@ class ProductCatalogRepository {
       'image_url': entry.imageUrl,
       'suggested_price': entry.suggestedPrice,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+    }).eq('id', id).withTimeout();
   }
 
   Future<void> deleteById(String id) async {
-    await _client.from('product_catalog').delete().eq('id', id);
+    await _client.from('product_catalog').delete().eq('id', id).withTimeout();
   }
 }
