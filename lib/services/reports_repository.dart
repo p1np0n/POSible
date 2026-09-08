@@ -53,6 +53,33 @@ class SalesSummary {
 class ReportsRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
+  // Con un mes de historial activo, la lista de IDs de venta puede llegar a
+  // cientos — meterlos todos en un solo filtro "sale_id=in.(...)" hace que
+  // la URL de la consulta se vuelva demasiado larga y Supabase la rechaza
+  // con "Bad Request" (pasó en una tienda con más de 500 ventas en 30
+  // días). Se piden en tandas y se juntan los resultados.
+  static const _saleIdBatchSize = 100;
+
+  Future<List<Map<String, dynamic>>> _fetchSaleItemsInBatches(
+    String select,
+    List<String> saleIds, {
+    bool onlyWithModifiers = false,
+  }) async {
+    final batches = <List<String>>[];
+    for (var i = 0; i < saleIds.length; i += _saleIdBatchSize) {
+      final end = i + _saleIdBatchSize < saleIds.length ? i + _saleIdBatchSize : saleIds.length;
+      batches.add(saleIds.sublist(i, end));
+    }
+    final results = await Future.wait(batches.map((batch) {
+      var query = _client.from('sale_items').select(select).inFilter('sale_id', batch);
+      if (onlyWithModifiers) {
+        query = query.not('modifiers_summary', 'is', null);
+      }
+      return query.withTimeout();
+    }));
+    return results.expand((r) => (r as List).cast<Map<String, dynamic>>()).toList();
+  }
+
   Future<SalesSummary> getSummary({required DateTime from, required DateTime to}) async {
     final storeId = CurrentStore.id;
     if (storeId == null) {
@@ -99,12 +126,8 @@ class ReportsRepository {
 
     final productTotals = <String, TopProduct>{};
     if (saleIds.isNotEmpty) {
-      final items = await _client
-          .from('sale_items')
-          .select('product_name, quantity, subtotal, sale_id')
-          .inFilter('sale_id', saleIds)
-          .withTimeout();
-      for (final item in (items as List).cast<Map<String, dynamic>>()) {
+      final items = await _fetchSaleItemsInBatches('product_name, quantity, subtotal, sale_id', saleIds);
+      for (final item in items) {
         final name = item['product_name'] as String;
         final qty = (item['quantity'] as num).toDouble();
         final subtotal = (item['subtotal'] as num).toDouble();
@@ -156,14 +179,10 @@ class ReportsRepository {
     final saleIds = await _saleIdsInRange(from, DateTime.now());
     if (saleIds.isEmpty) return [];
 
-    final items = await _client
-        .from('sale_items')
-        .select('product_id, quantity')
-        .inFilter('sale_id', saleIds)
-        .withTimeout();
+    final items = await _fetchSaleItemsInBatches('product_id, quantity', saleIds);
 
     final totals = <String, double>{};
-    for (final item in (items as List).cast<Map<String, dynamic>>()) {
+    for (final item in items) {
       final productId = item['product_id'] as String?;
       if (productId == null) continue;
       final qty = (item['quantity'] as num).toDouble();
@@ -190,12 +209,7 @@ class ReportsRepository {
     final saleIds = await _saleIdsInRange(from, to);
     if (saleIds.isEmpty) return [];
 
-    final items = await _client
-        .from('sale_items')
-        .select('product_id, subtotal')
-        .inFilter('sale_id', saleIds)
-        .withTimeout();
-    final itemsList = (items as List).cast<Map<String, dynamic>>();
+    final itemsList = await _fetchSaleItemsInBatches('product_id, subtotal', saleIds);
 
     final productIds = itemsList.map((i) => i['product_id'] as String?).whereType<String>().toSet().toList();
     final categoryIdByProduct = <String, String?>{};
@@ -271,15 +285,14 @@ class ReportsRepository {
     final saleIds = await _saleIdsInRange(from, to);
     if (saleIds.isEmpty) return [];
 
-    final items = await _client
-        .from('sale_items')
-        .select('modifiers_summary, quantity')
-        .inFilter('sale_id', saleIds)
-        .not('modifiers_summary', 'is', null)
-        .withTimeout();
+    final items = await _fetchSaleItemsInBatches(
+      'modifiers_summary, quantity',
+      saleIds,
+      onlyWithModifiers: true,
+    );
 
     final counts = <String, double>{};
-    for (final item in (items as List).cast<Map<String, dynamic>>()) {
+    for (final item in items) {
       final summary = item['modifiers_summary'] as String?;
       if (summary == null || summary.isEmpty) continue;
       final qty = (item['quantity'] as num).toDouble();
