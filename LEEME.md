@@ -1116,3 +1116,29 @@ chicas en vez de todas de una vez, así que no importa cuántas ventas tenga
 el mes. No hace falta que hagas nada — no es un cambio de base de datos, y
 ya redesplegué la versión nueva (se actualiza sola en el panel web al
 mergear este cambio).
+
+## Nuevo: teclado propio de la app en el buscador de Ventas (para no depender del teclado de Android)
+
+El buscador de Ventas ya no usa el teclado que trae el celular — ahora usa
+un teclado propio y simple (números y letras minúsculas, sin tildes ni
+"ñ", que no hacen falta porque la búsqueda ya las ignora) que aparece
+pegado abajo de la pantalla solo cuando tocas el campo para escribir a
+mano.
+
+De paso, esto probablemente arregla la causa de los conflictos que tenías
+con el teclado de Android: el campo invisible que mantiene listo el lector
+USB (para que el escaneo siga funcionando aunque el buscador esté
+cerrado) también estaba, sin querer, haciendo que Android abriera su
+teclado solo — aunque ese campo no se ve ni se puede tocar. Ya no pasa.
+
+**El lector de código de barras USB sigue funcionando exactamente
+igual que antes** — no se tocó nada de cómo recibe lo que escanea, solo se
+le dijo a Android que no abra su propio teclado en pantalla en ese campo.
+
+No hace falta correr nada en Supabase ni en `sql/schema.sql` — es un
+cambio solo de la app. Se aplica por ahora solo al buscador de Ventas (el
+que más se usa con el lector); si te sirve, extiendo el mismo teclado a
+los demás buscadores (Lista de artículos, Clientes, Catálogo global) y a
+los campos numéricos que todavía abren el teclado de Android (precio,
+costo, cantidad, etc. — para esos ya existe un teclado numérico propio en
+Caja/Cobrar, falta usarlo en el resto de la app).

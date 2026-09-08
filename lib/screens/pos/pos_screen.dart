@@ -34,6 +34,7 @@ import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/number_pad_dialog.dart';
 import '../../widgets/product_avatar.dart';
+import '../../widgets/simple_keyboard.dart';
 import '../../widgets/status_badge.dart';
 import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
@@ -97,6 +98,12 @@ class _PosScreenState extends State<PosScreen> {
   // Si el buscador está desplegado (mostrando el campo de texto) o
   // escondido detrás del ícono de lupa — ver la barra de arriba en build().
   bool _searchExpanded = false;
+  // Si el teclado propio de la app (ver lib/widgets/simple_keyboard.dart)
+  // está abierto, para escribir a mano en el buscador. Se abre solo al
+  // tocar el campo (no automáticamente al ganar el foco, para no chocar
+  // con el foco que el lector USB recupera solo — ver _scannerFocusWatchdog
+  // más abajo) y se cierra al perder el foco o al tocar "Listo".
+  bool _showKeyboard = false;
   // Además de devolverle el foco al buscador explícitamente después de
   // cada interacción conocida (_refocusSearch), este timer revisa cada
   // tanto si el foco se perdió sin que nada más lo esté usando a propósito
@@ -113,6 +120,13 @@ class _PosScreenState extends State<PosScreen> {
       _refocusSearch();
     });
     _loadData();
+    // Al perder el foco (tocar otra cosa, elegir un producto, etc.) el
+    // teclado propio se cierra solo, igual que haría el del celular.
+    _searchFocusNode.addListener(() {
+      if (!_searchFocusNode.hasFocus && mounted && _showKeyboard) {
+        setState(() => _showKeyboard = false);
+      }
+    });
     _scannerFocusWatchdog = Timer.periodic(const Duration(milliseconds: 400), (_) {
       if (!mounted) return;
       if (!context.read<AppPreferencesProvider>().usbScannerModeEnabled) return;
@@ -1015,6 +1029,7 @@ class _PosScreenState extends State<PosScreen> {
                     _searchExpanded = false;
                     _searchController.clear();
                     _search = '';
+                    _showKeyboard = false;
                   }),
                 ),
                 Expanded(
@@ -1024,6 +1039,12 @@ class _PosScreenState extends State<PosScreen> {
                     autofocus: true,
                     style: TextStyle(color: onPrimary),
                     cursorColor: onPrimary,
+                    // Sin teclado del sistema: el que usamos es el propio de
+                    // la app (SimpleKeyboard, más abajo). El lector USB no se
+                    // ve afectado — sigue escribiendo directo en este campo,
+                    // como un teclado físico, sin pasar por ninguno de los
+                    // dos teclados en pantalla.
+                    keyboardType: TextInputType.none,
                     decoration: InputDecoration(
                       hintText: prefs.usbScannerModeEnabled
                           ? 'Buscar producto o código (o escanea aquí)'
@@ -1031,6 +1052,7 @@ class _PosScreenState extends State<PosScreen> {
                       hintStyle: TextStyle(color: onPrimary.withOpacity(0.75)),
                       border: InputBorder.none,
                     ),
+                    onTap: () => setState(() => _showKeyboard = true),
                     onChanged: _onSearchChanged,
                     onSubmitted: _handleScanSubmit,
                   ),
@@ -1052,7 +1074,12 @@ class _PosScreenState extends State<PosScreen> {
                 // realmente reciba el foco del teclado en Flutter Web —
                 // por eso usa un tamaño chico pero real, oculto con
                 // Opacity(0) e IgnorePointer (para que no se pueda tocar
-                // sin querer) en vez de tamaño cero.
+                // sin querer) en vez de tamaño cero. "keyboardType: none" es
+                // clave acá: sin eso, Android abría su teclado en pantalla
+                // cada vez que este campo invisible tomaba el foco (que es
+                // todo el tiempo, con el lector activado), aunque nadie
+                // pudiera verlo ni usarlo — probablemente la causa de que el
+                // teclado del celular pareciera "portarse mal" en Ventas.
                 if (prefs.usbScannerModeEnabled)
                   SizedBox(
                     width: 36,
@@ -1064,6 +1091,7 @@ class _PosScreenState extends State<PosScreen> {
                           controller: _searchController,
                           focusNode: _searchFocusNode,
                           autofocus: true,
+                          keyboardType: TextInputType.none,
                           decoration: const InputDecoration(border: InputBorder.none),
                           onChanged: _onSearchChanged,
                           onSubmitted: _handleScanSubmit,
@@ -1075,7 +1103,10 @@ class _PosScreenState extends State<PosScreen> {
                   icon: const Icon(Icons.search),
                   color: onPrimary,
                   tooltip: 'Buscar producto o código',
-                  onPressed: () => setState(() => _searchExpanded = true),
+                  onPressed: () => setState(() {
+                    _searchExpanded = true;
+                    _showKeyboard = true;
+                  }),
                 ),
               ],
               if (prefs.cameraScanEnabled)
@@ -1170,8 +1201,10 @@ class _PosScreenState extends State<PosScreen> {
 
     final quickSaleBar = _buildQuickSaleBar();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    return Stack(
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
         final isSplitWide = constraints.maxWidth >= _splitLayoutBreakpoint;
         final cartPanel = CartPanel(
           compact: !isSplitWide,
@@ -1234,7 +1267,27 @@ class _PosScreenState extends State<PosScreen> {
             quickSaleBar,
           ],
         );
-      },
+          },
+        ),
+        // Teclado propio de la app para el buscador (ver SimpleKeyboard) —
+        // encima de todo lo demás, pegado abajo, igual que se vería un
+        // teclado normal. No aparece solo: solo cuando se toca el campo de
+        // búsqueda a mano (ver el onTap del TextField, más arriba).
+        if (_showKeyboard)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SimpleKeyboard(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              onDone: (value) {
+                _handleScanSubmit(value);
+                setState(() => _showKeyboard = false);
+              },
+            ),
+          ),
+      ],
     );
   }
 
