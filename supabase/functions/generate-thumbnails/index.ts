@@ -30,10 +30,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Image } from "https://deno.land/x/imagescript@1.2.15/mod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Solo se acepta pedir la CORS de estos orígenes (tu app web) — antes
+// cualquier página en internet podía hacer una petición a esta función
+// desde el navegador de un usuario logueado. El riesgo real era bajo (la
+// función igual exige un token de sesión válido), pero es buena práctica
+// no dejarlo abierto a "*".
+const ALLOWED_ORIGINS = ["https://p1np0n.github.io"];
+function corsHeadersFor(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const BUCKET = "product-photos";
 const MAX_DIMENSION = 220;
@@ -41,22 +50,45 @@ const JPEG_QUALITY = 72;
 const DEFAULT_BATCH_LIMIT = 200;
 const MAX_BATCH_LIMIT = 500;
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 interface ProductRow {
   id: string;
   image_url: string;
 }
 
+// products.image_url lo puede escribir cualquier empleado aprobado (vía la
+// API REST, no solo desde la app) sin validar el formato — sin esto, un
+// fetch() de acá (con privilegios de servidor) podría apuntar a una
+// dirección interna de la nube en vez de una foto real. Solo se permite
+// descargar de dominios conocidos: el propio bucket de Storage y las
+// fuentes de fotos que ya usa la app (product_lookup_service.dart). Fotos
+// que vinieron de UPCitemdb o de Google Custom Search (dominios variables,
+// no se pueden poner en una lista fija) simplemente se saltan — no se les
+// genera miniatura, pero la foto completa se sigue mostrando igual.
+function allowedImageHosts(supabaseUrl: string): string[] {
+  return [
+    new URL(supabaseUrl).hostname,
+    "images.openfoodfacts.org",
+    "images.openbeautyfacts.org",
+    "images.openproductsfacts.org",
+    "static.openfoodfacts.org",
+  ];
+}
+
+function isAllowedImageUrl(url: string, allowedHosts: string[]): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && allowedHosts.includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 async function makeThumbnail(
   adminClient: ReturnType<typeof createClient>,
   product: ProductRow,
+  allowedHosts: string[],
 ): Promise<string | null> {
+  if (!isAllowedImageUrl(product.image_url, allowedHosts)) return null;
   const response = await fetch(product.image_url);
   if (!response.ok) return null;
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -78,8 +110,12 @@ async function makeThumbnail(
 }
 
 Deno.serve(async (req) => {
+  const cors = corsHeadersFor(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {
@@ -90,6 +126,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const allowedHosts = allowedImageHosts(supabaseUrl);
 
     // La app llama a esta función con la sesión del usuario que tocó el
     // botón o que acaba de subir una foto (no con la service_role key) —
@@ -162,7 +199,7 @@ Deno.serve(async (req) => {
     let failed = 0;
     for (const product of products) {
       try {
-        const thumbnailUrl = await makeThumbnail(adminClient, product);
+        const thumbnailUrl = await makeThumbnail(adminClient, product, allowedHosts);
         if (thumbnailUrl === null) {
           failed++;
           continue;
