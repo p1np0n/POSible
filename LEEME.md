@@ -1099,3 +1099,20 @@ Dos mejoras de rendimiento de la misma auditoría, sin cambiar nada de lo que ya
 También tienes que volver a correr `sql/schema.sql` en el editor SQL de
 Supabase para que quede igual en el archivo (no hace daño, es idempotente).
 No hace falta redeployar ninguna Edge Function para esto.
+
+## Arreglo urgente: Ventas no cargaba el catálogo ("Bad Request") con muchas ventas en el mes
+
+Con más de 500 ventas en los últimos 30 días, la pantalla de Ventas dejó de
+poder cargar (mostraba "No se pudo cargar el catálogo de Ventas:
+PostgrestException... Bad Request"). La causa: para armar la pestaña "Más
+vendidos" se pedía el detalle de TODAS esas ventas en una sola consulta,
+metiendo los cientos de IDs en la dirección (URL) de la petición — con
+suficientes ventas esa dirección se volvía demasiado larga y Supabase la
+rechazaba. Pasaba también en Reportes (resumen, por categoría y por
+modificador), aunque ahí no se había notado todavía.
+
+**Ya está arreglado**: esas mismas consultas ahora se piden en tandas más
+chicas en vez de todas de una vez, así que no importa cuántas ventas tenga
+el mes. No hace falta que hagas nada — no es un cambio de base de datos, y
+ya redesplegué la versión nueva (se actualiza sola en el panel web al
+mergear este cambio).
