@@ -27,16 +27,17 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+// Solo se acepta CORS desde estos orígenes (tu app web) — antes cualquier
+// página en internet podía pedirle esto al navegador de un usuario
+// logueado. El riesgo real era bajo (igual exige un token de sesión
+// válido), pero es buena práctica no dejarlo abierto a "*".
+const ALLOWED_ORIGINS = ["https://p1np0n.github.io"];
+function corsHeadersFor(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
 }
 
 // El nombre del producto lo escribe cualquier empleado aprobado, así que no
@@ -99,8 +100,12 @@ async function sendLowStockEmail(
 }
 
 Deno.serve(async (req) => {
+  const cors = corsHeadersFor(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {

@@ -27,10 +27,18 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Image } from "https://deno.land/x/imagescript@1.2.15/mod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Solo se acepta CORS desde estos orígenes (tu app web) — antes cualquier
+// página en internet podía pedirle esto al navegador de un usuario
+// logueado. El riesgo real era bajo (igual exige la service_role key), pero
+// es buena práctica no dejarlo abierto a "*".
+const ALLOWED_ORIGINS = ["https://p1np0n.github.io"];
+function corsHeadersFor(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const BUCKET = "product-photos";
 const MAX_DIMENSION = 1024;
@@ -40,13 +48,6 @@ const JPEG_QUALITY = 80;
 const ALREADY_LIGHT_BYTES = 300_000;
 const DEFAULT_BATCH_LIMIT = 300;
 const MAX_BATCH_LIMIT = 1000;
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
 
 interface StorageFile {
   path: string;
@@ -87,8 +88,12 @@ async function listAllFiles(
 }
 
 Deno.serve(async (req) => {
+  const cors = corsHeadersFor(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   try {

@@ -1036,3 +1036,44 @@ en el correo.
 real. Si la activaste con un cron diario (Database → Cron Jobs), sigue
 funcionando igual, ahora revisando cada tienda con correo configurado por
 separado.
+
+## Seguridad: las fotos ya no se descargan de cualquier sitio, y las funciones ya no aceptan pedidos de cualquier página
+
+Dos arreglos más de la misma auditoría de seguridad:
+
+- **Miniaturas y búsqueda automática de fotos ("generate-thumbnails" y
+  "fill-missing-photos")**: estas funciones descargan la foto de un
+  producto para generarle una miniatura o guardarla ya reducida. El
+  problema es que `image_url` (la dirección de la foto) se puede escribir
+  llamando directo a la API de Supabase, sin pasar por la app, así que en
+  teoría alguien podía poner ahí una dirección que no fuera una foto real
+  y hacer que el servidor de Supabase le hiciera una petición a algún
+  lugar interno. Ya está arreglado: ahora solo se descargan fotos de
+  direcciones conocidas (tu propio almacenamiento de Supabase y las
+  fuentes de fotos que ya usa la app — Open Food/Beauty/Products Facts).
+  Fotos que vinieran de otras fuentes (por ejemplo, resultados de Google)
+  simplemente no reciben miniatura automática — la foto completa se sigue
+  viendo igual, esto no borra ni oculta nada.
+- **Las 5 funciones (Edge Functions) ya no aceptan pedidos desde cualquier
+  página de internet**: antes cualquier sitio web podía intentar
+  pedirle algo a estas funciones usando el navegador de un usuario que
+  tuviera la app abierta en otra pestaña (el riesgo real era bajo, porque
+  de todas formas exigían una sesión válida, pero no era buena práctica
+  dejarlo así). Ahora solo se aceptan pedidos que vengan de tu propia app
+  web.
+
+**No hace falta que hagas nada** — ya redesplegué "generate-thumbnails",
+"fill-missing-photos", "manage-employee" y "notify-low-stock" en tu
+proyecto real. ("resize-existing-photos" no está activa, así que solo se
+actualizó el archivo en el repositorio por si alguna vez la vuelves a
+desplegar). No hace falta volver a correr `sql/schema.sql` para esto.
+
+## Nota: hoy todos los empleados aprobados tienen los mismos permisos dentro de su tienda
+
+Otra observación de la auditoría: por ahora POSible no distingue entre
+"dueño de la tienda" y "empleado normal" — cualquier perfil aprobado puede
+crear o quitar otros empleados, restablecer contraseñas (PIN) dentro de su
+tienda, y ver/cambiar las claves guardadas en Configuración (por ejemplo,
+las de búsqueda de fotos por Google). Esto no es un error, es una
+limitación conocida — permisos distintos por tipo de empleado queda como
+mejora pendiente para más adelante.
