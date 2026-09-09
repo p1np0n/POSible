@@ -1155,3 +1155,24 @@ los demás buscadores (Lista de artículos, Clientes, Catálogo global) y a
 los campos numéricos que todavía abren el teclado de Android (precio,
 costo, cantidad, etc. — para esos ya existe un teclado numérico propio en
 Caja/Cobrar, falta usarlo en el resto de la app).
+
+## Nuevo: el catálogo de Ventas queda guardado en el celular (funciona sin internet)
+
+El catálogo de productos ya no vive solo en la memoria de la sesión — ahora
+también queda guardado en el propio celular. La primera vez que entras a
+Ventas, la app muestra de inmediato lo último que había guardado (aunque
+todavía no haya internet) y, apenas la conexión esté disponible, lo
+actualiza sola de fondo con lo que haya cambiado. Si justo no hay internet
+en ese momento, la app sigue funcionando con el catálogo guardado en vez
+de mostrar un error.
+
+Es un cambio solo de la app (no hace falta correr nada en Supabase). Por
+ahora cubre el catálogo de productos, que es lo que más se usa en Ventas —
+si te sirve, hago lo mismo con categorías y clientes más adelante.
+
+**Nota**: esto es el catálogo (leer productos), no vender sin internet —
+crear una venta todavía necesita conexión, porque el número de recibo, el
+turno de caja y el stock se validan en el servidor. Eso es un cambio más
+grande y hay que decidir con cuidado qué pasa si dos celulares venden lo
+mismo estando ambos sin conexión; queda pendiente si más adelante quieres
+avanzar en esa dirección.

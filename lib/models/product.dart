@@ -243,4 +243,38 @@ class Product {
         'plu': plu,
         'target_margin_percent': targetMarginPercent,
       };
+
+  /// A diferencia de [toMap] (pensado para mandarle a Supabase un insert/
+  /// update, que no acepta ni necesita "id" ni columnas que solo actualiza
+  /// el propio servidor), esto guarda TODOS los campos — para poder
+  /// reconstruir el producto igual de completo al leerlo de vuelta con
+  /// [Product.fromMap]. Se usa para el caché local (ver
+  /// lib/services/local_cache_service.dart), no para escribir en la base
+  /// de datos.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'category_id': categoryId,
+        'price': price,
+        'cost': cost,
+        'sku': sku,
+        'barcode': barcode,
+        'image_url': imageUrl,
+        'thumbnail_url': thumbnailUrl,
+        'stock_quantity': stockQuantity,
+        'track_stock': trackStock,
+        'active': active,
+        'low_stock_threshold': lowStockThreshold,
+        'pricing_type': pricingType,
+        'plu': plu,
+        'target_margin_percent': targetMarginPercent,
+        'archived': archived,
+        'last_sold_at': lastSoldAt?.toUtc().toIso8601String(),
+        'promo_price': promoPrice,
+        'promo_starts_at': promoStartsAt?.toUtc().toIso8601String(),
+        'promo_ends_at': promoEndsAt?.toUtc().toIso8601String(),
+        'expiration_date': expirationDate != null
+            ? '${expirationDate!.year.toString().padLeft(4, '0')}-${expirationDate!.month.toString().padLeft(2, '0')}-${expirationDate!.day.toString().padLeft(2, '0')}'
+            : null,
+      };
 }

@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../config/current_store.dart';
 import '../models/product.dart';
+import '../services/local_cache_service.dart';
 import '../services/product_repository.dart';
 
 /// Catálogo de productos compartido entre Ventas y Movimientos de stock.
@@ -14,6 +18,13 @@ import '../services/product_repository.dart';
 /// catálogo" en Ventas y en Movimientos de stock) — no hay refresco
 /// automático por tiempo, a propósito, para no gastar ancho de banda solo
 /// por tener la pantalla abierta.
+///
+/// Además queda guardado en el celular (ver [LocalCacheService]): la
+/// primera vez que se entra a Ventas en la sesión, se muestra de inmediato
+/// lo que había guardado de la última vez (aunque no haya internet
+/// todavía) mientras de fondo se pide la versión real al servidor — así la
+/// app abre con algo que mostrar incluso sin conexión, y se pone al día
+/// sola apenas la haya.
 class ProductCacheProvider extends ChangeNotifier {
   final ProductRepository _repository = ProductRepository();
 
@@ -22,11 +33,26 @@ class ProductCacheProvider extends ChangeNotifier {
   String? error;
   bool _loaded = false;
 
+  String get _cacheKey => 'product_cache_v1_${CurrentStore.id ?? "sin_tienda"}';
+
   /// Pide el catálogo solo si todavía no se había cargado en esta sesión
   /// (o si el intento anterior falló) — llamarlo repetidas veces (ej. cada
   /// vez que se entra a Ventas) no genera pedidos de más.
   Future<void> ensureLoaded() async {
     if (_loaded || loading) return;
+    // Antes de pedirle nada al servidor, muestra de inmediato lo que ya
+    // había guardado del catálogo la última vez que se pudo — así Ventas
+    // no aparece vacía ni "cargando" mientras se espera la red, y sigue
+    // sirviendo aunque no haya internet en este momento.
+    final cached = await LocalCacheService.loadList(_cacheKey);
+    if (cached != null && cached.isNotEmpty && products.isEmpty) {
+      try {
+        products = cached.map(Product.fromMap).toList();
+        notifyListeners();
+      } catch (_) {
+        // Caché de un formato viejo/dañado — se ignora, sigue con la red.
+      }
+    }
     await refresh();
   }
 
@@ -41,8 +67,17 @@ class ProductCacheProvider extends ChangeNotifier {
     try {
       products = await _repository.getAll();
       _loaded = true;
+      _persistToDisk();
     } catch (e) {
-      error = '$e';
+      // Sin internet (u otro error de red): si ya se estaba mostrando el
+      // catálogo guardado (ver ensureLoaded), se sigue mostrando ese en
+      // vez de un error — mejor un catálogo desactualizado que ninguno.
+      // Solo se muestra el error si no había nada que mostrar.
+      if (products.isEmpty) {
+        error = '$e';
+      } else {
+        _loaded = true;
+      }
     } finally {
       loading = false;
       notifyListeners();
@@ -65,6 +100,7 @@ class ProductCacheProvider extends ChangeNotifier {
     updated.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     products = updated;
     notifyListeners();
+    _persistToDisk();
   }
 
   /// Saca un producto de la lista en memoria (ej. al archivarlo — mismo
@@ -73,5 +109,14 @@ class ProductCacheProvider extends ChangeNotifier {
   void removeLocal(String id) {
     products = products.where((p) => p.id != id).toList();
     notifyListeners();
+    _persistToDisk();
+  }
+
+  /// Guarda el catálogo actual en el celular, para que un cambio puntual
+  /// (subir stock, editar un precio) también quede reflejado la próxima
+  /// vez que la app abra sin internet — no solo lo que trajo el último
+  /// [refresh] completo.
+  void _persistToDisk() {
+    unawaited(LocalCacheService.saveList(_cacheKey, products.map((p) => p.toJson()).toList()));
   }
 }
