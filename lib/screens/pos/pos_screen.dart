@@ -310,7 +310,7 @@ class _PosScreenState extends State<PosScreen> {
   /// inmediato y muestra el propio en su lugar.
   void _openOwnKeyboard() {
     setState(() => _showKeyboard = true);
-    TextInput.hide();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
   }
 
   /// Pide el precio de un artículo de precio variable antes de agregarlo al
