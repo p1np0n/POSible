@@ -1119,21 +1119,34 @@ mergear este cambio).
 
 ## Nuevo: teclado propio de la app en el buscador de Ventas (para no depender del teclado de Android)
 
-El buscador de Ventas ya no usa el teclado que trae el celular — ahora usa
-un teclado propio y simple (números y letras minúsculas, sin tildes ni
-"ñ", que no hacen falta porque la búsqueda ya las ignora) que aparece
-pegado abajo de la pantalla solo cuando tocas el campo para escribir a
-mano.
+El buscador de Ventas ya no depende del teclado que trae el celular —
+ahora, al tocarlo, aparece un teclado propio y simple (números y letras
+minúsculas, sin tildes ni "ñ", que no hacen falta porque la búsqueda ya
+las ignora) pegado abajo de la pantalla, en vez del de Android.
 
-De paso, esto probablemente arregla la causa de los conflictos que tenías
-con el teclado de Android: el campo invisible que mantiene listo el lector
-USB (para que el escaneo siga funcionando aunque el buscador esté
-cerrado) también estaba, sin querer, haciendo que Android abriera su
-teclado solo — aunque ese campo no se ve ni se puede tocar. Ya no pasa.
+Un primer intento de este cambio (probado por el usuario) usaba una
+configuración que además le pedía a Android que nunca abriera su teclado
+en el campo invisible que mantiene listo el lector USB — pero eso rompía
+el auto-agregado del lector mientras el buscador estaba colapsado (había
+que tocar el buscador primero para que el escaneo volviera a agregar
+productos solos). **Ya está corregido**: ese campo invisible volvió a su
+configuración original (a veces puede hacer que Android intente abrir su
+teclado solo, ya que no se puede evitar sin arriesgar el escaneo — pero
+como el campo es invisible, en la práctica no debería notarse casi
+nunca). El campo visible del buscador, en cambio, sigue mostrando el
+teclado propio en vez del de Android al tocarlo (se le pide a Android que
+esconda el suyo apenas se abre el propio).
 
-**El lector de código de barras USB sigue funcionando exactamente
-igual que antes** — no se tocó nada de cómo recibe lo que escanea, solo se
-le dijo a Android que no abra su propio teclado en pantalla en ese campo.
+**El lector de código de barras USB vuelve a funcionar exactamente
+igual que siempre** — no se tocó nada de cómo recibe lo que escanea.
+
+De paso, también se corrigió que escanear un código hacía que el mosaico
+de productos se viera "buscando" de a poco (letra por letra del código)
+antes de agregar el producto, lo que se sentía lento — ahora esa
+actualización visual espera una fracción de segundo antes de recalcularse,
+así que un escaneo completo la recalcula una sola vez en vez de una por
+cada dígito. Buscar a mano no se nota distinto (la espera es demasiado
+corta para notarla escribiendo).
 
 No hace falta correr nada en Supabase ni en `sql/schema.sql` — es un
 cambio solo de la app. Se aplica por ahora solo al buscador de Ventas (el
