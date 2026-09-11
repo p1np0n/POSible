@@ -303,12 +303,18 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   /// Abre el teclado propio de la app (SimpleKeyboard) para escribir a mano
-  /// en el buscador. El campo de búsqueda sigue siendo un TextField normal
-  /// (no lleva "keyboardType: none" — eso rompía el auto-agregado del
-  /// lector USB cuando el buscador estaba colapsado), así que Android
-  /// intenta abrir su propio teclado al tocarlo; esto lo esconde de
-  /// inmediato y muestra el propio en su lugar.
+  /// en el buscador — solo si está activado en Configuración ("Teclado
+  /// propio en el buscador de Ventas", apagado por defecto mientras se
+  /// termina de probar). Si está apagado, no hace nada y Android muestra su
+  /// teclado normal, como siempre.
+  ///
+  /// El campo de búsqueda sigue siendo un TextField normal (no lleva
+  /// "keyboardType: none" — eso rompía el auto-agregado del lector USB
+  /// cuando el buscador estaba colapsado), así que Android intenta abrir su
+  /// propio teclado al tocarlo; esto lo esconde de inmediato y muestra el
+  /// propio en su lugar.
   void _openOwnKeyboard() {
+    if (!context.read<AppPreferencesProvider>().customKeyboardEnabled) return;
     setState(() => _showKeyboard = true);
     SystemChannels.textInput.invokeMethod('TextInput.hide');
   }

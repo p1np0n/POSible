@@ -443,6 +443,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: prefs.usbScannerModeEnabled,
                 onChanged: prefs.setUsbScannerModeEnabled,
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Teclado propio en el buscador de Ventas'),
+                subtitle: const Text(
+                  'En pruebas: al tocar el buscador, muestra un teclado propio de la '
+                  'app en vez del de Android. Actívalo solo para probar — con el '
+                  'lector USB, hasta confirmar que no da problemas, déjalo apagado.',
+                ),
+                value: prefs.customKeyboardEnabled,
+                onChanged: prefs.setCustomKeyboardEnabled,
+              ),
               if (!kIsWeb) ...[
                 const SizedBox(height: 24),
                 const Divider(),
