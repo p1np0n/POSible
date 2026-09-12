@@ -1176,3 +1176,35 @@ turno de caja y el stock se validan en el servidor. Eso es un cambio más
 grande y hay que decidir con cuidado qué pasa si dos celulares venden lo
 mismo estando ambos sin conexión; queda pendiente si más adelante quieres
 avanzar en esa dirección.
+
+## Nuevo: pantalla para el cliente ("Info ScreenClone") — sin internet
+
+Hay un APK nuevo, aparte: **Info ScreenClone**. Se instala en un segundo
+celular o tablet (el que mira el cliente, en el mostrador) y muestra en
+vivo lo que se va agregando al carrito en Ventas — artículo, cantidad,
+precio y el total — sin tocar nada en ese segundo dispositivo.
+
+**No usa internet ni Supabase**: los dos celulares se conectan directo
+entre sí por la misma red WiFi de la tienda. El de la caja abre un
+servidor chico (parte de la propia app) que avisa cada vez que el carrito
+cambia; "Info ScreenClone" se conecta a la dirección de ese celular y va
+mostrando los cambios al toque.
+
+**Cómo activarlo:**
+1. En el celular de la caja (la app normal, POSible): Configuración →
+   activa "Activar pantalla para el cliente". Ahí aparece una dirección
+   (algo como `192.168.1.5:8790`).
+2. Instala el nuevo APK **Info ScreenClone** en el otro celular/tablet —
+   tiene que estar conectado a la misma red WiFi que el de la caja (no
+   hace falta que esa red tenga internet, solo que los dos estén en la
+   misma).
+3. Abre Info ScreenClone, toca la pantalla y escribe la dirección que
+   viste en el paso 1. Se conecta solo, y si se corta (WiFi, o cierras la
+   app de la caja) reintenta cada pocos segundos sin que tengas que hacer
+   nada.
+
+Queda apagado por defecto en Configuración (no vale la pena tener el
+servidor prendido si no vas a usar la pantalla del cliente). No hace falta
+correr nada en Supabase ni en `sql/schema.sql` — es un cambio solo de la
+app, y solo del APK de Android (el panel web no lo muestra, ese modo no
+existe ahí).
