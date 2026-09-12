@@ -6,6 +6,7 @@ class AppPreferencesProvider extends ChangeNotifier {
   static const _listLayoutKey = 'pos_list_layout';
   static const _cameraScanKey = 'camera_scan_enabled';
   static const _usbScannerModeKey = 'usb_scanner_mode_enabled';
+  static const _customKeyboardKey = 'custom_keyboard_enabled';
   static const _knownEmailsKey = 'pin_known_emails';
   static const _autoLockMinutesKey = 'auto_lock_minutes';
   static const _lastActiveAtKey = 'last_active_at';
@@ -23,6 +24,13 @@ class AppPreferencesProvider extends ChangeNotifier {
   /// sin ese tipo de lector esto abriría el teclado en pantalla de más.
   bool usbScannerModeEnabled = false;
 
+  /// Si está activo, tocar el buscador de Ventas muestra el teclado propio
+  /// de la app (ver lib/widgets/simple_keyboard.dart) en vez del teclado de
+  /// Android. Apagado por defecto mientras se termina de probar — se puede
+  /// activar desde acá para hacer pruebas sin tener que compilar un APK
+  /// distinto.
+  bool customKeyboardEnabled = false;
+
   // Correos que ya iniciaron sesión en ESTE dispositivo, para poder mostrar
   // el acceso rápido con PIN (elegir quién eres + escribir tu PIN) en vez de
   // tener que escribir correo y contraseña cada vez que cambia el cajero.
@@ -39,6 +47,7 @@ class AppPreferencesProvider extends ChangeNotifier {
     useListLayout = prefs.getBool(_listLayoutKey) ?? false;
     cameraScanEnabled = prefs.getBool(_cameraScanKey) ?? true;
     usbScannerModeEnabled = prefs.getBool(_usbScannerModeKey) ?? false;
+    customKeyboardEnabled = prefs.getBool(_customKeyboardKey) ?? false;
     knownEmails = prefs.getStringList(_knownEmailsKey) ?? [];
     autoLockMinutes = prefs.getInt(_autoLockMinutesKey) ?? 15;
     loaded = true;
@@ -112,5 +121,12 @@ class AppPreferencesProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_usbScannerModeKey, value);
+  }
+
+  Future<void> setCustomKeyboardEnabled(bool value) async {
+    customKeyboardEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_customKeyboardKey, value);
   }
 }

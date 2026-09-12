@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
+import '../../providers/customer_display_provider.dart';
 import '../../providers/store_provider.dart';
 import '../../services/settings_repository.dart';
 
@@ -443,8 +444,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: prefs.usbScannerModeEnabled,
                 onChanged: prefs.setUsbScannerModeEnabled,
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Teclado propio en el buscador de Ventas'),
+                subtitle: const Text(
+                  'En pruebas: al tocar el buscador, muestra un teclado propio de la '
+                  'app en vez del de Android. Actívalo solo para probar — con el '
+                  'lector USB, hasta confirmar que no da problemas, déjalo apagado.',
+                ),
+                value: prefs.customKeyboardEnabled,
+                onChanged: prefs.setCustomKeyboardEnabled,
+              ),
               if (!kIsWeb) ...[
                 const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text('Pantalla para el cliente', style: Theme.of(context).textTheme.titleMedium),
+                const _CustomerDisplaySettings(),
+                const SizedBox(height: 8),
                 const Divider(),
                 const SizedBox(height: 16),
                 Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
@@ -519,5 +536,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
             ],
           );
+  }
+}
+
+/// Enciende/apaga el servidor local de "Pantalla para el cliente" (ver
+/// CustomerDisplayProvider) y muestra la IP + puerto a los que hay que
+/// conectar el otro celular/tablet (con el APK "Info ScreenClone")
+/// mientras esté prendido. No usa internet ni Supabase — ambos
+/// dispositivos tienen que estar en la misma red WiFi.
+class _CustomerDisplaySettings extends StatelessWidget {
+  const _CustomerDisplaySettings();
+
+  @override
+  Widget build(BuildContext context) {
+    final display = context.watch<CustomerDisplayProvider>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Activar pantalla para el cliente'),
+          subtitle: const Text(
+            'Muestra en otro celular/tablet (con el APK "Info ScreenClone") lo que el '
+            'cliente está comprando y el total, en vivo — sin internet, conectado por '
+            'la misma red WiFi de la tienda.',
+          ),
+          value: display.running,
+          onChanged: (value) => value ? display.start() : display.stop(),
+        ),
+        if (display.running)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'En "Info ScreenClone", toca la pantalla y escribe esta dirección:',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  if (display.localAddresses.isEmpty)
+                    const Text('Buscando la dirección IP de este celular…')
+                  else
+                    for (final address in display.localAddresses)
+                      SelectableText(
+                        '$address:${display.port}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Si aparece más de una dirección, prueba con la primera — las demás son '
+                    'de otras redes que este celular pueda tener conectadas a la vez.',
+                    style: TextStyle(fontSize: 12, color: const Color(0xFF616161)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

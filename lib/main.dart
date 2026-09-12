@@ -8,6 +8,7 @@ import 'models/employee_profile.dart';
 import 'providers/app_preferences_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/cash_session_provider.dart';
+import 'providers/customer_display_provider.dart';
 import 'providers/product_cache_provider.dart';
 import 'providers/store_provider.dart';
 import 'screens/auth/lock_gate.dart';
@@ -47,6 +48,16 @@ class PosibleApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StoreProvider()),
         ChangeNotifierProvider(create: (_) => ProductCacheProvider()),
         ChangeNotifierProvider(create: (_) => AppPreferencesProvider()..load()),
+        // Le manda el carrito a "Pantalla para el cliente" (ver
+        // CustomerDisplayProvider) cada vez que CartProvider cambia — no
+        // hace nada si la pantalla del cliente está apagada.
+        ChangeNotifierProxyProvider<CartProvider, CustomerDisplayProvider>(
+          create: (_) => CustomerDisplayProvider(),
+          update: (_, cart, displayProvider) {
+            displayProvider!.updateCart(cart);
+            return displayProvider;
+          },
+        ),
       ],
       child: Consumer<AppPreferencesProvider>(
         builder: (context, prefs, _) {

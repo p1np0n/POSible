@@ -1116,3 +1116,95 @@ chicas en vez de todas de una vez, así que no importa cuántas ventas tenga
 el mes. No hace falta que hagas nada — no es un cambio de base de datos, y
 ya redesplegué la versión nueva (se actualiza sola en el panel web al
 mergear este cambio).
+
+## Nuevo: teclado propio de la app en el buscador de Ventas (para no depender del teclado de Android)
+
+El buscador de Ventas ya no depende del teclado que trae el celular —
+ahora, al tocarlo, aparece un teclado propio y simple (números y letras
+minúsculas, sin tildes ni "ñ", que no hacen falta porque la búsqueda ya
+las ignora) pegado abajo de la pantalla, en vez del de Android.
+
+Un primer intento de este cambio (probado por el usuario) usaba una
+configuración que además le pedía a Android que nunca abriera su teclado
+en el campo invisible que mantiene listo el lector USB — pero eso rompía
+el auto-agregado del lector mientras el buscador estaba colapsado (había
+que tocar el buscador primero para que el escaneo volviera a agregar
+productos solos). **Ya está corregido**: ese campo invisible volvió a su
+configuración original (a veces puede hacer que Android intente abrir su
+teclado solo, ya que no se puede evitar sin arriesgar el escaneo — pero
+como el campo es invisible, en la práctica no debería notarse casi
+nunca). El campo visible del buscador, en cambio, sigue mostrando el
+teclado propio en vez del de Android al tocarlo (se le pide a Android que
+esconda el suyo apenas se abre el propio).
+
+**El lector de código de barras USB vuelve a funcionar exactamente
+igual que siempre** — no se tocó nada de cómo recibe lo que escanea.
+
+De paso, también se corrigió que escanear un código hacía que el mosaico
+de productos se viera "buscando" de a poco (letra por letra del código)
+antes de agregar el producto, lo que se sentía lento — ahora esa
+actualización visual espera una fracción de segundo antes de recalcularse,
+así que un escaneo completo la recalcula una sola vez en vez de una por
+cada dígito. Buscar a mano no se nota distinto (la espera es demasiado
+corta para notarla escribiendo).
+
+No hace falta correr nada en Supabase ni en `sql/schema.sql` — es un
+cambio solo de la app. Se aplica por ahora solo al buscador de Ventas (el
+que más se usa con el lector); si te sirve, extiendo el mismo teclado a
+los demás buscadores (Lista de artículos, Clientes, Catálogo global) y a
+los campos numéricos que todavía abren el teclado de Android (precio,
+costo, cantidad, etc. — para esos ya existe un teclado numérico propio en
+Caja/Cobrar, falta usarlo en el resto de la app).
+
+## Nuevo: el catálogo de Ventas queda guardado en el celular (funciona sin internet)
+
+El catálogo de productos ya no vive solo en la memoria de la sesión — ahora
+también queda guardado en el propio celular. La primera vez que entras a
+Ventas, la app muestra de inmediato lo último que había guardado (aunque
+todavía no haya internet) y, apenas la conexión esté disponible, lo
+actualiza sola de fondo con lo que haya cambiado. Si justo no hay internet
+en ese momento, la app sigue funcionando con el catálogo guardado en vez
+de mostrar un error.
+
+Es un cambio solo de la app (no hace falta correr nada en Supabase). Por
+ahora cubre el catálogo de productos, que es lo que más se usa en Ventas —
+si te sirve, hago lo mismo con categorías y clientes más adelante.
+
+**Nota**: esto es el catálogo (leer productos), no vender sin internet —
+crear una venta todavía necesita conexión, porque el número de recibo, el
+turno de caja y el stock se validan en el servidor. Eso es un cambio más
+grande y hay que decidir con cuidado qué pasa si dos celulares venden lo
+mismo estando ambos sin conexión; queda pendiente si más adelante quieres
+avanzar en esa dirección.
+
+## Nuevo: pantalla para el cliente ("Info ScreenClone") — sin internet
+
+Hay un APK nuevo, aparte: **Info ScreenClone**. Se instala en un segundo
+celular o tablet (el que mira el cliente, en el mostrador) y muestra en
+vivo lo que se va agregando al carrito en Ventas — artículo, cantidad,
+precio y el total — sin tocar nada en ese segundo dispositivo.
+
+**No usa internet ni Supabase**: los dos celulares se conectan directo
+entre sí por la misma red WiFi de la tienda. El de la caja abre un
+servidor chico (parte de la propia app) que avisa cada vez que el carrito
+cambia; "Info ScreenClone" se conecta a la dirección de ese celular y va
+mostrando los cambios al toque.
+
+**Cómo activarlo:**
+1. En el celular de la caja (la app normal, POSible): Configuración →
+   activa "Activar pantalla para el cliente". Ahí aparece una dirección
+   (algo como `192.168.1.5:8790`).
+2. Instala el nuevo APK **Info ScreenClone** en el otro celular/tablet —
+   tiene que estar conectado a la misma red WiFi que el de la caja (no
+   hace falta que esa red tenga internet, solo que los dos estén en la
+   misma).
+3. Abre Info ScreenClone, toca la pantalla y escribe la dirección que
+   viste en el paso 1. Se conecta solo, y si se corta (WiFi, o cierras la
+   app de la caja) reintenta cada pocos segundos sin que tengas que hacer
+   nada.
+
+Queda apagado por defecto en Configuración (no vale la pena tener el
+servidor prendido si no vas a usar la pantalla del cliente). No hace falta
+correr nada en Supabase ni en `sql/schema.sql` — es un cambio solo de la
+app, y solo del APK de Android (el panel web no lo muestra, ese modo no
+existe ahí).
