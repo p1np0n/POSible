@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 /// Paleta fija de tintes pastel (fondo claro + texto saturado del mismo
@@ -49,7 +50,7 @@ class ProductAvatar extends StatelessWidget {
     if (hasImage) {
       return CircleAvatar(
         radius: radius,
-        backgroundImage: NetworkImage(imageUrl!),
+        backgroundImage: CachedNetworkImageProvider(imageUrl!),
         onBackgroundImageError: (_, __) {},
         child: null,
       );

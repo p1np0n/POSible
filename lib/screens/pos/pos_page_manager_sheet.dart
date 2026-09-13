@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/category.dart';
@@ -247,7 +248,7 @@ class _PosPageManagerSheetState extends State<PosPageManagerSheet> {
                       dense: true,
                       leading: CircleAvatar(
                         backgroundImage: (p.thumbnailUrl ?? p.imageUrl) != null
-                            ? NetworkImage((p.thumbnailUrl ?? p.imageUrl)!)
+                            ? CachedNetworkImageProvider((p.thumbnailUrl ?? p.imageUrl)!)
                             : null,
                         child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
                       ),

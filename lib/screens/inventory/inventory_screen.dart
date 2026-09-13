@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/catalog_entry.dart';
@@ -239,8 +240,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           return Card(
                             child: ListTile(
                               leading: CircleAvatar(
-                                backgroundImage:
-                                    entry.imageUrl != null ? NetworkImage(entry.imageUrl!) : null,
+                                backgroundImage: entry.imageUrl != null
+                                    ? CachedNetworkImageProvider(entry.imageUrl!)
+                                    : null,
                                 child: entry.imageUrl == null ? const Icon(Icons.inventory_2) : null,
                               ),
                               title: Text(entry.name),

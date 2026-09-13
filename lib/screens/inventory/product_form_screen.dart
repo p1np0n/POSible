@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -528,7 +529,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 children: [
                   CircleAvatar(
                     radius: 44,
-                    backgroundImage: _imageUrl != null ? NetworkImage(_imageUrl!) : null,
+                    backgroundImage: _imageUrl != null ? CachedNetworkImageProvider(_imageUrl!) : null,
                     child: _imageUrl == null ? const Icon(Icons.inventory_2, size: 36) : null,
                   ),
                   const SizedBox(height: 8),
@@ -570,7 +571,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       dense: true,
                       leading: CircleAvatar(
                         radius: 16,
-                        backgroundImage: entry.imageUrl != null ? NetworkImage(entry.imageUrl!) : null,
+                        backgroundImage: entry.imageUrl != null ? CachedNetworkImageProvider(entry.imageUrl!) : null,
                         child: entry.imageUrl == null ? const Icon(Icons.inventory_2, size: 16) : null,
                       ),
                       title: Text(entry.name),
@@ -907,7 +908,7 @@ class _CatalogSearchDialogState extends State<_CatalogSearchDialog> {
                     final entry = _results[index];
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: entry.imageUrl != null ? NetworkImage(entry.imageUrl!) : null,
+                        backgroundImage: entry.imageUrl != null ? CachedNetworkImageProvider(entry.imageUrl!) : null,
                         child: entry.imageUrl == null ? const Icon(Icons.inventory_2) : null,
                       ),
                       title: Text(entry.name),
