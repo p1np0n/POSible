@@ -1208,3 +1208,29 @@ servidor prendido si no vas a usar la pantalla del cliente). No hace falta
 correr nada en Supabase ni en `sql/schema.sql` — es un cambio solo de la
 app, y solo del APK de Android (el panel web no lo muestra, ese modo no
 existe ahí).
+
+## Mejora: menos conexiones al servidor y fotos que no se vuelven a bajar
+
+Tres cambios para que la app use menos datos y se sienta más rápida:
+
+- **Categorías, modificadores y "más vendidos" ya no se piden de nuevo
+  cada vez que se entra a Ventas**: antes, cada vez que se salía de Ventas
+  (para ir a Turno, Configuración, etc.) y se volvía, se pedían de nuevo al
+  servidor aunque no hubieran cambiado — igual que ya pasaba con el
+  catálogo de productos. Ahora se piden una sola vez por sesión, como el
+  catálogo.
+- **Botón "Sincronizar" nuevo en la barra de Ventas** (ícono de flechas
+  circulares, junto a "Agregar producto"): pide todo de nuevo al servidor
+  a mano — catálogo, categorías, modificadores y "más vendidos" — para
+  cuando sepas que algo cambió en otro dispositivo y quieras verlo ya, sin
+  tener que esperar a deslizar hacia abajo ("Actualizar catálogo", que
+  sigue funcionando igual).
+- **Las fotos de los productos ahora quedan guardadas en el celular**: antes,
+  cada vez que se abría la app de nuevo, todas las fotos y miniaturas se
+  volvían a bajar del servidor aunque no hubieran cambiado (el celular las
+  "olvidaba" al cerrar la app). Ahora se guardan en el propio celular la
+  primera vez y se reusan de ahí en adelante — solo se vuelve a bajar una
+  foto si de verdad cambió.
+
+No hace falta correr nada en Supabase ni en `sql/schema.sql` — es un
+cambio solo de la app.

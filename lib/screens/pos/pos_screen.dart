@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -102,6 +103,18 @@ class _PosScreenState extends State<PosScreen> {
   // completo termina recalculando el filtro una sola vez en vez de una por
   // cada dígito.
   Timer? _localFilterDebounce;
+  // Categorías, modificadores y "más vendidos" cambian poco durante un
+  // turno de venta — antes se volvían a pedir al servidor cada vez que se
+  // volvía a Ventas desde otra pantalla (el menú lateral destruye y crea de
+  // nuevo esta pantalla cada vez), generando conexiones de más sin
+  // necesidad. Guardarlos acá (en un campo "static", no de la instancia)
+  // hace que sobrevivan aunque se salga y vuelva a entrar a Ventas dentro
+  // de la misma sesión; "Sincronizar" (botón de la barra) y "Actualizar
+  // catálogo" (deslizar hacia abajo) los limpian para forzar que se pidan
+  // de nuevo.
+  static List<Category>? _cachedCategories;
+  static List<Modifier>? _cachedModifiers;
+  static List<String>? _cachedTopSellingIds;
   bool _loading = true;
   String? _error;
   int _openTicketCount = 0;
@@ -182,13 +195,23 @@ class _PosScreenState extends State<PosScreen> {
       final productCache = context.read<ProductCacheProvider>();
       final results = await Future.wait([
         productCache.ensureLoaded(),
-        _categoryRepository.getAll(),
-        _modifierRepository.getAll(onlyActive: true),
-        _reportsRepository.getTopSellingProductIds(),
+        _cachedCategories != null ? Future.value(_cachedCategories!) : _categoryRepository.getAll(),
+        _cachedModifiers != null
+            ? Future.value(_cachedModifiers!)
+            : _modifierRepository.getAll(onlyActive: true),
+        _cachedTopSellingIds != null
+            ? Future.value(_cachedTopSellingIds!)
+            : _reportsRepository.getTopSellingProductIds(),
         _pageRepository.getAll(),
         _pageRepository.getAllItems(),
       ]);
       if (!mounted) return;
+      final categories = results[1] as List<Category>;
+      final modifiers = results[2] as List<Modifier>;
+      final topSellingIds = results[3] as List<String>;
+      _cachedCategories = categories;
+      _cachedModifiers = modifiers;
+      _cachedTopSellingIds = topSellingIds;
       final pages = results[4] as List<PosPage>;
       final allItems = results[5] as List<PosPageItem>;
       final grouped = <String, List<PosPageItem>>{};
@@ -226,9 +249,9 @@ class _PosScreenState extends State<PosScreen> {
       }
       setState(() {
         _products = products;
-        _categories = results[1] as List<Category>;
-        _modifiers = results[2] as List<Modifier>;
-        _topSellingIds = results[3] as List<String>;
+        _categories = categories;
+        _modifiers = modifiers;
+        _topSellingIds = topSellingIds;
         _pages = pages;
         _pageItemsByPage = grouped;
         if (_selectedPageId != null && !pages.any((p) => p.id == _selectedPageId)) {
@@ -861,6 +884,9 @@ class _PosScreenState extends State<PosScreen> {
   /// tras crear/editar un producto completo, o al tocar "Actualizar
   /// catálogo" a mano.
   Future<void> _reloadCatalogAndData() async {
+    _cachedCategories = null;
+    _cachedModifiers = null;
+    _cachedTopSellingIds = null;
     await context.read<ProductCacheProvider>().refresh();
     await _loadData();
   }
@@ -1160,6 +1186,13 @@ class _PosScreenState extends State<PosScreen> {
                   tooltip: 'Tickets en espera',
                   onPressed: cashSession.isOpen ? _openTicketsList : null,
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.sync),
+                color: onPrimary,
+                disabledColor: onPrimary.withOpacity(0.45),
+                tooltip: 'Sincronizar (pedir catálogo, categorías y modificadores al servidor ahora)',
+                onPressed: _loading ? null : _reloadCatalogAndData,
               ),
               IconButton(
                 icon: const Icon(Icons.add_box_outlined),
@@ -1604,10 +1637,10 @@ class _PosScreenState extends State<PosScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          product.thumbnailUrl ?? product.imageUrl!,
+        CachedNetworkImage(
+          imageUrl: product.thumbnailUrl ?? product.imageUrl!,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200),
+          errorWidget: (_, __, ___) => Container(color: Colors.grey.shade200),
         ),
         Positioned(
           top: 6,
@@ -1894,7 +1927,7 @@ class _ProductPickerDialogState extends State<_ProductPickerDialog> {
                             return ListTile(
                               leading: CircleAvatar(
                                 backgroundImage: (p.thumbnailUrl ?? p.imageUrl) != null
-                                    ? NetworkImage((p.thumbnailUrl ?? p.imageUrl)!)
+                                    ? CachedNetworkImageProvider((p.thumbnailUrl ?? p.imageUrl)!)
                                     : null,
                                 child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
                               ),
