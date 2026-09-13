@@ -1234,3 +1234,20 @@ Tres cambios para que la app use menos datos y se sienta más rápida:
 
 No hace falta correr nada en Supabase ni en `sql/schema.sql` — es un
 cambio solo de la app.
+
+## Se quitó el teclado alfabético propio; el teclado numérico es más fácil de acertar
+
+- **Se eliminó el teclado propio del buscador de Ventas** (el que se podía
+  activar en Configuración para probar) — no terminó de funcionar bien y
+  no aportaba lo suficiente. El buscador de Ventas vuelve a usar el
+  teclado normal de Android, como siempre lo hizo. También se quitó el
+  interruptor correspondiente en Configuración.
+- **El teclado numérico** (el que se usa para precios, cantidades, montos
+  en Caja/Cobrar, etc.) ahora tiene botones más grandes y sin espacios
+  "muertos" entre ellos — antes, tocar justo en el borde entre dos
+  números a veces no hacía nada porque caía en el espacio en blanco entre
+  botones; ahora toda la fila reacciona al toque, así que es mucho más
+  difícil que un toque se pierda.
+
+No requiere cambios en Supabase ni en `sql/schema.sql` — es un cambio
+solo de la app.

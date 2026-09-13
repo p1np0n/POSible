@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
@@ -36,7 +35,6 @@ import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/number_pad_dialog.dart';
 import '../../widgets/product_avatar.dart';
-import '../../widgets/simple_keyboard.dart';
 import '../../widgets/status_badge.dart';
 import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
@@ -121,12 +119,6 @@ class _PosScreenState extends State<PosScreen> {
   // Si el buscador está desplegado (mostrando el campo de texto) o
   // escondido detrás del ícono de lupa — ver la barra de arriba en build().
   bool _searchExpanded = false;
-  // Si el teclado propio de la app (ver lib/widgets/simple_keyboard.dart)
-  // está abierto, para escribir a mano en el buscador. Se abre solo al
-  // tocar el campo (no automáticamente al ganar el foco, para no chocar
-  // con el foco que el lector USB recupera solo — ver _scannerFocusWatchdog
-  // más abajo) y se cierra al perder el foco o al tocar "Listo".
-  bool _showKeyboard = false;
   // Además de devolverle el foco al buscador explícitamente después de
   // cada interacción conocida (_refocusSearch), este timer revisa cada
   // tanto si el foco se perdió sin que nada más lo esté usando a propósito
@@ -143,13 +135,6 @@ class _PosScreenState extends State<PosScreen> {
       _refocusSearch();
     });
     _loadData();
-    // Al perder el foco (tocar otra cosa, elegir un producto, etc.) el
-    // teclado propio se cierra solo, igual que haría el del celular.
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus && mounted && _showKeyboard) {
-        setState(() => _showKeyboard = false);
-      }
-    });
     _scannerFocusWatchdog = Timer.periodic(const Duration(milliseconds: 400), (_) {
       if (!mounted) return;
       if (!context.read<AppPreferencesProvider>().usbScannerModeEnabled) return;
@@ -323,23 +308,6 @@ class _PosScreenState extends State<PosScreen> {
     _localFilterDebounce?.cancel();
     _searchController.clear();
     setState(() => _search = '');
-  }
-
-  /// Abre el teclado propio de la app (SimpleKeyboard) para escribir a mano
-  /// en el buscador — solo si está activado en Configuración ("Teclado
-  /// propio en el buscador de Ventas", apagado por defecto mientras se
-  /// termina de probar). Si está apagado, no hace nada y Android muestra su
-  /// teclado normal, como siempre.
-  ///
-  /// El campo de búsqueda sigue siendo un TextField normal (no lleva
-  /// "keyboardType: none" — eso rompía el auto-agregado del lector USB
-  /// cuando el buscador estaba colapsado), así que Android intenta abrir su
-  /// propio teclado al tocarlo; esto lo esconde de inmediato y muestra el
-  /// propio en su lugar.
-  void _openOwnKeyboard() {
-    if (!context.read<AppPreferencesProvider>().customKeyboardEnabled) return;
-    setState(() => _showKeyboard = true);
-    SystemChannels.textInput.invokeMethod('TextInput.hide');
   }
 
   /// Pide el precio de un artículo de precio variable antes de agregarlo al
@@ -1091,7 +1059,6 @@ class _PosScreenState extends State<PosScreen> {
                       _searchExpanded = false;
                       _searchController.clear();
                       _search = '';
-                      _showKeyboard = false;
                     });
                   },
                 ),
@@ -1109,7 +1076,6 @@ class _PosScreenState extends State<PosScreen> {
                       hintStyle: TextStyle(color: onPrimary.withOpacity(0.75)),
                       border: InputBorder.none,
                     ),
-                    onTap: _openOwnKeyboard,
                     onChanged: _onSearchChanged,
                     onSubmitted: _handleScanSubmit,
                   ),
@@ -1163,10 +1129,7 @@ class _PosScreenState extends State<PosScreen> {
                   icon: const Icon(Icons.search),
                   color: onPrimary,
                   tooltip: 'Buscar producto o código',
-                  onPressed: () {
-                    setState(() => _searchExpanded = true);
-                    _openOwnKeyboard();
-                  },
+                  onPressed: () => setState(() => _searchExpanded = true),
                 ),
               ],
               if (prefs.cameraScanEnabled)
@@ -1268,10 +1231,8 @@ class _PosScreenState extends State<PosScreen> {
 
     final quickSaleBar = _buildQuickSaleBar();
 
-    return Stack(
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
         final isSplitWide = constraints.maxWidth >= _splitLayoutBreakpoint;
         final cartPanel = CartPanel(
           compact: !isSplitWide,
@@ -1334,27 +1295,7 @@ class _PosScreenState extends State<PosScreen> {
             quickSaleBar,
           ],
         );
-          },
-        ),
-        // Teclado propio de la app para el buscador (ver SimpleKeyboard) —
-        // encima de todo lo demás, pegado abajo, igual que se vería un
-        // teclado normal. No aparece solo: solo cuando se toca el campo de
-        // búsqueda a mano (ver el onTap del TextField, más arriba).
-        if (_showKeyboard)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SimpleKeyboard(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              onDone: (value) {
-                _handleScanSubmit(value);
-                setState(() => _showKeyboard = false);
-              },
-            ),
-          ),
-      ],
+      },
     );
   }
 
