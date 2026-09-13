@@ -126,24 +126,19 @@ class _NumberPadDialogState extends State<_NumberPadDialog> {
                 maxLines: 1,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _keypadRow(['1', '2', '3']),
-            const SizedBox(height: 8),
             _keypadRow(['4', '5', '6']),
-            const SizedBox(height: 8),
             _keypadRow(['7', '8', '9']),
-            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: widget.allowDecimal
                       ? _keyButton('.', onTap: _tapDecimal)
-                      : const SizedBox(height: 52),
+                      : const SizedBox(height: 64),
                 ),
-                const SizedBox(width: 8),
                 Expanded(child: _keyButton('0', onTap: () => _tapDigit('0'))),
-                const SizedBox(width: 8),
-                const Expanded(child: SizedBox(height: 52)),
+                const Expanded(child: SizedBox(height: 64)),
               ],
             ),
           ],
@@ -163,21 +158,35 @@ class _NumberPadDialogState extends State<_NumberPadDialog> {
   Widget _keypadRow(List<String> digits) {
     return Row(
       children: [
-        for (var i = 0; i < digits.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          Expanded(child: _keyButton(digits[i], onTap: () => _tapDigit(digits[i]))),
-        ],
+        for (final digit in digits) Expanded(child: _keyButton(digit, onTap: () => _tapDigit(digit))),
       ],
     );
   }
 
+  /// El botón ocupa todo el ancho y alto de su celda (sin espacios entre
+  /// botones que no reaccionen al toque) — el "InkWell" es lo de más
+  /// afuera, y el recuadro con borde es solo un relleno visual por dentro,
+  /// así tocar cerca del borde de un botón sigue registrando el toque en
+  /// vez de perderse en el espacio entre teclas. Más grande que antes
+  /// (64px de alto en vez de 52px) para que sea más fácil de acertar.
   Widget _keyButton(String label, {required VoidCallback onTap}) {
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
-        child: Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Container(
+            height: 64,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(label, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
+          ),
+        ),
       ),
     );
   }
