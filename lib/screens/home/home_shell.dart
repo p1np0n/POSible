@@ -22,13 +22,10 @@ import '../reports/reports_screen.dart';
 import '../settings/settings_screen.dart';
 import '../stores/stores_screen.dart';
 
-/// Punto de corte para mostrar el menú lateral fijo (pantalla ancha, como un
-/// computador) en vez del menú deslizable (celular).
-const double _wideLayoutBreakpoint = 900;
-
-/// Colores del menú lateral (fijo en pantalla ancha, o el drawer deslizable
-/// en celular) — siempre oscuro, independiente del tema claro/oscuro del
-/// resto de la app, igual que un panel de administración.
+/// Colores del menú lateral (siempre un drawer deslizable, escondido por
+/// defecto, sin importar el ancho de pantalla — ver build()) — siempre
+/// oscuro, independiente del tema claro/oscuro del resto de la app, igual
+/// que un panel de administración.
 const _sidebarBg = Color(0xFF1C1A22);
 const _sidebarInactive = Color(0xFFB7B1C2);
 const _sidebarMuted = Color(0xFF6E6879);
@@ -46,8 +43,11 @@ class _HomeShellState extends State<HomeShell> {
   bool _storeLoadRequested = false;
   final _navScrollController = ScrollController();
 
-  void _selectIndex(int index, {required bool closeDrawer}) {
-    if (closeDrawer) Navigator.of(context).maybePop();
+  // El menú lateral es siempre un drawer deslizable (escondido por defecto,
+  // se abre con el botón de menú), en cualquier ancho de pantalla — así que
+  // elegir algo del menú siempre lo cierra de nuevo.
+  void _selectIndex(int index) {
+    Navigator.of(context).maybePop();
     setState(() => _index = index);
   }
 
@@ -136,7 +136,7 @@ class _HomeShellState extends State<HomeShell> {
 
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
 
-    Widget buildNav(BuildContext context, {required bool closeDrawer}) {
+    Widget buildNav(BuildContext context) {
       final navTheme = Theme.of(context).copyWith(
         listTileTheme: ListTileThemeData(
           iconColor: _sidebarInactive,
@@ -201,33 +201,33 @@ class _HomeShellState extends State<HomeShell> {
             leading: const Icon(Icons.point_of_sale),
             title: const Text('Ventas'),
             selected: index == 0,
-            onTap: () => _selectIndex(0, closeDrawer: closeDrawer),
+            onTap: () => _selectIndex(0),
           ),
           ListTile(
             leading: const Icon(Icons.receipt_long),
             title: const Text('Recibos'),
             selected: index == 1,
-            onTap: () => _selectIndex(1, closeDrawer: closeDrawer),
+            onTap: () => _selectIndex(1),
           ),
           ListTile(
             leading: const Icon(Icons.schedule),
             title: const Text('Turno'),
             selected: index == 2,
-            onTap: () => _selectIndex(2, closeDrawer: closeDrawer),
+            onTap: () => _selectIndex(2),
           ),
           ListTile(
             leading: const Icon(Icons.access_time),
             title: const Text('Reloj'),
             subtitle: const Text('Marcar entrada y salida', style: TextStyle(fontSize: 11)),
             selected: index == 3,
-            onTap: () => _selectIndex(3, closeDrawer: closeDrawer),
+            onTap: () => _selectIndex(3),
           ),
           ListTile(
             leading: const Icon(Icons.move_to_inbox_outlined),
             title: const Text('Inventario'),
             subtitle: const Text('Entradas y salidas de stock', style: TextStyle(fontSize: 11)),
             selected: index == 4,
-            onTap: () => _selectIndex(4, closeDrawer: closeDrawer),
+            onTap: () => _selectIndex(4),
           ),
           ExpansionTile(
             leading: const Icon(Icons.inventory_2),
@@ -247,25 +247,25 @@ class _HomeShellState extends State<HomeShell> {
                 contentPadding: const EdgeInsets.only(left: 32, right: 16),
                 title: const Text('Lista de artículos'),
                 selected: index == productsIndex,
-                onTap: () => _selectIndex(productsIndex, closeDrawer: closeDrawer),
+                onTap: () => _selectIndex(productsIndex),
               ),
               ListTile(
                 contentPadding: const EdgeInsets.only(left: 32, right: 16),
                 title: const Text('Categorías'),
                 selected: index == categoriesIndex,
-                onTap: () => _selectIndex(categoriesIndex, closeDrawer: closeDrawer),
+                onTap: () => _selectIndex(categoriesIndex),
               ),
               ListTile(
                 contentPadding: const EdgeInsets.only(left: 32, right: 16),
                 title: const Text('Modificadores'),
                 selected: index == modifiersIndex,
-                onTap: () => _selectIndex(modifiersIndex, closeDrawer: closeDrawer),
+                onTap: () => _selectIndex(modifiersIndex),
               ),
               ListTile(
                 contentPadding: const EdgeInsets.only(left: 32, right: 16),
                 title: const Text('Descuentos'),
                 selected: index == discountsIndex,
-                onTap: () => _selectIndex(discountsIndex, closeDrawer: closeDrawer),
+                onTap: () => _selectIndex(discountsIndex),
               ),
             ],
           ),
@@ -275,21 +275,21 @@ class _HomeShellState extends State<HomeShell> {
               title: const Text('Catálogo global'),
               subtitle: const Text('Compartido entre todos los negocios que usan POSible', style: TextStyle(fontSize: 11)),
               selected: index == inventoryIndex,
-              onTap: () => _selectIndex(inventoryIndex, closeDrawer: closeDrawer),
+              onTap: () => _selectIndex(inventoryIndex),
             ),
           if (kIsWeb && store.showReports)
             ListTile(
               leading: const Icon(Icons.bar_chart),
               title: const Text('Reportes'),
               selected: index == reportsIndex,
-              onTap: () => _selectIndex(reportsIndex, closeDrawer: closeDrawer),
+              onTap: () => _selectIndex(reportsIndex),
             ),
           if (store.showCustomers)
             ListTile(
               leading: const Icon(Icons.people),
               title: const Text('Clientes'),
               selected: index == customersIndex,
-              onTap: () => _selectIndex(customersIndex, closeDrawer: closeDrawer),
+              onTap: () => _selectIndex(customersIndex),
             ),
           if (kIsWeb && store.showEmployees) ...[
             const Divider(color: _sidebarMuted, height: 24),
@@ -297,7 +297,7 @@ class _HomeShellState extends State<HomeShell> {
               leading: const Icon(Icons.badge_outlined),
               title: const Text('Empleados'),
               selected: index == employeesIndex,
-              onTap: () => _selectIndex(employeesIndex, closeDrawer: closeDrawer),
+              onTap: () => _selectIndex(employeesIndex),
             ),
           ],
           if (kIsWeb && store.isSuperAdmin) ...[
@@ -307,14 +307,14 @@ class _HomeShellState extends State<HomeShell> {
               title: const Text('Tiendas'),
               subtitle: const Text('Administrar todas las tiendas', style: TextStyle(fontSize: 11)),
               selected: index == storesIndex,
-              onTap: () => _selectIndex(storesIndex, closeDrawer: closeDrawer),
+              onTap: () => _selectIndex(storesIndex),
             ),
           ],
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('Configuración'),
             selected: index == settingsIndex,
-            onTap: () => _selectIndex(settingsIndex, closeDrawer: closeDrawer),
+            onTap: () => _selectIndex(settingsIndex),
           ),
               ],
             ),
@@ -323,43 +323,20 @@ class _HomeShellState extends State<HomeShell> {
       );
     }
 
-    final isWide = MediaQuery.of(context).size.width >= _wideLayoutBreakpoint;
-
-    if (isWide) {
-      return Scaffold(
-        body: Row(
-          children: [
-            SizedBox(
-              width: 280,
-              child: Material(elevation: 1, child: buildNav(context, closeDrawer: false)),
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(
-              child: Column(
-                children: [
-                  // Ventas arma su propia barra de arriba (título, pestañas
-                  // y buscador en una sola línea), así que no hace falta
-                  // otro AppBar encima solo con el título.
-                  if (index != 0)
-                    AppBar(
-                      title: Text(titles[index]),
-                      automaticallyImplyLeading: false,
-                    ),
-                  Expanded(child: screens[index]),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    // El menú lateral siempre es un drawer deslizable, escondido por
+    // defecto (sin importar si es celular, tablet o computador) — se abre
+    // con el botón de menú (el de Ventas, en su propia barra de arriba; o
+    // el que Flutter agrega solo en la esquina del AppBar en las demás
+    // pantallas, porque el Scaffold tiene un "drawer"). Antes, en pantalla
+    // ancha, el menú quedaba fijo ocupando 280px siempre — ahora Ventas
+    // (y el resto de las pantallas) usan todo el ancho disponible, y el
+    // menú aparece solo cuando se lo pide.
     return Scaffold(
       // Ventas arma su propia barra de arriba (título, pestañas y buscador
       // en una sola línea, con su propio botón para abrir este drawer), así
       // que no hace falta otro AppBar encima solo con el título.
       appBar: index == 0 ? null : AppBar(title: Text(titles[index])),
-      drawer: Drawer(child: buildNav(context, closeDrawer: true)),
+      drawer: Drawer(child: buildNav(context)),
       body: screens[index],
     );
   }
