@@ -26,11 +26,11 @@ import '../../services/open_ticket_repository.dart';
 import '../../services/pos_page_repository.dart';
 import '../../services/product_catalog_repository.dart';
 import '../../services/product_repository.dart';
+import '../../services/product_search_index.dart';
 import '../../services/reports_repository.dart';
 import '../../theme/app_semantic_colors.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../utils/date_format_es.dart';
-import '../../utils/search_normalize.dart';
 import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/number_pad_dialog.dart';
@@ -81,14 +81,23 @@ class _PosScreenState extends State<PosScreen> {
   final _searchFocusNode = FocusNode();
 
   List<Product> _products = [];
+  // Índice local (nombre/código de barras/SKU normalizados + mapas directos
+  // por código de barras y PLU) — se reconstruye cada vez que "_products"
+  // cambia, para que la búsqueda escrita y el escaneo (USB o cámara) sean
+  // rápidos aunque el catálogo tenga miles de artículos. Ver
+  // ProductSearchIndex.
+  ProductSearchIndex _searchIndex = ProductSearchIndex(const []);
   List<Category> _categories = [];
   List<Modifier> _modifiers = [];
   List<String> _topSellingIds = [];
   List<PosPage> _pages = [];
   Map<String, List<PosPageItem>> _pageItemsByPage = {};
-  String? _selectedCategoryId;
   String? _selectedPageId;
-  bool _showTopSelling = false;
+  // En Ventas ya no hay filtro por categoría ni un estado "ninguna pestaña
+  // elegida" que muestre todo el catálogo de una — siempre hay exactamente
+  // una pestaña de acceso rápido activa (ver _buildQuickSaleBar): "Más
+  // vendidos" (la de por defecto) o una pestaña personalizada.
+  bool _showTopSelling = true;
   String _search = '';
   int _searchSyncId = 0;
   Timer? _searchSyncDebounce;
@@ -234,6 +243,7 @@ class _PosScreenState extends State<PosScreen> {
       }
       setState(() {
         _products = products;
+        _searchIndex = ProductSearchIndex(products);
         _categories = categories;
         _modifiers = modifiers;
         _topSellingIds = topSellingIds;
@@ -341,13 +351,7 @@ class _PosScreenState extends State<PosScreen> {
   Future<bool> _tryAddWeightBarcode(String code) async {
     final decoded = _decodeWeightBarcode(code);
     if (decoded == null) return false;
-    Product? product;
-    for (final p in _products) {
-      if (p.isSoldByWeight && p.plu == decoded.plu) {
-        product = p;
-        break;
-      }
-    }
+    final product = _searchIndex.byPlu(decoded.plu);
     if (!mounted) return true;
     if (product == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -371,13 +375,7 @@ class _PosScreenState extends State<PosScreen> {
   Future<bool> _tryAddScannedBarcode(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return false;
-    Product? product;
-    for (final p in _products) {
-      if (p.barcode != null && p.barcode == trimmed) {
-        product = p;
-        break;
-      }
-    }
+    final product = _searchIndex.byBarcode(trimmed);
     if (product == null) return false;
     if (!mounted) return true;
     if (!context.read<CashSessionProvider>().isOpen) {
@@ -515,7 +513,10 @@ class _PosScreenState extends State<PosScreen> {
         barcode: barcode,
       ));
       if (!mounted) return;
-      setState(() => _products = _sortedByName([..._products, created]));
+      setState(() {
+        _products = _sortedByName([..._products, created]);
+        _searchIndex = ProductSearchIndex(_products);
+      });
       context.read<ProductCacheProvider>().upsertLocal(created);
       try {
         await _catalogRepository.upsert(barcode: barcode, name: name, suggestedPrice: price, source: 'store');
@@ -532,35 +533,26 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   /// Posición de la pestaña de acceso rápido activa dentro de la secuencia
-  /// "Más vendidos" + pestañas personalizadas, o -1 si no hay ninguna
-  /// elegida (viendo "Todos" o filtrando por categoría). La usa el gesto de
+  /// "Más vendidos" + pestañas personalizadas. Siempre hay una elegida (por
+  /// defecto "Más vendidos", índice 0) — ya no existe un estado "ninguna
+  /// pestaña" que muestre todo el catálogo de una. La usa el gesto de
   /// deslizar para saber a cuál moverse.
   int get _currentQuickTabIndex {
     if (_showTopSelling) return 0;
-    if (_selectedPageId != null) {
-      final index = _pages.indexWhere((p) => p.id == _selectedPageId);
-      return index == -1 ? -1 : index + 1;
-    }
-    return -1;
+    final index = _pages.indexWhere((p) => p.id == _selectedPageId);
+    return index == -1 ? 0 : index + 1;
   }
 
   void _selectQuickTabIndex(int index) {
-    if (index < 0) {
-      setState(() {
-        _showTopSelling = false;
-        _selectedPageId = null;
-      });
-    } else if (index == 0) {
+    if (index <= 0) {
       setState(() {
         _showTopSelling = true;
         _selectedPageId = null;
-        _selectedCategoryId = null;
       });
     } else {
       setState(() {
         _showTopSelling = false;
         _selectedPageId = _pages[index - 1].id;
-        _selectedCategoryId = null;
       });
     }
     _refocusSearch();
@@ -575,7 +567,7 @@ class _PosScreenState extends State<PosScreen> {
     if (velocity.abs() < 200) return;
     final current = _currentQuickTabIndex;
     final next = velocity < 0 ? current + 1 : current - 1;
-    if (next < -1 || next >= _pages.length + 1) return;
+    if (next < 0 || next >= _pages.length + 1) return;
     _selectQuickTabIndex(next);
   }
 
@@ -585,14 +577,6 @@ class _PosScreenState extends State<PosScreen> {
   /// que se entre a Ventas — se reordena acá para que quede A-Z siempre.
   List<Product> _sortedByName(List<Product> products) =>
       products..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-
-  bool _matchesSearch(Product product) {
-    final search = normalizeForSearch(_search);
-    return search.isEmpty ||
-        normalizeForSearch(product.name).contains(search) ||
-        (product.barcode != null && normalizeForSearch(product.barcode!).contains(search)) ||
-        (product.sku != null && normalizeForSearch(product.sku!).contains(search));
-  }
 
   void _onSearchChanged(String value) {
     _localFilterDebounce?.cancel();
@@ -623,7 +607,10 @@ class _PosScreenState extends State<PosScreen> {
     final knownIds = _products.map((p) => p.id).toSet();
     final missing = results.where((p) => !knownIds.contains(p.id)).toList();
     if (missing.isEmpty) return;
-    setState(() => _products = _sortedByName([..._products, ...missing]));
+    setState(() {
+      _products = _sortedByName([..._products, ...missing]);
+      _searchIndex = ProductSearchIndex(_products);
+    });
     final productCache = context.read<ProductCacheProvider>();
     for (final p in missing) {
       productCache.upsertLocal(p);
@@ -668,39 +655,24 @@ class _PosScreenState extends State<PosScreen> {
     return result;
   }
 
-  /// Orden de prioridad: "Más vendidos" > pestaña personalizada elegida >
-  /// categoría del menú desplegable (o todas).
+  /// La única forma de elegir qué se ve en Ventas son las pestañas de abajo
+  /// ("Más vendidos" o una pestaña personalizada) — ya no hay filtro por
+  /// categoría ni un estado "ninguna pestaña" que muestre todo el catálogo
+  /// de una. En cuanto se escribe algo o se escanea (búsqueda de texto o de
+  /// código), se busca de fondo en TODO el catálogo, no solo en la pestaña
+  /// activa, usando el índice local (ver ProductSearchIndex) para que sea
+  /// rápido aunque haya miles de productos.
   List<Product> get _filteredProducts {
-    if (_showTopSelling) {
-      // Mismo criterio que en una pestaña personalizada: en cuanto se
-      // escribe algo, se busca en TODO el catálogo (no solo entre los más
-      // vendidos), para poder vender cualquier producto sin salir de la
-      // pestaña.
-      if (_search.trim().isNotEmpty) {
-        return _products.where(_matchesSearch).toList();
-      }
-      final byId = {for (final p in _products) p.id: p};
-      return _topSellingIds.map((id) => byId[id]).whereType<Product>().toList();
+    if (_search.trim().isNotEmpty) {
+      return _searchIndex.search(_search);
     }
     if (_selectedPageId != null) {
-      // Mientras no se busque nada, se muestra solo lo que se agregó a
-      // mano a esta pestaña — pero en cuanto se escribe algo, se busca en
-      // TODO el catálogo (no solo en lo ya agregado), para poder vender
-      // cualquier producto sin salir de la pestaña ni tener que agregarlo
-      // a ella primero.
-      if (_search.trim().isNotEmpty) {
-        return _products.where(_matchesSearch).toList();
-      }
       return _productsForPage(_selectedPageId!).toList();
     }
-    // Mismo criterio que en una pestaña: con una categoría específica
-    // elegida, en cuanto se escribe algo en el buscador se busca en todo
-    // el catálogo (no solo en esa categoría), para no dejar productos
-    // "escondidos" solo porque están en otra categoría.
-    if (_search.trim().isNotEmpty) {
-      return _products.where(_matchesSearch).toList();
-    }
-    return _products.where((p) => _selectedCategoryId == null || p.categoryId == _selectedCategoryId).toList();
+    // "Más vendidos": pestaña por defecto y respaldo si por algún motivo no
+    // hay ninguna pestaña personalizada elegida.
+    final byId = {for (final p in _products) p.id: p};
+    return _topSellingIds.map((id) => byId[id]).whereType<Product>().toList();
   }
 
   /// Editar el stock de un producto directo desde su mosaico en Ventas
@@ -724,6 +696,7 @@ class _PosScreenState extends State<PosScreen> {
       final updated = product.copyWith(stockQuantity: newStock);
       setState(() {
         _products = _products.map((p) => p.id == product.id ? updated : p).toList();
+        _searchIndex = ProductSearchIndex(_products);
       });
       context.read<ProductCacheProvider>().upsertLocal(updated);
     } catch (e) {
@@ -1185,40 +1158,17 @@ class _PosScreenState extends State<PosScreen> {
         onRefresh: _reloadCatalogAndData,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: DropdownButtonFormField<String?>(
-              value: _selectedCategoryId,
-              decoration: const InputDecoration(
-                labelText: 'Categoría',
-                prefixIcon: Icon(Icons.category_outlined),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Todas las categorías')),
-                ..._categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedCategoryId = value;
-                  _showTopSelling = false;
-                  _selectedPageId = null;
-                });
-                _refocusSearch();
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
+            const SizedBox(height: 8),
+            Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _loadData)
                     : (products.isEmpty && _selectedPageId == null)
                         ? Center(
-                            child:
-                                Text(_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos'),
+                            child: Text(_search.trim().isNotEmpty
+                                ? 'No se encontraron productos'
+                                : (_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos')),
                           )
                         : prefs.useListLayout
                             ? _buildList(products, cashSession)
@@ -1330,13 +1280,14 @@ class _PosScreenState extends State<PosScreen> {
                         icon: Icons.trending_up,
                         selected: _showTopSelling,
                         onTap: () {
-                          final value = !_showTopSelling;
+                          // Siempre tiene que haber una pestaña elegida — si
+                          // "Más vendidos" ya está activa, tocarla de nuevo
+                          // no hace nada (no existe un estado "ninguna
+                          // pestaña" que muestre todo el catálogo de una).
+                          if (_showTopSelling) return;
                           setState(() {
-                            _showTopSelling = value;
-                            if (value) {
-                              _selectedPageId = null;
-                              _selectedCategoryId = null;
-                            }
+                            _showTopSelling = true;
+                            _selectedPageId = null;
                           });
                           _refocusSearch();
                         },
@@ -1349,11 +1300,10 @@ class _PosScreenState extends State<PosScreen> {
                           label: page.name,
                           selected: _selectedPageId == page.id,
                           onTap: () {
-                            final value = _selectedPageId != page.id;
+                            if (_selectedPageId == page.id) return;
                             setState(() {
-                              _selectedPageId = value ? page.id : null;
+                              _selectedPageId = page.id;
                               _showTopSelling = false;
-                              if (value) _selectedCategoryId = null;
                             });
                             _refocusSearch();
                           },

@@ -1251,3 +1251,26 @@ cambio solo de la app.
 
 No requiere cambios en Supabase ni en `sql/schema.sql` — es un cambio
 solo de la app.
+
+## Ventas: ahora solo las pestañas eligen qué se ve, y la búsqueda es más rápida
+
+- **Se quitó el filtro "Categoría" de arriba del mosaico en Ventas.** Ahora
+  lo único que elige qué productos se ven son las pestañas de abajo ("Más
+  vendidos" o una pestaña personalizada) — ya no existe el estado en que,
+  sin ninguna pestaña marcada, se mostraba el catálogo completo de una.
+  "Más vendidos" queda elegida por defecto al entrar a Ventas, y tocarla
+  de nuevo (o tocar la pestaña ya activa) no la desmarca: siempre hay
+  exactamente una elegida. Para cambiar, hay que tocar otra pestaña (o
+  deslizar el dedo sobre el mosaico, como ya se podía).
+- **Buscar (escribiendo o escaneando) sigue buscando en TODO el catálogo**,
+  no solo en la pestaña que se esté viendo — esto ya funcionaba así, y se
+  mantiene igual.
+- **La app ahora arma un índice local de los productos** (nombre, código de
+  barras y SKU, ya sin tildes ni mayúsculas) apenas se carga el catálogo,
+  en vez de recalcular eso mismo cada vez que se escribe una letra o se
+  escanea algo. Con miles de productos esto hace que tanto escribir en el
+  buscador como escanear (lector USB o cámara) respondan más rápido,
+  sobre todo en celulares o tablets más lentos.
+
+No requiere cambios en Supabase ni en `sql/schema.sql` — es un cambio
+solo de la app.
