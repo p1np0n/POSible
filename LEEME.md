@@ -1274,3 +1274,18 @@ solo de la app.
 
 No requiere cambios en Supabase ni en `sql/schema.sql` — es un cambio
 solo de la app.
+
+## El menú lateral ahora es desplegable y queda escondido por defecto
+
+Antes, en pantalla ancha (tablet apaisada o computador), el menú de la
+izquierda (Ventas, Recibos, Turno, etc.) quedaba fijo, ocupando 280px de
+la pantalla todo el tiempo. En celular ya era desplegable (se abría con
+el botón de menú y se escondía después). Ahora es desplegable en
+cualquier pantalla: queda escondido por defecto y se abre con el botón de
+menú (☰) — en Ventas, el de su propia barra de arriba; en el resto de las
+pantallas, el que aparece solo en la esquina de arriba a la izquierda.
+Así todas las pantallas, no solo Ventas, aprovechan todo el ancho
+disponible.
+
+No requiere cambios en Supabase ni en `sql/schema.sql` — es un cambio
+solo de la app.
