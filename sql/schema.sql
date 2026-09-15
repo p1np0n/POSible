@@ -1131,3 +1131,87 @@ begin
   return new;
 end;
 $$;
+
+-- ============================================================
+-- Pausar y eliminar tiendas: para cuando el servicio de POSible se le
+-- vende a un negocio y, si no paga, hay que cortarle el acceso, y más
+-- adelante poder borrar su cuenta y sus datos del todo. Ambas acciones
+-- son solo del administrador principal (ver "Tiendas").
+-- ============================================================
+
+-- Amplía is_approved() (la usan 37 políticas de la base de datos, en
+-- prácticamente todas las tablas del negocio) para que además exija que
+-- la tienda esté activa — así pausar una tienda corta el acceso a TODOS
+-- sus datos de una sola vez, sin tener que tocar cada tabla por separado,
+-- y sin depender de que la app respete la pausa (bloquea también si
+-- alguien llama directo a la API). El administrador principal nunca
+-- queda bloqueado por esto, ni tampoco un perfil sin tienda asignada
+-- (casos de antes del multi-tienda).
+create or replace function public.is_approved()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    left join public.stores s on s.id = p.store_id
+    where p.id = auth.uid()
+      and p.approved = true
+      and (p.is_super_admin = true or p.store_id is null or s.active = true)
+  );
+$$;
+
+-- Borra una tienda y TODOS sus datos (ventas, productos, clientes,
+-- turnos, empleados, etc.) — solo el administrador principal puede
+-- llamarla, y solo si la tienda ya está pausada (evita borrar por error
+-- una tienda que sigue activa/pagando). "categories" no se toca porque es
+-- compartida entre todas las tiendas, no le pertenece a ninguna en
+-- particular. Se borra en el orden que exige cada referencia entre
+-- tablas — si falta alguna, el error avisa y no se borra nada (todo
+-- corre en una sola transacción).
+create or replace function public.delete_store(target_store_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_super_admin() then
+    raise exception 'Solo el administrador principal puede eliminar una tienda';
+  end if;
+  if exists (select 1 from public.stores where id = target_store_id and active = true) then
+    raise exception 'Primero pausa la tienda — no se puede eliminar una tienda activa';
+  end if;
+
+  delete from public.sale_items where store_id = target_store_id;
+  delete from public.sales where store_id = target_store_id;
+  delete from public.open_tickets where store_id = target_store_id;
+  delete from public.cash_movements where store_id = target_store_id;
+  delete from public.time_clock_entries where store_id = target_store_id;
+  delete from public.stock_movements where store_id = target_store_id;
+  delete from public.pos_page_items where store_id = target_store_id;
+  delete from public.pos_pages where store_id = target_store_id;
+  delete from public.cash_sessions where store_id = target_store_id;
+  delete from public.customers where store_id = target_store_id;
+  delete from public.discounts where store_id = target_store_id;
+  delete from public.products where store_id = target_store_id;
+  delete from public.modifiers where store_id = target_store_id;
+  delete from public.store_settings where store_id = target_store_id;
+
+  -- Borra las cuentas de los empleados de esta tienda — se borra de
+  -- "auth.users", lo que borra en cascada su fila en "profiles"
+  -- (profiles.id references auth.users(id) on delete cascade). Nunca
+  -- borra al administrador principal, aunque por algún motivo hubiera
+  -- quedado ligado a esta tienda.
+  delete from auth.users
+  where id in (
+    select id from public.profiles
+    where store_id = target_store_id and is_super_admin = false
+  );
+
+  delete from public.stores where id = target_store_id;
+end;
+$$;
