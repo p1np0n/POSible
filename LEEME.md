@@ -1316,3 +1316,73 @@ No requiere cambios en Supabase ni en `sql/schema.sql`. **Si sigues
 viendo caídas después de instalar el próximo APK compilado con este
 cambio, avísame con el modelo del celular y, si puedes, el mensaje de
 error** — ahí buscamos otra causa.
+
+## Sistema de acceso nuevo: administrador con contraseña fuerte + PIN, cajeros solo con PIN
+
+Cambio grande en cómo entra la gente a la app. Antes, cualquiera podía
+crearse una cuenta sola desde la pantalla de inicio (con un código de
+tienda) y, una vez aprobada, tenía los mismos permisos que el dueño de
+la tienda — podía crear otros empleados, restablecerles el PIN, etc. El
+"PIN" de acceso rápido, además, era literalmente la contraseña real de
+la cuenta.
+
+Ahora:
+
+- **Ya no existe el autoregistro.** La pantalla de inicio de sesión (con
+  correo y contraseña) es solo para el administrador de la tienda. Ya
+  no aparece "¿Eres empleado nuevo? Crea tu cuenta".
+- **Los cajeros los crea el administrador**, desde **Empleados** (ahora
+  también disponible en el APK, no solo en el panel web): solo pide un
+  **nombre** y un **PIN de 4 dígitos** — nunca un correo, el cajero no
+  necesita saber que existe uno por dentro.
+- **El PIN ya no es la contraseña de la cuenta.** Es un código aparte
+  (de solo 4 dígitos, como en cualquier caja registradora), verificado
+  en el servidor. Esto permite que el **administrador tenga una
+  contraseña real fuerte** (mínimo 8 caracteres, letras combinadas con
+  números o símbolos) para su cuenta completa, y un PIN corto y
+  separado para el acceso rápido del día a día — configúralo en
+  **Configuración → "Mi PIN de acceso rápido"**.
+- **Roles y permisos.** Cada cajero es, por defecto, "Cajero": puede
+  vender, abrir/cerrar turno, marcar entrada/salida — pero no entra a
+  Configuración ni a Empleados, eso queda siempre exclusivo del
+  administrador. Desde **Empleados → "Permisos"** le puedes activar a
+  un cajero puntual el acceso a: editar Artículos (Lista, Categorías,
+  Modificadores, Descuentos), ver Reportes, y/o gestionar Clientes.
+- **"Agregar a este dispositivo"** (botón nuevo en Empleados, junto a
+  cada persona): agrega a ese cajero (o a ti mismo) al selector "¿Quién
+  eres?" de ESE celular/tablet en particular — así puede elegir su
+  nombre y escribir su PIN sin que nadie tenga que escribir un correo
+  que ni siquiera conoce. Hazlo una vez por cada persona que vaya a usar
+  ese aparato.
+- **Bloqueo por intentos fallidos:** tras 5 intentos seguidos de PIN
+  incorrecto, esa cuenta queda bloqueada 15 minutos (protege un PIN de 4
+  dígitos, que son pocas combinaciones). El administrador siempre puede
+  entrar igual con su correo y contraseña completos mientras tanto.
+
+### Qué tienes que hacer en Supabase (una sola vez)
+
+1. **Vuelve a correr `sql/schema.sql`** en el editor SQL de tu proyecto
+   — agrega las columnas de rol/permisos y dos tablas nuevas
+   (`profile_pins`, `pin_lockouts`). No borra nada existente.
+2. **Actualiza la función "manage-employee"**: ve a Edge Functions, ábrela,
+   reemplaza todo el contenido por el de
+   `supabase/functions/manage-employee/index.ts` y dale Deploy de nuevo.
+3. **Crea una función nueva llamada exactamente "verify-pin"**: pega todo
+   el contenido de `supabase/functions/verify-pin/index.ts` y dale
+   Deploy. No hace falta tocar ningún ajuste especial de la función (el
+   chequeo de JWT de la plataforma se puede dejar como está).
+
+### Qué tienes que hacer tú, después de eso
+
+- **Configura tu propio PIN primero**: entra con tu correo y
+  contraseña de siempre, ve a Configuración → "Mi PIN de acceso rápido"
+  y elige uno. Si tu contraseña actual no cumple el mínimo nuevo
+  (8 caracteres, letras + números o símbolos), cámbiala también ahí.
+- **A los cajeros que ya tenías creados** (de antes de este cambio) hay
+  que ponerles un PIN nuevo desde Empleados — su PIN viejo (que era su
+  contraseña) ya no sirve para el acceso rápido.
+- En cada celular/tablet de la tienda, usa "Agregar a este dispositivo"
+  para ti y para cada cajero que vaya a usar ese aparato.
+
+No hace falta borrar la sesión actual de nadie — este cambio no cierra
+sesiones activas, solo cambia cómo se inicia una nueva.

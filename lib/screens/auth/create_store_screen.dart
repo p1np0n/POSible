@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../utils/password_strength.dart';
+
 class CreateStoreScreen extends StatefulWidget {
   const CreateStoreScreen({super.key});
 
@@ -99,9 +101,15 @@ class _CreateStoreScreenState extends State<CreateStoreScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
-                    validator: (value) =>
-                        (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña',
+                      helperText: 'Mínimo 8 caracteres, combinando letras con números o símbolos. '
+                          'Esta es tu contraseña completa — para el día a día vas a usar un PIN '
+                          'de 4 dígitos aparte, que configuras después en Configuración.',
+                      helperMaxLines: 3,
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: validateStrongPassword,
                   ),
                   const SizedBox(height: 16),
                   if (_errorMessage != null)

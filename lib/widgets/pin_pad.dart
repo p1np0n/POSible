@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 /// Cantidad de dígitos del PIN en toda la app (login rápido y bloqueo
-/// automático). El PIN es, por dentro, la contraseña de Supabase, que por
-/// defecto exige mínimo 6 caracteres — 8 queda cómodamente por encima sin
-/// tener que tocar la configuración de Supabase.
-const int pinLength = 8;
+/// automático). El PIN ya no es la contraseña de la cuenta (se verifica
+/// aparte, con su propio hash — ver PinAuthRepository), así que puede ser
+/// corto de verdad, como en cualquier caja registradora.
+const int pinLength = 4;
 
 /// Teclado numérico + indicador de dígitos escritos, reutilizado en la
 /// pantalla de login con PIN y en la de bloqueo automático.

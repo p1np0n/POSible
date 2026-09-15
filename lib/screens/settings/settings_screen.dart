@@ -6,7 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/customer_display_provider.dart';
 import '../../providers/store_provider.dart';
+import '../../services/profile_repository.dart';
 import '../../services/settings_repository.dart';
+import '../../utils/password_strength.dart';
+import '../../widgets/pin_entry_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +20,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final SettingsRepository _repository = SettingsRepository();
+  final ProfileRepository _profileRepository = ProfileRepository();
   final _taxRateController = TextEditingController();
   final _marginController = TextEditingController();
   final _notifyEmailController = TextEditingController();
@@ -33,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingOcrApiKey = false;
   bool _savingGoogleSearchConfig = false;
   bool _changingPassword = false;
+  bool _changingPin = false;
   bool _fillingPhotos = false;
   bool _generatingThumbnails = false;
 
@@ -116,9 +121,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _changePassword() async {
     final newPassword = _newPasswordController.text;
-    if (newPassword.length < 4) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('La contraseña debe tener al menos 4 caracteres')));
+    final strengthError = validateStrongPassword(newPassword);
+    if (strengthError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(strengthError)));
       return;
     }
     if (newPassword != _confirmPasswordController.text) {
@@ -141,6 +146,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _changingPassword = false);
     }
+  }
+
+  /// Cambia el PIN de acceso rápido del administrador (separado de su
+  /// contraseña real) — solo el propio administrador puede hacerlo, no
+  /// hay nadie "por encima" dentro de la tienda que se lo restablezca si
+  /// lo olvida (en ese caso, entra con su correo y contraseña completos y
+  /// lo cambia acá).
+  Future<void> _changeMyPin() async {
+    final myProfile = context.read<StoreProvider>().myProfile;
+    if (myProfile == null) return;
+    final pin = await showPinEntryDialog(context, title: 'Mi PIN nuevo (4 dígitos)');
+    if (pin == null || !mounted) return;
+    setState(() => _changingPin = true);
+    final error = await _profileRepository.setPin(userId: myProfile.id, pin: pin);
+    if (!mounted) return;
+    setState(() => _changingPin = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error ?? 'PIN actualizado')),
+    );
   }
 
   Future<void> _sendTestEmail() async {
@@ -454,6 +478,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Divider(),
                 const SizedBox(height: 16),
                 Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Mi PIN de acceso rápido'),
+                  subtitle: const Text(
+                    'Para elegirte en "¿Quién eres?" sin escribir tu correo y contraseña '
+                    'completos. Es un código aparte, no tu contraseña.',
+                  ),
+                  trailing: _changingPin
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : OutlinedButton(onPressed: _changeMyPin, child: const Text('Cambiar')),
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Bloqueo automático'),

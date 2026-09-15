@@ -5,6 +5,7 @@ import '../../models/employee_profile.dart';
 import '../../models/store.dart';
 import '../../services/profile_repository.dart';
 import '../../services/store_repository.dart';
+import '../../utils/password_strength.dart';
 import '../../utils/search_normalize.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
@@ -99,7 +100,7 @@ class _StoresScreenState extends State<StoresScreen> {
       ),
     );
     if (newPassword == null || !mounted) return;
-    final error = await _profileRepository.resetPin(userId: store.ownerId!, newPin: newPassword);
+    final error = await _profileRepository.setPassword(userId: store.ownerId!, password: newPassword);
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $error')));
@@ -343,14 +344,14 @@ class _ResetPinDialogState extends State<_ResetPinDialog> {
               controller: _passwordController,
               obscureText: true,
               decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
-              validator: (value) => (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
+              validator: validateStrongPassword,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _confirmController,
               obscureText: true,
               decoration: const InputDecoration(labelText: 'Repite la contraseña', border: OutlineInputBorder()),
-              validator: (value) => (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
+              validator: validateStrongPassword,
               onFieldSubmitted: (_) => _confirm(),
             ),
           ],
@@ -404,23 +405,23 @@ class _StoreEmployeesDialogState extends State<_StoreEmployeesDialog> {
     final employees = _employees ?? const [];
     if (_search.trim().isEmpty) return employees;
     final term = normalizeForSearch(_search);
-    return employees.where((p) => normalizeForSearch(p.email).contains(term)).toList();
+    return employees.where((p) => normalizeForSearch(p.label).contains(term)).toList();
   }
 
   Future<void> _resetPin(EmployeeProfile profile) async {
     final newPin = await showPinEntryDialog(
       context,
-      title: 'Restablecer PIN',
-      subtitle: profile.email.isEmpty ? '(sin correo)' : profile.email,
+      title: 'Nuevo PIN (4 dígitos)',
+      subtitle: profile.label,
     );
     if (newPin == null || !mounted) return;
-    final error = await widget.profileRepository.resetPin(userId: profile.id, newPin: newPin);
+    final error = await widget.profileRepository.setPin(userId: profile.id, pin: newPin);
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $error')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PIN de ${profile.email.isEmpty ? "este empleado" : profile.email} actualizado')),
+        SnackBar(content: Text('PIN de ${profile.label} actualizado')),
       );
     }
   }
@@ -490,11 +491,14 @@ class _StoreEmployeesDialogState extends State<_StoreEmployeesDialog> {
                                             profile.approved ? Icons.check_circle : Icons.hourglass_top,
                                             color: profile.approved ? Colors.green : Colors.orange,
                                           ),
-                                          title: Text(profile.email.isEmpty ? '(sin correo)' : profile.email),
-                                          subtitle: Text(profile.approved ? 'Aprobado' : 'Pendiente de aprobación'),
+                                          title: Text(profile.label),
+                                          subtitle: Text([
+                                            profile.isAdmin ? 'Administrador' : 'Cajero',
+                                            profile.approved ? 'Aprobado' : 'Pendiente de aprobación',
+                                          ].join(' · ')),
                                           trailing: IconButton(
                                             icon: const Icon(Icons.password_outlined),
-                                            tooltip: 'Restablecer PIN',
+                                            tooltip: 'Cambiar PIN',
                                             onPressed: () => _resetPin(profile),
                                           ),
                                         );

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
+import '../../services/pin_auth_repository.dart';
 import '../../widgets/pin_pad.dart';
 import 'login_screen.dart';
 
-/// Acceso rápido para cambiar de cajero: elegir quién eres (de los correos
-/// que ya iniciaron sesión en este dispositivo) y escribir tu PIN, en vez
-/// de escribir correo y contraseña completos cada vez.
+/// Acceso rápido para cambiar de cajero: elegir quién eres (de las cuentas
+/// que ya se usaron en este dispositivo) y escribir tu PIN de 4 dígitos,
+/// en vez de escribir correo y contraseña completos cada vez. Sirve tanto
+/// para el administrador (que además tiene su contraseña completa aparte)
+/// como para los cajeros (que solo tienen PIN, nunca contraseña).
 ///
-/// Por dentro sigue siendo un inicio de sesión normal de Supabase — el
-/// "PIN" es la contraseña de la cuenta. Para que funcione, la contraseña
-/// del empleado debe ser numérica, del mismo largo que [pinLength].
+/// El PIN se verifica en el servidor (ver PinAuthRepository) — nunca es la
+/// contraseña real de la cuenta.
 class PinLoginScreen extends StatefulWidget {
   const PinLoginScreen({super.key});
 
@@ -21,6 +22,7 @@ class PinLoginScreen extends StatefulWidget {
 }
 
 class _PinLoginScreenState extends State<PinLoginScreen> {
+  final PinAuthRepository _repository = PinAuthRepository();
   String? _selectedEmail;
   String _pin = '';
   bool _loading = false;
@@ -64,27 +66,23 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
 
   Future<void> _submit() async {
     setState(() => _loading = true);
-    try {
-      await Supabase.instance.client.auth.signInWithPassword(email: _selectedEmail, password: _pin);
-      if (mounted) await context.read<AppPreferencesProvider>().markActiveNow();
-    } on AuthException catch (e) {
+    final error = await _repository.loginWithPin(email: _selectedEmail!, pin: _pin);
+    if (!mounted) return;
+    if (error != null) {
       setState(() {
-        _errorMessage = e.message;
+        _errorMessage = error;
         _pin = '';
+        _loading = false;
       });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error de conexión.';
-        _pin = '';
-      });
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      return;
     }
+    await context.read<AppPreferencesProvider>().markActiveNow();
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final knownEmails = context.watch<AppPreferencesProvider>().knownEmails;
+    final prefs = context.watch<AppPreferencesProvider>();
 
     return Scaffold(
       body: Center(
@@ -93,15 +91,15 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: _selectedEmail == null
-                ? _buildUserPicker(knownEmails)
-                : _buildPinPad(),
+                ? _buildUserPicker(prefs)
+                : _buildPinPad(prefs),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildUserPicker(List<String> knownEmails) {
+  Widget _buildUserPicker(AppPreferencesProvider prefs) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -111,10 +109,10 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
         const SizedBox(height: 8),
         const Text('¿Quién eres?', style: TextStyle(color: const Color(0xFF616161))),
         const SizedBox(height: 16),
-        ...knownEmails.map((email) => Card(
+        ...prefs.knownEmails.map((email) => Card(
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
-                title: Text(email),
+                title: Text(prefs.knownDisplayNames[email] ?? email),
                 onTap: () => _selectUser(email),
                 trailing: IconButton(
                   icon: const Icon(Icons.close),
@@ -135,7 +133,7 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     );
   }
 
-  Widget _buildPinPad() {
+  Widget _buildPinPad(AppPreferencesProvider prefs) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -148,7 +146,8 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
         ),
         const CircleAvatar(radius: 28, child: Icon(Icons.person, size: 28)),
         const SizedBox(height: 8),
-        Text(_selectedEmail!, style: Theme.of(context).textTheme.titleMedium),
+        Text(prefs.knownDisplayNames[_selectedEmail] ?? _selectedEmail!,
+            style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         const Text('Introduce tu PIN', style: TextStyle(color: const Color(0xFF616161))),
         const SizedBox(height: 16),

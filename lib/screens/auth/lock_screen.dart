@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
 import '../../providers/store_provider.dart';
+import '../../services/pin_auth_repository.dart';
 import '../../widgets/pin_pad.dart';
 
 /// Pantalla de bloqueo que aparece cuando la app estuvo en segundo plano
@@ -19,6 +20,7 @@ class LockScreen extends StatefulWidget {
 }
 
 class _LockScreenState extends State<LockScreen> {
+  final PinAuthRepository _repository = PinAuthRepository();
   String _pin = '';
   bool _loading = false;
   String? _errorMessage;
@@ -43,24 +45,20 @@ class _LockScreenState extends State<LockScreen> {
     final email = Supabase.instance.client.auth.currentUser?.email;
     if (email == null) return;
     setState(() => _loading = true);
-    try {
-      await Supabase.instance.client.auth.signInWithPassword(email: email, password: _pin);
-      if (mounted) {
-        await context.read<AppPreferencesProvider>().markActiveNow();
-        widget.onUnlocked();
-      }
-    } on AuthException catch (e) {
+    final error = await _repository.loginWithPin(email: email, pin: _pin);
+    if (!mounted) return;
+    if (error != null) {
       setState(() {
-        _errorMessage = e.message;
+        _errorMessage = error;
         _pin = '';
+        _loading = false;
       });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error de conexión.';
-        _pin = '';
-      });
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    await context.read<AppPreferencesProvider>().markActiveNow();
+    if (mounted) {
+      setState(() => _loading = false);
+      widget.onUnlocked();
     }
   }
 

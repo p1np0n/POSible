@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +9,7 @@ class AppPreferencesProvider extends ChangeNotifier {
   static const _cameraScanKey = 'camera_scan_enabled';
   static const _usbScannerModeKey = 'usb_scanner_mode_enabled';
   static const _knownEmailsKey = 'pin_known_emails';
+  static const _knownDisplayNamesKey = 'pin_known_display_names';
   static const _autoLockMinutesKey = 'auto_lock_minutes';
   static const _lastActiveAtKey = 'last_active_at';
 
@@ -26,8 +29,16 @@ class AppPreferencesProvider extends ChangeNotifier {
   // Correos que ya iniciaron sesión en ESTE dispositivo, para poder mostrar
   // el acceso rápido con PIN (elegir quién eres + escribir tu PIN) en vez de
   // tener que escribir correo y contraseña cada vez que cambia el cajero.
-  // Solo se guarda el correo, nunca la contraseña.
+  // Solo se guarda el correo, nunca la contraseña ni el PIN.
   List<String> knownEmails = [];
+
+  // Nombre para mostrar de cada correo conocido (ej. "Juan", el nombre que
+  // le puso el administrador al crear al cajero) — el correo de un cajero
+  // es uno interno generado solo, no algo que tenga sentido mostrarle. El
+  // administrador lo agrega desde "Empleados" (botón "Agregar a este
+  // dispositivo"); si un correo no tiene nombre guardado, se muestra el
+  // correo tal cual.
+  Map<String, String> knownDisplayNames = {};
 
   // Minutos que puede estar la app en segundo plano antes de pedir el PIN
   // de nuevo al volver. 0 = nunca pedirlo.
@@ -40,6 +51,14 @@ class AppPreferencesProvider extends ChangeNotifier {
     cameraScanEnabled = prefs.getBool(_cameraScanKey) ?? true;
     usbScannerModeEnabled = prefs.getBool(_usbScannerModeKey) ?? false;
     knownEmails = prefs.getStringList(_knownEmailsKey) ?? [];
+    final rawDisplayNames = prefs.getString(_knownDisplayNamesKey);
+    if (rawDisplayNames != null) {
+      try {
+        knownDisplayNames = Map<String, String>.from(jsonDecode(rawDisplayNames) as Map);
+      } catch (_) {
+        knownDisplayNames = {};
+      }
+    }
     autoLockMinutes = prefs.getInt(_autoLockMinutesKey) ?? 15;
     loaded = true;
     notifyListeners();
@@ -71,19 +90,26 @@ class AppPreferencesProvider extends ChangeNotifier {
     return elapsedMs > autoLockMinutes * 60 * 1000;
   }
 
-  Future<void> rememberEmail(String email) async {
-    if (knownEmails.contains(email)) return;
-    knownEmails = [...knownEmails, email];
-    notifyListeners();
+  Future<void> rememberEmail(String email, {String? displayName}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_knownEmailsKey, knownEmails);
+    if (!knownEmails.contains(email)) {
+      knownEmails = [...knownEmails, email];
+      await prefs.setStringList(_knownEmailsKey, knownEmails);
+    }
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      knownDisplayNames = {...knownDisplayNames, email: displayName.trim()};
+      await prefs.setString(_knownDisplayNamesKey, jsonEncode(knownDisplayNames));
+    }
+    notifyListeners();
   }
 
   Future<void> forgetEmail(String email) async {
     knownEmails = knownEmails.where((e) => e != email).toList();
+    knownDisplayNames = {...knownDisplayNames}..remove(email);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_knownEmailsKey, knownEmails);
+    await prefs.setString(_knownDisplayNamesKey, jsonEncode(knownDisplayNames));
   }
 
   Future<void> setDarkMode(bool value) async {
