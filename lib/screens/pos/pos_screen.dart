@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -17,7 +16,6 @@ import '../../providers/app_preferences_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../providers/product_cache_provider.dart';
-import '../../providers/store_provider.dart';
 import '../../services/category_repository.dart';
 import '../../services/customer_repository.dart';
 import '../../services/discount_repository.dart';
@@ -28,14 +26,8 @@ import '../../services/product_catalog_repository.dart';
 import '../../services/product_repository.dart';
 import '../../services/product_search_index.dart';
 import '../../services/reports_repository.dart';
-import '../../theme/app_semantic_colors.dart';
-import '../../utils/currency_format_cl.dart';
-import '../../utils/date_format_es.dart';
-import '../../widgets/currency_text.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/number_pad_dialog.dart';
-import '../../widgets/product_avatar.dart';
-import '../../widgets/status_badge.dart';
 import '../inventory/product_form_screen.dart';
 import '../scan/barcode_scanner_screen.dart';
 import 'cart_panel.dart';
@@ -44,17 +36,21 @@ import 'modifier_picker_sheet.dart';
 import 'open_tickets_sheet.dart';
 import 'page_item_customize_dialog.dart';
 import 'pos_page_manager_sheet.dart';
+import 'pos_product_browser.dart';
+import 'pos_quick_sale_bar.dart';
+import 'pos_title_row.dart';
+import 'product_picker_dialog.dart';
+
+// El manejo de códigos de barras (normal y de balanza) vive en su propio
+// archivo, pero como parte de esta misma librería (comparte los campos y
+// métodos privados de _PosScreenState tal cual, sin tener que pasarse
+// nada por parámetro) — ver pos_screen_scanner.dart.
+part 'pos_screen_scanner.dart';
 
 /// A partir de este ancho, Ventas se divide lado a lado (productos +
 /// carrito); antes de eso queda apilado (productos arriba, carrito abajo),
 /// pero el carrito SIEMPRE está visible en pantalla, nunca hay que abrirlo.
 const double _splitLayoutBreakpoint = 900;
-
-/// Ancho aproximado de cada mosaico de producto — a partir de esto se
-/// calculan cuántas columnas caben según el ancho real de la pantalla
-/// (da mosaicos chicos, unos 5x5 visibles a la vez en una tablet, como se
-/// pidió, para ver más productos sin desplazarse).
-const double _targetTileWidth = 120.0;
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -95,7 +91,7 @@ class _PosScreenState extends State<PosScreen> {
   String? _selectedPageId;
   // En Ventas ya no hay filtro por categoría ni un estado "ninguna pestaña
   // elegida" que muestre todo el catálogo de una — siempre hay exactamente
-  // una pestaña de acceso rápido activa (ver _buildQuickSaleBar): "Más
+  // una pestaña de acceso rápido activa (ver PosQuickSaleBar): "Más
   // vendidos" (la de por defecto) o una pestaña personalizada.
   bool _showTopSelling = true;
   String _search = '';
@@ -332,206 +328,6 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  /// Códigos de balanza (peso variable): 13 dígitos que empiezan con "2".
-  /// Dígitos 2-6: código PLU del producto. Dígitos 7-11: peso en gramos. El
-  /// último dígito es de control (no se valida). Devuelve null si "code" no
-  /// tiene esa forma (no es un código de balanza).
-  ({String plu, double weightKg})? _decodeWeightBarcode(String code) {
-    if (code.length != 13 || !code.startsWith('2') || int.tryParse(code) == null) return null;
-    final plu = code.substring(1, 6);
-    final grams = int.tryParse(code.substring(6, 11));
-    if (grams == null) return null;
-    return (plu: plu, weightKg: grams / 1000);
-  }
-
-  /// Si "code" es un código de balanza, busca el producto por PLU y lo
-  /// agrega al carrito con el peso escaneado. Devuelve true si "code" se
-  /// reconoció como código de balanza (se haya encontrado el producto o
-  /// no), para que quien llama no lo trate además como una búsqueda normal.
-  Future<bool> _tryAddWeightBarcode(String code) async {
-    final decoded = _decodeWeightBarcode(code);
-    if (decoded == null) return false;
-    final product = _searchIndex.byPlu(decoded.plu);
-    if (!mounted) return true;
-    if (product == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No hay ningún producto por peso con el código ${decoded.plu}')),
-      );
-      return true;
-    }
-    if (!context.read<CashSessionProvider>().isOpen) return true;
-    context.read<CartProvider>().addVariableItem(product, quantity: decoded.weightKg);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Agregado: ${product.name} (${decoded.weightKg.toStringAsFixed(3)} kg)')),
-    );
-    return true;
-  }
-
-  /// Si "code" coincide exactamente con el código de barras de un producto
-  /// (normal, no de balanza), lo agrega de inmediato al carrito — así el
-  /// lector de código de barras USB no necesita nada más que este campo
-  /// tenga el foco. Devuelve true si "code" coincidió con algún producto,
-  /// para que quien llama no lo trate además como una búsqueda de texto.
-  Future<bool> _tryAddScannedBarcode(String code) async {
-    final trimmed = code.trim();
-    if (trimmed.isEmpty) return false;
-    final product = _searchIndex.byBarcode(trimmed);
-    if (product == null) return false;
-    if (!mounted) return true;
-    if (!context.read<CashSessionProvider>().isOpen) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Abre la caja antes de vender')),
-      );
-      return true;
-    }
-    await _addToCart(product);
-    return true;
-  }
-
-  /// Un código de barras real es solo dígitos (EAN-13, EAN-8, UPC-A, los
-  /// numéricos de balanza, etc.) — se usa para distinguir "esto se escaneó
-  /// o se tecleó como código" de una búsqueda de texto común que
-  /// simplemente no encontró nada, y así no ofrecer "crear producto" ante
-  /// cualquier búsqueda sin resultados.
-  bool _looksLikeBarcode(String value) => RegExp(r'^\d{6,}$').hasMatch(value);
-
-  /// Maneja lo que llega al buscador (visible o el campo invisible del
-  /// lector USB) al presionar Enter — el lector manda el código y un Enter
-  /// automático, así que esto es lo que hace que escanear agregue el
-  /// producto solo, sin tocar la pantalla. Si el código tiene forma de
-  /// código de barras pero no coincide con ningún producto, ofrece crearlo
-  /// al toque (ver _offerCreateProductForBarcode).
-  Future<void> _handleScanSubmit(String value) async {
-    final handled = await _tryAddWeightBarcode(value) || await _tryAddScannedBarcode(value);
-    final trimmed = value.trim();
-    if (handled || _looksLikeBarcode(trimmed)) {
-      if (mounted) {
-        _localFilterDebounce?.cancel();
-        _searchController.clear();
-        setState(() => _search = '');
-      }
-    }
-    if (!handled && _looksLikeBarcode(trimmed) && mounted) {
-      await _offerCreateProductForBarcode(trimmed);
-    }
-    _refocusSearch();
-  }
-
-  /// Avisa que no existe ningún producto con ese código de barras y ofrece
-  /// crearlo al toque, sin tener que ir a Lista de artículos ni escanear
-  /// una segunda vez.
-  Future<void> _offerCreateProductForBarcode(String barcode) async {
-    final create = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Artículo no encontrado'),
-        content: Text('No hay ningún producto con el código de barras $barcode.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cerrar')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar producto')),
-        ],
-      ),
-    );
-    if (create == true && mounted) {
-      await _quickCreateProductFromBarcode(barcode);
-    }
-  }
-
-  /// Crea el producto con el código de barras ya escaneado (pidiendo solo
-  /// nombre y precio, lo mínimo para poder cobrarlo) y lo agrega de
-  /// inmediato al carrito — así el flujo completo (escanear algo que no
-  /// existe → crearlo → venderlo) no necesita una segunda pasada.
-  Future<void> _quickCreateProductFromBarcode(String barcode) async {
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
-    Future<void> pickPrice(StateSetter setState) async {
-      final price = await showNumberPadDialog(
-        context,
-        title: 'Precio',
-        initialValue: double.tryParse(priceController.text),
-        prefixText: '\$',
-        minValue: 1,
-      );
-      if (price != null) setState(() => priceController.text = price.round().toString());
-    }
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Agregar artículo nuevo'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Código de barras: $barcode', style: TextStyle(color: const Color(0xFF616161))),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceController,
-                readOnly: true,
-                decoration: const InputDecoration(labelText: 'Precio', border: OutlineInputBorder()),
-                onTap: () => pickPrice(setState),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Agregar')),
-          ],
-        ),
-      ),
-    );
-    if (saved != true || !mounted) return;
-    final name = nameController.text.trim();
-    final price = double.tryParse(priceController.text);
-    if (name.isEmpty || price == null || price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa un nombre y un precio válido')),
-      );
-      return;
-    }
-    if (!context.read<CashSessionProvider>().isOpen) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Abre la caja antes de vender')),
-      );
-      return;
-    }
-    try {
-      final created = await _productRepository.create(Product(
-        id: '',
-        name: name,
-        price: price,
-        stockQuantity: 0,
-        trackStock: false,
-        active: true,
-        barcode: barcode,
-      ));
-      if (!mounted) return;
-      setState(() {
-        _products = _sortedByName([..._products, created]);
-        _searchIndex = ProductSearchIndex(_products);
-      });
-      context.read<ProductCacheProvider>().upsertLocal(created);
-      try {
-        await _catalogRepository.upsert(barcode: barcode, name: name, suggestedPrice: price, source: 'store');
-      } catch (_) {
-        // Aporte al catálogo global es "mejor esfuerzo" — el producto ya
-        // quedó guardado en el inventario propio de todas formas.
-      }
-      await _addToCart(created);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al crear el producto: $e')));
-      }
-    }
-  }
-
   /// Posición de la pestaña de acceso rápido activa dentro de la secuencia
   /// "Más vendidos" + pestañas personalizadas. Siempre hay una elegida (por
   /// defecto "Más vendidos", índice 0) — ya no existe un estado "ninguna
@@ -764,7 +560,7 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _quickAddProductToPage(String pageId) async {
     final selected = await showDialog<Product>(
       context: context,
-      builder: (_) => _ProductPickerDialog(productRepository: _productRepository),
+      builder: (_) => ProductPickerDialog(productRepository: _productRepository),
     );
     if (selected == null || !mounted) {
       _refocusSearch();
@@ -801,21 +597,6 @@ class _PosScreenState extends State<PosScreen> {
       isScrollControlled: true,
       builder: (_) => const CashSessionSheet(),
     );
-    _refocusSearch();
-  }
-
-  Future<void> _scanBarcode() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
-    );
-    if (code != null && mounted) {
-      final handled = await _tryAddWeightBarcode(code) || await _tryAddScannedBarcode(code);
-      if (!handled && mounted) {
-        _localFilterDebounce?.cancel();
-        _searchController.text = code;
-        setState(() => _search = code);
-      }
-    }
     _refocusSearch();
   }
 
@@ -924,66 +705,12 @@ class _PosScreenState extends State<PosScreen> {
     _refreshOpenTicketCount();
   }
 
-  /// Fila de encabezado con el nombre de la pantalla y la fecha de hoy a la
-  /// izquierda, y un chip verde "Caja abierta" a la derecha mientras haya
-  /// un turno en curso — antes esta pantalla no tenía ningún título propio,
-  /// solo la barra de búsqueda.
-  Widget _buildTitleRow(BuildContext context, CashSessionProvider cashSession) {
-    final storeName = context.watch<StoreProvider>().myStore?.name ?? 'Tienda';
-    final today = formatDayHeaderEs(DateTime.now())
-        .replaceFirst(', ', ' ')
-        .replaceFirst(RegExp(r' de \d{4}$'), '');
-    final semantic = AppSemanticColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Ventas', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 2),
-                Text(
-                  '$storeName · $today',
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-          if (cashSession.isOpen)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(color: semantic.successContainer, borderRadius: BorderRadius.circular(999)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(color: semantic.onSuccessContainer, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Caja abierta',
-                    style: TextStyle(color: semantic.onSuccessContainer, fontSize: 12.5, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cashSession = context.watch<CashSessionProvider>();
     final prefs = context.watch<AppPreferencesProvider>();
     final products = _filteredProducts;
-    final titleRow = _buildTitleRow(context, cashSession);
+    final titleRow = PosTitleRow(cashSession: cashSession);
 
     final banner = (!cashSession.loading && !cashSession.isOpen)
         ? MaterialBanner(
@@ -1170,16 +897,43 @@ class _PosScreenState extends State<PosScreen> {
                                 ? 'No se encontraron productos'
                                 : (_showTopSelling ? 'Todavía no hay ventas para mostrar' : 'No hay productos')),
                           )
-                        : prefs.useListLayout
-                            ? _buildList(products, cashSession)
-                            : _buildTileGrid(products, cashSession),
+                        : PosProductBrowser(
+                            products: products,
+                            useListLayout: prefs.useListLayout,
+                            cashSession: cashSession,
+                            selectedPageId: _selectedPageId,
+                            onAddToCart: _addToCart,
+                            onEditStock: _editStock,
+                            onEditProduct: _editProduct,
+                            onQuickAddToPage: _quickAddProductToPage,
+                          ),
           ),
         ],
       ),
       ),
     );
 
-    final quickSaleBar = _buildQuickSaleBar();
+    final quickSaleBar = PosQuickSaleBar(
+      showTopSelling: _showTopSelling,
+      pages: _pages,
+      selectedPageId: _selectedPageId,
+      onSelectTopSelling: () {
+        setState(() {
+          _showTopSelling = true;
+          _selectedPageId = null;
+        });
+        _refocusSearch();
+      },
+      onSelectPage: (page) {
+        setState(() {
+          _selectedPageId = page.id;
+          _showTopSelling = false;
+        });
+        _refocusSearch();
+      },
+      onCreatePage: _createPage,
+      onManagePage: _managePage,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1246,594 +1000,6 @@ class _PosScreenState extends State<PosScreen> {
           ],
         );
       },
-    );
-  }
-
-  /// Pestañas de acceso rápido (Más vendidos + pestañas personalizadas,
-  /// creadas a mano por el usuario con cualquier artículo que quiera para
-  /// venta rápida — no son categorías) en su propia barra al final de la
-  /// pantalla, cerca de donde se toca para vender, en vez de arriba junto
-  /// al buscador. El filtro por categoría real del catálogo es aparte
-  /// (dropdown "Categoría" arriba del mosaico), para no confundir una cosa
-  /// con la otra.
-  Widget _buildQuickSaleBar() {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: 4,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          // Fijas (sin scroll horizontal): todas las pestañas se reparten el
-          // ancho disponible con Expanded, y el texto de cada una se achica
-          // solo si hace falta (FittedBox dentro de _quickTabButton) para
-          // que quepan siempre, aunque se agreguen muchas.
-          child: Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _quickTabButton(
-                        label: 'Más vendidos',
-                        icon: Icons.trending_up,
-                        selected: _showTopSelling,
-                        onTap: () {
-                          // Siempre tiene que haber una pestaña elegida — si
-                          // "Más vendidos" ya está activa, tocarla de nuevo
-                          // no hace nada (no existe un estado "ninguna
-                          // pestaña" que muestre todo el catálogo de una).
-                          if (_showTopSelling) return;
-                          setState(() {
-                            _showTopSelling = true;
-                            _selectedPageId = null;
-                          });
-                          _refocusSearch();
-                        },
-                      ),
-                    ),
-                    for (final page in _pages) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _quickTabButton(
-                          label: page.name,
-                          selected: _selectedPageId == page.id,
-                          onTap: () {
-                            if (_selectedPageId == page.id) return;
-                            setState(() {
-                              _selectedPageId = page.id;
-                              _showTopSelling = false;
-                            });
-                            _refocusSearch();
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: Icon(Icons.add_circle_outline, color: onSurface),
-                tooltip: 'Crear pestaña',
-                onPressed: _createPage,
-              ),
-              if (_selectedPageId != null)
-                IconButton(
-                  icon: Icon(Icons.settings_outlined, color: onSurface),
-                  tooltip: 'Editar esta pestaña',
-                  onPressed: () {
-                    final page = _pages.where((p) => p.id == _selectedPageId);
-                    if (page.isNotEmpty) _managePage(page.first);
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Botón cuadrado (esquinas apenas redondeadas, no en píldora) y más
-  /// grande que un Chip normal de Material — para que "Más vendidos" y cada
-  /// pestaña personalizada sean fáciles de tocar y de leer de un vistazo
-  /// mientras se vende. Ocupa el ancho que le da el Expanded del que
-  /// cuelga (ver _buildQuickSaleBar) — con FittedBox el texto se achica
-  /// solo en vez de cortarse con "..." cuando hay muchas pestañas y cada
-  /// una queda angosta.
-  Widget _quickTabButton({
-    required String label,
-    IconData? icon,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final bg = selected ? colorScheme.primary : colorScheme.surfaceContainerHighest;
-    final fg = selected ? colorScheme.onPrimary : colorScheme.onSurface;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(10),
-          border: selected ? null : Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 20, color: fg),
-              const SizedBox(height: 4),
-            ],
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 14),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _priceLabel(Product product, {bool bold = false, Color? color}) {
-    final baseStyle = TextStyle(color: color, fontSize: bold ? 14 : 12);
-    if (product.isVariablePrice) {
-      return Text('Precio variable', style: baseStyle.copyWith(fontStyle: FontStyle.italic));
-    }
-    if (product.isSoldByWeight) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CurrencyText(product.price, bold: bold, style: TextStyle(color: color)),
-          Text(' /kg', style: baseStyle),
-        ],
-      );
-    }
-    if (product.isPromoActive || product.isMarkedDownForExpiry) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            formatCurrencyCl(product.price),
-            style: baseStyle.copyWith(fontSize: 11, decoration: TextDecoration.lineThrough),
-          ),
-          CurrencyText(product.effectivePrice, bold: bold, style: TextStyle(color: color ?? Colors.red)),
-        ],
-      );
-    }
-    return CurrencyText(product.price, bold: bold, style: TextStyle(color: color));
-  }
-
-  /// Mosaico de productos, parecido a una vitrina: foto de fondo con el
-  /// precio arriba y el nombre superpuesto abajo para los que tienen foto,
-  /// un círculo gris con precio y nombre para los que no. La cantidad de
-  /// columnas se ajusta sola al ancho disponible (unas 5 en una tablet
-  /// ancha, menos en un celular). En una pestaña personalizada, mantener
-  /// presionado en cualquier parte (o tocar el mosaico "Agregar producto"
-  /// al final) abre el buscador para agregar un producto ahí.
-  Widget _buildTileGrid(List<Product> products, CashSessionProvider cashSession) {
-    final pageId = _selectedPageId;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = (constraints.maxWidth / _targetTileWidth).floor().clamp(2, 8).toInt();
-        final grid = GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.92,
-          ),
-          itemCount: products.length + (pageId != null ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (pageId != null && index == products.length) {
-              return _addTile(pageId);
-            }
-            return _buildTile(products[index], cashSession);
-          },
-        );
-        if (pageId == null) return grid;
-        return GestureDetector(
-          onLongPress: () => _quickAddProductToPage(pageId),
-          child: grid,
-        );
-      },
-    );
-  }
-
-  Widget _addTile(String pageId) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: EdgeInsets.zero,
-      color: Colors.grey.shade100,
-      child: InkWell(
-        onTap: () => _quickAddProductToPage(pageId),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add_circle_outline, size: 32, color: const Color(0xFF616161)),
-              SizedBox(height: 6),
-              Text('Agregar\nproducto', textAlign: TextAlign.center, style: TextStyle(color: const Color(0xFF616161), fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTile(Product product, CashSessionProvider cashSession) {
-    // "Agotado" es solo informativo (el badge de abajo) — se puede seguir
-    // vendiendo igual, y el stock queda en negativo (se avisa antes de
-    // cobrar, ver _confirmNegativeStock en checkout_sheet.dart).
-    final outOfStock = product.trackStock && product.stockQuantity <= 0;
-    final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
-    final canTap = cashSession.isOpen;
-
-    return _ProductTile(
-      cardColor: hasImage ? null : Colors.grey.shade50,
-      onTap: canTap ? () => _addToCart(product) : null,
-      child: hasImage ? _photoTile(product, outOfStock) : _placeholderTile(product, outOfStock),
-    );
-  }
-
-  Widget _priceBadge(Product product, {required bool overlay}) {
-    final label = _priceLabel(product, bold: true, color: overlay ? Colors.white : Colors.black87);
-    if (!overlay) return label;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: label,
-    );
-  }
-
-  /// Solo aparece si el producto controla inventario (igual que "Agotado").
-  /// Color según estado (verde con stock normal, ámbar con stock bajo, rojo
-  /// agotado) — antes era siempre un pill gris/negro sin distinguir estado.
-  /// Tocarlo abre el popup para editar el stock (ver _editStock) — el resto
-  /// del mosaico sigue agregando el producto al carrito con normalidad.
-  Widget _stockBadge(Product product, {required bool overlay}) {
-    if (!product.trackStock) return const SizedBox.shrink();
-    final outOfStock = product.stockQuantity <= 0;
-    final label = outOfStock
-        ? 'Agotado'
-        : 'Stock: ${product.isSoldByWeight ? product.stockQuantity.toStringAsFixed(3) : formatNumberCl(product.stockQuantity)}';
-    final tone = outOfStock
-        ? StatusBadgeTone.danger
-        : (product.isLowStock ? StatusBadgeTone.warning : StatusBadgeTone.ok);
-    return GestureDetector(
-      onTap: () => _editStock(product),
-      child: StatusBadge(label: label, tone: tone, dense: true),
-    );
-  }
-
-  /// Foto a pantalla completa, precio arriba en una etiqueta y el nombre en
-  /// una franja oscura abajo.
-  Widget _photoTile(Product product, bool outOfStock) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        CachedNetworkImage(
-          imageUrl: product.thumbnailUrl ?? product.imageUrl!,
-          fit: BoxFit.cover,
-          errorWidget: (_, __, ___) => Container(color: Colors.grey.shade200),
-        ),
-        Positioned(
-          top: 6,
-          left: 6,
-          child: _priceBadge(product, overlay: true),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
-              ),
-            ),
-            child: Text(
-              product.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-        ),
-        if (outOfStock)
-          Container(
-            color: Colors.black.withOpacity(0.55),
-            alignment: Alignment.center,
-            child: const StatusBadge(label: 'AGOTADO', tone: StatusBadgeTone.danger),
-          ),
-        Positioned(
-          top: 6,
-          right: 6,
-          child: _stockBadge(product, overlay: true),
-        ),
-      ],
-    );
-  }
-
-  /// Sin foto: precio arriba, un círculo gris (como una estantería sin
-  /// etiqueta) y el nombre debajo — para que la grilla se vea igual de
-  /// ordenada aunque no todos los productos tengan foto todavía.
-  Widget _placeholderTile(Product product, bool outOfStock) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _priceBadge(product, overlay: false),
-              _stockBadge(product, overlay: false),
-            ],
-          ),
-          Expanded(
-            child: Center(
-              child: ProductAvatar(name: product.name, categoryId: product.categoryId, radius: 28),
-            ),
-          ),
-          Text(
-            product.name,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildList(List<Product> products, CashSessionProvider cashSession) {
-    return ListView.builder(
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        final product = products[index];
-        final outOfStock = product.trackStock && product.stockQuantity <= 0;
-        return ListTile(
-          leading: ProductAvatar(
-            name: product.name,
-            categoryId: product.categoryId,
-            imageUrl: product.thumbnailUrl ?? product.imageUrl,
-          ),
-          title: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-          subtitle: !product.trackStock
-              ? null
-              : Align(
-                  alignment: Alignment.centerLeft,
-                  child: outOfStock
-                      ? const StatusBadge(label: 'Agotado', tone: StatusBadgeTone.danger, dense: true)
-                      : Text('Stock: ${formatNumberCl(product.stockQuantity)}'),
-                ),
-          // Íconos aparte para editar stock y el artículo completo (en vez
-          // de que el texto chico de arriba fuera el único lugar para
-          // tocar, que costaba acertar) — el resto de la fila sigue
-          // agregando el producto al carrito.
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _priceLabel(product, bold: true),
-              if (product.trackStock)
-                IconButton(
-                  icon: const Icon(Icons.inventory_2_outlined, size: 20),
-                  tooltip: 'Editar stock',
-                  onPressed: () => _editStock(product),
-                ),
-              if (!product.isQuickItem)
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: 'Editar artículo',
-                  onPressed: () => _editProduct(product),
-                ),
-            ],
-          ),
-          enabled: cashSession.isOpen,
-          onTap: () => _addToCart(product),
-        );
-      },
-    );
-  }
-}
-
-/// Envuelve un mosaico de producto para dar un feedback breve (rebote +
-/// ícono de check) al tocarlo y agregarlo al carrito, en vez de que el
-/// único cambio visible sea en el panel del carrito (que puede quedar
-/// fuera de foco en pantallas angostas).
-class _ProductTile extends StatefulWidget {
-  final Widget child;
-  final Color? cardColor;
-  final VoidCallback? onTap;
-
-  const _ProductTile({required this.child, required this.cardColor, required this.onTap});
-
-  @override
-  State<_ProductTile> createState() => _ProductTileState();
-}
-
-class _ProductTileState extends State<_ProductTile> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-  late final Animation<double> _checkOpacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
-    _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.94), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.94, end: 1.0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _checkOpacity = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 2),
-    ]).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    final onTap = widget.onTap;
-    if (onTap == null) return;
-    onTap();
-    _controller.forward(from: 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return Transform.scale(
-          scale: _scale.value,
-          child: Card(
-            clipBehavior: Clip.antiAlias,
-            margin: EdgeInsets.zero,
-            color: widget.cardColor,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                InkWell(onTap: widget.onTap == null ? null : _handleTap, child: widget.child),
-                if (_checkOpacity.value > 0)
-                  IgnorePointer(
-                    child: Opacity(
-                      opacity: _checkOpacity.value,
-                      child: Container(
-                        color: Colors.black.withOpacity(0.25),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.check_circle, color: Colors.white, size: 40),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Diálogo simple para buscar y elegir un producto — usado para agregarlo a
-/// una pestaña personalizada de Ventas.
-///
-/// Busca directo en el servidor (igual que "Lista de artículos") en vez de
-/// filtrar la lista de productos ya cargada en la pantalla de Ventas: así
-/// siempre ve el catálogo al día, aunque se haya agregado un producto nuevo
-/// desde otra pantalla sin volver a entrar a Ventas.
-class _ProductPickerDialog extends StatefulWidget {
-  final ProductRepository productRepository;
-
-  const _ProductPickerDialog({required this.productRepository});
-
-  @override
-  State<_ProductPickerDialog> createState() => _ProductPickerDialogState();
-}
-
-class _ProductPickerDialogState extends State<_ProductPickerDialog> {
-  final _controller = TextEditingController();
-  List<Product> _results = [];
-  bool _loading = true;
-  int _requestId = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _search('');
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _search(String term) async {
-    final requestId = ++_requestId;
-    setState(() => _loading = true);
-    final results = await widget.productRepository.getPage(offset: 0, pageSize: 30, search: term.trim());
-    if (!mounted || requestId != _requestId) return;
-    setState(() {
-      _results = results;
-      _loading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Buscar producto para agregar'),
-      content: SizedBox(
-        width: 400,
-        height: 400,
-        child: Column(
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Buscar producto o código',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onChanged: _search,
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _results.isEmpty
-                      ? const Center(child: Text('Sin resultados'))
-                      : ListView.builder(
-                          itemCount: _results.length,
-                          itemBuilder: (context, index) {
-                            final p = _results[index];
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundImage: (p.thumbnailUrl ?? p.imageUrl) != null
-                                    ? CachedNetworkImageProvider((p.thumbnailUrl ?? p.imageUrl)!)
-                                    : null,
-                                child: p.imageUrl == null ? const Icon(Icons.inventory_2, size: 18) : null,
-                              ),
-                              title: Text(p.name),
-                              onTap: () => Navigator.of(context).pop(p),
-                            );
-                          },
-                        ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-      ],
     );
   }
 }

@@ -1432,3 +1432,25 @@ duplica la venta.
 
 **Solo hace falta volver a correr `sql/schema.sql`** — no cambia nada
 en Supabase aparte de eso, y no afecta las ventas ya registradas.
+
+## Reorganización de código (sin cambiar cómo funciona la app)
+
+De la misma revisión de código, dos limpiezas que no cambian nada de
+cara al usuario, solo cómo está organizado el código por dentro:
+
+- **Categorías, Descuentos y Modificadores** compartían el mismo patrón
+  (buscador + lista + crear/eliminar) escrito tres veces por separado.
+  Ahora los tres usan un mismo widget (`SimpleCrudListScreen`), así un
+  cambio a futuro se hace en un solo lugar. De paso quedaron más
+  parejos entre sí: los tres muestran ahora el mismo ícono/mensaje de
+  "cargando" y "vacío", y crear/eliminar avisa si algo falla (antes solo
+  Categorías avisaba).
+- **`pos_screen.dart`** (la pantalla de Ventas) tenía casi 1.900 líneas
+  en un solo archivo. Se separó en piezas más chicas dentro de
+  `screens/pos/`: el manejo de códigos de barras, el mosaico/lista de
+  productos, la fila de título y la barra de pestañas de venta rápida
+  quedaron cada uno en su propio archivo — el archivo principal bajó a
+  la mitad. Es solo reordenar el código; nada de Ventas debería verse
+  ni comportarse distinto.
+
+No requiere ningún cambio en Supabase ni en `sql/schema.sql`.
