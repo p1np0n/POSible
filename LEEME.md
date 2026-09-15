@@ -1289,3 +1289,30 @@ disponible.
 
 No requiere cambios en Supabase ni en `sql/schema.sql` — es un cambio
 solo de la app.
+
+## Posible causa de las caídas en Android 10/11: se desactivó "Impeller"
+
+Reporte: la app se cae al escanear y al usar el teclado numérico, y
+también se nota rara la respuesta al tocar la pantalla, en celulares con
+Android 10 y 11.
+
+Flutter (el motor con el que está hecha la app) viene con un
+renderizador nuevo llamado "Impeller", activado por defecto desde hace
+tiempo. Está documentado (por Google/Flutter, no es una suposición) que
+en Android 10/11/12, con ciertas GPUs (Samsung, Xiaomi y otras), Impeller
+puede causar caídas y pantallas que no responden bien al toque — y sigue
+pasando en versiones recientes. Como el problema está en el motor de
+dibujo y no en una pantalla puntual, explica que se caiga tanto al
+escanear como al usar el teclado numérico: son pantallas sin relación
+entre sí, así que lo más probable es que no sea un error de esas
+pantallas, sino del renderizador.
+
+Se desactivó Impeller para los 3 APK (POSible, Info Admin, Info
+ScreenClone) — cada uno vuelve a usar el renderizador anterior
+("Skia"), mucho más probado en celulares más viejos o con menos
+recursos. No cambia cómo se ve la app, solo cómo se dibuja por dentro.
+
+No requiere cambios en Supabase ni en `sql/schema.sql`. **Si sigues
+viendo caídas después de instalar el próximo APK compilado con este
+cambio, avísame con el modelo del celular y, si puedes, el mensaje de
+error** — ahí buscamos otra causa.

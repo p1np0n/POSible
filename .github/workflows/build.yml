@@ -43,6 +43,14 @@ jobs:
           fi
           grep -n 'uses-permission' "$MANIFEST" || echo "sin permisos declarados"
 
+      - name: Desactivar Impeller (evita caídas conocidas en Android 10/11/12 con ciertas GPUs)
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'EnableImpeller' "$MANIFEST"; then
+            perl -0777 -pi -e 's/(<application\b[^>]*>)/$1\n        <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" \/>/' "$MANIFEST"
+          fi
+          grep -n 'EnableImpeller' "$MANIFEST"
+
       - name: Instalar dependencias
         run: flutter pub get
 
