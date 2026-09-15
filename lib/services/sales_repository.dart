@@ -7,6 +7,11 @@ import '../utils/query_timeout.dart';
 class SalesRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// Registra la venta completa (la venta, sus ítems, el descuento de
+  /// stock y los puntos del cliente) en una sola llamada a la función SQL
+  /// "create_sale" — todo o nada: si algo falla a mitad de camino (ej. se
+  /// corta la conexión), Postgres deshace todo y no queda nada a medio
+  /// registrar, así reintentar nunca duplica la venta.
   Future<String> createSale({
     required List<CartItem> items,
     required String cashSessionId,
@@ -19,64 +24,32 @@ class SalesRepository {
     double otherAmount = 0,
     required int loyaltyPointsEarned,
   }) async {
-    final subtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
-    // El precio de cada artículo ya incluye el IVA — "taxAmount" es solo la
-    // porción de ese precio que corresponde a impuesto (para el desglose del
-    // ticket), nunca se suma aparte al total.
-    final total = subtotal - discountAmount;
-
-    final methodsUsed = [cashAmount, cardAmount, otherAmount].where((amount) => amount > 0).length;
-    final paymentMethod = methodsUsed > 1
-        ? 'mixed'
-        : cardAmount > 0
-            ? 'card'
-            : otherAmount > 0
-                ? 'other'
-                : 'cash';
-
-    final saleData = await _client.from('sales').insert({
-      'cash_session_id': cashSessionId,
-      'customer_id': customerId,
-      'discount_id': discountId,
-      'discount_amount': discountAmount,
-      'tax_amount': taxAmount,
-      'subtotal': subtotal,
-      'total': total,
-      'payment_method': paymentMethod,
-      'cash_amount': cashAmount,
-      'card_amount': cardAmount,
-      'other_amount': otherAmount,
-      'loyalty_points_earned': loyaltyPointsEarned,
-      'user_id': _client.auth.currentUser?.id,
-      'store_id': CurrentStore.id,
-    }).select().single().withTimeout();
-
-    final saleId = saleData['id'] as String;
-
     final itemRows = items
         .map((item) => {
-              'sale_id': saleId,
               'product_id': item.product.isQuickItem ? null : item.product.id,
               'product_name': item.product.name,
               'unit_price': item.unitPrice,
               'quantity': item.quantity,
               'subtotal': item.subtotal,
               'modifiers_summary': item.modifiersLabel.isEmpty ? null : item.modifiersLabel,
-              'store_id': CurrentStore.id,
+              'track_stock': item.product.trackStock,
             })
         .toList();
 
-    await _client.from('sale_items').insert(itemRows).withTimeout();
+    final result = await _client.rpc('create_sale', params: {
+      'p_items': itemRows,
+      'p_cash_session_id': cashSessionId,
+      'p_customer_id': customerId,
+      'p_discount_id': discountId,
+      'p_discount_amount': discountAmount,
+      'p_tax_amount': taxAmount,
+      'p_cash_amount': cashAmount,
+      'p_card_amount': cardAmount,
+      'p_other_amount': otherAmount,
+      'p_loyalty_points_earned': loyaltyPointsEarned,
+      'p_store_id': CurrentStore.id,
+    }).withTimeout();
 
-    for (final item in items) {
-      if (item.product.trackStock) {
-        await _client.rpc('adjust_product_stock', params: {
-          'p_id': item.product.id,
-          'p_delta': -item.quantity,
-        }).withTimeout();
-      }
-    }
-
-    return saleId;
+    return result as String;
   }
 }

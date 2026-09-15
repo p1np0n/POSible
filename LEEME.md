@@ -1411,3 +1411,24 @@ todo con sus datos.
 
 **Solo hace falta volver a correr `sql/schema.sql`** — no hay ninguna
 Edge Function nueva ni que redesplegar para esto.
+
+## Registrar una venta ahora es "todo o nada" (menos riesgo de ventas duplicadas)
+
+De una revisión de código: antes, cobrar una venta hacía 3-4 escrituras
+separadas a la base de datos (la venta, sus ítems, el descuento de stock
+producto por producto, y los puntos del cliente aparte). Si la conexión
+se cortaba justo a mitad de camino, podía quedar una venta sin ítems, o
+con el stock descontado solo de algunos productos — y si el cajero,
+viendo un error, volvía a tocar "Cobrar" pensando que no se había
+cobrado nada, se creaba una **venta duplicada completa** (con su stock
+descontado dos veces).
+
+Ahora todo eso pasa por una sola función de la base de datos
+(`create_sale`, en `sql/schema.sql`) que hace la venta, sus ítems, el
+descuento de stock y los puntos del cliente de una sola vez. Si
+cualquier parte falla, Postgres deshace absolutamente todo — no queda
+nada a medio registrar, así que reintentar después de un error nunca
+duplica la venta.
+
+**Solo hace falta volver a correr `sql/schema.sql`** — no cambia nada
+en Supabase aparte de eso, y no afecta las ventas ya registradas.
