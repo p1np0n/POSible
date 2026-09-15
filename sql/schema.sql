@@ -969,3 +969,165 @@ begin
     );
   end if;
 end $$;
+
+-- ============================================================
+-- Sistema de acceso nuevo: roles (administrador/cajero), permisos
+-- activables por cajero, y PIN de 4 dígitos separado de la contraseña
+-- real — para todos, no solo para el administrador.
+--
+-- Antes, el "PIN" de acceso rápido era, por dentro, la contraseña real de
+-- Supabase de cada empleado (ver pin_login_screen.dart) — eso obligaba a
+-- que fuera de al menos 6-8 caracteres (mínimo de Supabase) y hacía que
+-- el administrador no pudiera tener una contraseña de verdad fuerte
+-- (letras/símbolos) separada de su PIN corto. Ahora el PIN es un secreto
+-- aparte: se guarda su hash (nunca el PIN en texto plano) en
+-- "profile_pins", una tabla sin ninguna política de RLS a propósito —
+-- así ni siquiera otro empleado aprobado de la misma tienda puede leerlo
+-- desde la app ni desde la API; solo la Edge Function "verify-pin" (con
+-- la llave service_role) la toca. Al acertar el PIN, esa función le
+-- genera al usuario un enlace de acceso ("magic link") y se lo devuelve
+-- a la app, que lo canjea por una sesión real — así nunca hace falta
+-- escribir la contraseña completa para el acceso rápido.
+-- ============================================================
+
+alter table profiles add column if not exists display_name text;
+alter table profiles add column if not exists role text not null default 'cajero';
+alter table profiles add column if not exists permissions text[] not null default '{}';
+
+-- El dueño de cada tienda, y el administrador principal, quedan como
+-- 'admin' — todos los demás perfiles (los que ya existían) quedan como
+-- 'cajero' por defecto (ver arriba). Re-ejecutar esto no cambia nada que
+-- ya esté bien.
+update profiles set role = 'admin'
+where role <> 'admin'
+  and (is_super_admin = true or id in (select owner_id from stores where owner_id is not null));
+
+-- PIN (hash) de cada usuario — tabla aparte de "profiles" para que no
+-- quede expuesta por la política de "ver perfiles de mi tienda" (esa sí
+-- permite leer las demás columnas de un compañero de tienda). Sin
+-- políticas de RLS a propósito: ni "authenticated" ni "anon" pueden
+-- leerla ni escribirla desde la app — nunca hace falta, todo pasa por la
+-- Edge Function con la llave service_role.
+create table if not exists profile_pins (
+  profile_id uuid primary key references profiles(id) on delete cascade,
+  pin_hash text not null,
+  updated_at timestamptz not null default now()
+);
+alter table profile_pins enable row level security;
+
+-- Intentos fallidos de PIN por usuario, para frenar a alguien probando
+-- códigos al azar (un PIN de 4 dígitos son solo 10.000 combinaciones) —
+-- tras 5 intentos seguidos fallidos, ese usuario queda bloqueado 15
+-- minutos. Misma tabla para administrador y cajeros. Sin políticas de
+-- RLS, mismo motivo que "profile_pins".
+create table if not exists pin_lockouts (
+  profile_id uuid primary key references profiles(id) on delete cascade,
+  failed_attempts int not null default 0,
+  locked_until timestamptz
+);
+alter table pin_lockouts enable row level security;
+
+-- true si el usuario actual es administrador DENTRO de su propia tienda
+-- (dueño de la tienda, o a quien el dueño le haya dado ese rol) — no
+-- confundir con is_super_admin(), que es el administrador principal de
+-- POSible (tú), dueño de todas las tiendas.
+create or replace function public.is_store_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce((select role = 'admin' from public.profiles where id = auth.uid()), false);
+$$;
+
+-- Amplía el trigger de la sección "multi-tienda" (más arriba) para que
+-- tampoco se pueda cambiar el rol ni los permisos propios llamando
+-- directo a la API — solo un administrador de tienda (o el administrador
+-- principal) puede cambiarle el rol/permisos a alguien. Sin esto, un
+-- cajero aprobado podría ponerse role='admin' a sí mismo.
+create or replace function public.prevent_privilege_escalation()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.uid() is not null and not public.is_super_admin() then
+    if new.is_super_admin is distinct from old.is_super_admin then
+      raise exception 'No autorizado para cambiar este campo';
+    end if;
+    if new.store_id is distinct from old.store_id then
+      raise exception 'No autorizado para cambiar este campo';
+    end if;
+    if not public.is_store_admin() then
+      if new.role is distinct from old.role then
+        raise exception 'No autorizado para cambiar este campo';
+      end if;
+      if new.permissions is distinct from old.permissions then
+        raise exception 'No autorizado para cambiar este campo';
+      end if;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+-- Aprobar/rechazar y quitar empleados pasa a ser solo para el
+-- administrador de la tienda (antes cualquier empleado aprobado podía
+-- hacerlo) — coherente con "los cajeros no administran la cuenta del
+-- administrador".
+drop policy if exists "aprobados pueden aprobar en mi tienda" on profiles;
+create policy "aprobados pueden aprobar en mi tienda" on profiles
+  for update
+  using (public.is_store_admin() and store_id is not distinct from public.current_store_id())
+  with check (public.is_store_admin() and store_id is not distinct from public.current_store_id());
+drop policy if exists "aprobados pueden quitar empleados de mi tienda" on profiles;
+create policy "aprobados pueden quitar empleados de mi tienda" on profiles
+  for delete using (public.is_store_admin() and store_id is not distinct from public.current_store_id());
+
+-- El auto-registro de empleados ("¿Eres empleado nuevo? Crea tu cuenta",
+-- con código de tienda) ya no existe en la pantalla de login — a partir
+-- de ahora, solo el administrador de una tienda crea cajeros nuevos
+-- (desde "Empleados"). Esto redefine el trigger de la sección
+-- "multi-tienda" (más arriba) para que, aunque alguien llame a la API de
+-- registro directo con ese modo, no quede asociado a ninguna tienda ni
+-- aprobado — queda igual que una cuenta sin invitación (caso de
+-- compatibilidad de más abajo).
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_mode text := new.raw_user_meta_data ->> 'mode';
+  v_store_name text := new.raw_user_meta_data ->> 'store_name';
+  v_store_id uuid;
+  v_approved boolean := false;
+  v_source_store_id uuid;
+begin
+  if v_mode = 'new_store' then
+    insert into public.stores (name, owner_id, owner_email, store_code, feature_reports, feature_customers, feature_employees)
+    values (coalesce(nullif(trim(v_store_name), ''), 'Mi tienda'), new.id, new.email, public.generate_store_code(), false, false, false)
+    returning id into v_store_id;
+    v_approved := true;
+
+    select store_id into v_source_store_id from public.profiles where is_super_admin = true limit 1;
+    if v_source_store_id is not null then
+      insert into public.products (
+        name, category_id, price, cost, sku, barcode, image_url, track_stock,
+        active, store_id, low_stock_threshold, pricing_type, plu, target_margin_percent
+      )
+      select p.name, p.category_id, p.price, p.cost, p.sku, p.barcode, p.image_url, p.track_stock,
+             p.active, v_store_id, p.low_stock_threshold, p.pricing_type, p.plu, p.target_margin_percent
+      from public.products p
+      where p.store_id = v_source_store_id and p.active = true;
+    end if;
+  end if;
+  -- "join_store" ya no se procesa acá: un cajero nuevo siempre lo crea el
+  -- administrador de su tienda desde "Empleados", nunca se auto-registra.
+
+  insert into public.profiles (id, email, approved, store_id, role)
+  values (new.id, new.email, v_approved, v_store_id, case when v_mode = 'new_store' then 'admin' else 'cajero' end)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;

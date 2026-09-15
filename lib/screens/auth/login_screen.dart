@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/app_preferences_provider.dart';
-import '../../widgets/pin_pad.dart' show pinLength;
 import 'create_store_screen.dart';
 
 // URL del panel publicado en GitHub Pages — se usa como destino del enlace
@@ -12,6 +11,11 @@ import 'create_store_screen.dart';
 // forma de saber la URL "actual" como en la web).
 const _webAppUrl = 'https://p1np0n.github.io/POSible/';
 
+/// Login del ADMINISTRADOR de una tienda (correo + contraseña) — los
+/// cajeros nunca pasan por acá: los crea el administrador desde
+/// "Empleados" y solo entran con su PIN (ver PinLoginScreen). Ya no existe
+/// el autoregistro de empleados con código de tienda: la única forma de
+/// tener una cuenta nueva es abrir una tienda (CreateStoreScreen).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -23,9 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _storeCodeController = TextEditingController();
   bool _loading = false;
-  bool _isSignUp = false;
   String? _errorMessage;
   String? _infoMessage;
 
@@ -39,16 +41,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final auth = Supabase.instance.client.auth;
       final email = _emailController.text.trim();
-      if (_isSignUp) {
-        await auth.signUp(
-          email: email,
-          password: _passwordController.text,
-          data: {'mode': 'join_store', 'store_code': _storeCodeController.text.trim()},
-        );
-      } else {
-        await auth.signInWithPassword(email: email, password: _passwordController.text);
-      }
-      // El login rápido con PIN es solo para el APK; en web no hace falta
+      await auth.signInWithPassword(email: email, password: _passwordController.text);
+      // El acceso rápido con PIN es solo para el APK; en web no hace falta
       // recordar el correo en este dispositivo.
       if (!kIsWeb && mounted) await context.read<AppPreferencesProvider>().rememberEmail(email);
       // Si esta pantalla se abrió desde "Usar otra cuenta" en el acceso con
@@ -111,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _storeCodeController.dispose();
     super.dispose();
   }
 
@@ -136,6 +129,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Acceso del administrador de la tienda',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: const Color(0xFF616161)),
+                  ),
                   const SizedBox(height: 24),
                   TextFormField(
                     controller: _emailController,
@@ -147,30 +146,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      helperText: kIsWeb
-                          ? null
-                          : 'Usa $pinLength dígitos numéricos para poder entrar rápido con PIN después',
-                      border: const OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder()),
                     validator: (value) =>
-                        (value == null || value.length < 4) ? 'Mínimo 4 caracteres' : null,
+                        (value == null || value.isEmpty) ? 'Ingresa tu contraseña' : null,
                   ),
-                  if (_isSignUp) ...[
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _storeCodeController,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'Código de tienda',
-                        helperText: 'Te lo da el dueño de la tienda a la que te vas a unir',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty) ? 'Ingresa el código de tu tienda' : null,
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   if (_errorMessage != null)
                     Padding(
@@ -187,37 +166,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: _loading
                         ? const SizedBox(
                             height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(_isSignUp ? 'Crear cuenta' : 'Iniciar sesión'),
+                        : const Text('Iniciar sesión'),
                   ),
-                  if (!_isSignUp)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _loading ? null : _forgotPassword,
-                        child: const Text('¿Olvidaste tu contraseña?'),
-                      ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _loading ? null : _forgotPassword,
+                      child: const Text('¿Olvidaste tu contraseña?'),
                     ),
+                  ),
                   TextButton(
                     onPressed: _loading
                         ? null
-                        : () => setState(() {
-                              _isSignUp = !_isSignUp;
-                              _errorMessage = null;
-                              _infoMessage = null;
-                            }),
-                    child: Text(_isSignUp
-                        ? '¿Ya tienes cuenta? Inicia sesión'
-                        : '¿Eres empleado nuevo? Crea tu cuenta'),
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const CreateStoreScreen()),
+                            ),
+                    child: const Text('¿Vas a abrir una tienda nueva? Créala aquí'),
                   ),
-                  if (!_isSignUp)
-                    TextButton(
-                      onPressed: _loading
-                          ? null
-                          : () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const CreateStoreScreen()),
-                              ),
-                      child: const Text('¿Vas a abrir una tienda nueva? Créala aquí'),
-                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '¿Eres cajero? Pídele a tu administrador que te cree desde "Empleados" — '
+                    'ahí te da tu PIN, no necesitas correo ni contraseña.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+                  ),
                 ],
               ),
             ),

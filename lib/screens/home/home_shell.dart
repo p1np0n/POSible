@@ -68,32 +68,41 @@ class _HomeShellState extends State<HomeShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // El APK (celular) se queda con lo esencial para atender en el mostrador
-    // más el menú Artículos (catálogo, categorías, modificadores y
-    // descuentos), para poder mantener el catálogo sin depender del panel
-    // web. Reportes, Empleados, Catálogo global y Tiendas siguen solo en el
-    // panel web, a propósito. Clientes sí se muestra en ambos si la tienda
-    // lo tiene activado (las tiendas nuevas empiezan sin activar).
+    // Un cajero solo ve lo esencial para atender en el mostrador (Ventas,
+    // Recibos, Turno, Reloj, Inventario) más lo que su administrador le
+    // haya activado puntualmente (ver Empleados → Permisos): Artículos,
+    // Reportes y/o Clientes. Configuración y Empleados quedan siempre
+    // exclusivos del administrador de la tienda — un cajero nunca los ve,
+    // aunque los toque directo por la URL en el panel web. Catálogo
+    // global y Tiendas siguen aparte, solo para el administrador
+    // principal (el dueño de POSible).
     //
     // Solo se muestra _screens[index] (no IndexedStack), así cada pantalla
     // vuelve a cargar sus datos al seleccionarla.
+    final canManageProducts = store.hasPermission('manage_products');
+    final canViewReports = kIsWeb && store.showReports && store.hasPermission('view_reports');
+    final canManageCustomers = store.showCustomers && store.hasPermission('manage_customers');
+    final canManageEmployees = store.showEmployees && store.isStoreAdmin;
+
     final screens = <Widget>[
       const PosScreen(),
       const ReceiptsScreen(),
       const TurnoScreen(),
       const TimeClockScreen(),
       const StockMovementsScreen(),
-      if (kIsWeb && store.showReports) const ReportsScreen(),
-      if (store.showCustomers) const CustomerListScreen(),
-      const SettingsScreen(),
-      const ProductListScreen(),
-      const CategoriesScreen(),
-      const ModifiersScreen(),
-      const DiscountsScreen(),
-      if (kIsWeb) ...[
-        if (store.showEmployees) const EmployeesScreen(),
-        if (store.isSuperAdmin) const InventoryScreen(),
-        if (store.isSuperAdmin) const StoresScreen(),
+      if (canViewReports) const ReportsScreen(),
+      if (canManageCustomers) const CustomerListScreen(),
+      if (store.isStoreAdmin) const SettingsScreen(),
+      if (canManageProducts) ...[
+        const ProductListScreen(),
+        const CategoriesScreen(),
+        const ModifiersScreen(),
+        const DiscountsScreen(),
+      ],
+      if (canManageEmployees) const EmployeesScreen(),
+      if (kIsWeb && store.isSuperAdmin) ...[
+        const InventoryScreen(),
+        const StoresScreen(),
       ],
     ];
 
@@ -103,17 +112,19 @@ class _HomeShellState extends State<HomeShell> {
       'Turno',
       'Reloj',
       'Inventario',
-      if (kIsWeb && store.showReports) 'Reportes',
-      if (store.showCustomers) 'Clientes',
-      'Configuración',
-      'Lista de artículos',
-      'Categorías',
-      'Modificadores',
-      'Descuentos',
-      if (kIsWeb) ...[
-        if (store.showEmployees) 'Empleados',
-        if (store.isSuperAdmin) 'Catálogo global',
-        if (store.isSuperAdmin) 'Tiendas',
+      if (canViewReports) 'Reportes',
+      if (canManageCustomers) 'Clientes',
+      if (store.isStoreAdmin) 'Configuración',
+      if (canManageProducts) ...[
+        'Lista de artículos',
+        'Categorías',
+        'Modificadores',
+        'Descuentos',
+      ],
+      if (canManageEmployees) 'Empleados',
+      if (kIsWeb && store.isSuperAdmin) ...[
+        'Catálogo global',
+        'Tiendas',
       ],
     ];
 
@@ -121,16 +132,16 @@ class _HomeShellState extends State<HomeShell> {
 
     // Mismo orden en que se armaron screens/titles arriba, para calcular en
     // qué posición quedó cada pantalla según lo que esta tienda tiene
-    // activado.
+    // activado y lo que puede ver quien inició sesión.
     var next = 5;
-    final reportsIndex = (kIsWeb && store.showReports) ? next++ : -1;
-    final customersIndex = store.showCustomers ? next++ : -1;
-    final settingsIndex = next++;
-    final productsIndex = next++;
-    final categoriesIndex = next++;
-    final modifiersIndex = next++;
-    final discountsIndex = next++;
-    final employeesIndex = (kIsWeb && store.showEmployees) ? next++ : -1;
+    final reportsIndex = canViewReports ? next++ : -1;
+    final customersIndex = canManageCustomers ? next++ : -1;
+    final settingsIndex = store.isStoreAdmin ? next++ : -1;
+    final productsIndex = canManageProducts ? next++ : -1;
+    final categoriesIndex = canManageProducts ? next++ : -1;
+    final modifiersIndex = canManageProducts ? next++ : -1;
+    final discountsIndex = canManageProducts ? next++ : -1;
+    final employeesIndex = canManageEmployees ? next++ : -1;
     final inventoryIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
     final storesIndex = (kIsWeb && store.isSuperAdmin) ? next++ : -1;
 
@@ -229,46 +240,47 @@ class _HomeShellState extends State<HomeShell> {
             selected: index == 4,
             onTap: () => _selectIndex(4),
           ),
-          ExpansionTile(
-            leading: const Icon(Icons.inventory_2),
-            title: const Text('Artículos'),
-            iconColor: _sidebarInactive,
-            collapsedIconColor: _sidebarInactive,
-            textColor: Colors.white,
-            collapsedTextColor: _sidebarInactive,
-            backgroundColor: Colors.transparent,
-            collapsedBackgroundColor: Colors.transparent,
-            shape: const Border(),
-            collapsedShape: const Border(),
-            initiallyExpanded: _articulosExpanded,
-            onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
-            children: [
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Lista de artículos'),
-                selected: index == productsIndex,
-                onTap: () => _selectIndex(productsIndex),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Categorías'),
-                selected: index == categoriesIndex,
-                onTap: () => _selectIndex(categoriesIndex),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Modificadores'),
-                selected: index == modifiersIndex,
-                onTap: () => _selectIndex(modifiersIndex),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                title: const Text('Descuentos'),
-                selected: index == discountsIndex,
-                onTap: () => _selectIndex(discountsIndex),
-              ),
-            ],
-          ),
+          if (canManageProducts)
+            ExpansionTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Artículos'),
+              iconColor: _sidebarInactive,
+              collapsedIconColor: _sidebarInactive,
+              textColor: Colors.white,
+              collapsedTextColor: _sidebarInactive,
+              backgroundColor: Colors.transparent,
+              collapsedBackgroundColor: Colors.transparent,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              initiallyExpanded: _articulosExpanded,
+              onExpansionChanged: (value) => setState(() => _articulosExpanded = value),
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Lista de artículos'),
+                  selected: index == productsIndex,
+                  onTap: () => _selectIndex(productsIndex),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Categorías'),
+                  selected: index == categoriesIndex,
+                  onTap: () => _selectIndex(categoriesIndex),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Modificadores'),
+                  selected: index == modifiersIndex,
+                  onTap: () => _selectIndex(modifiersIndex),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  title: const Text('Descuentos'),
+                  selected: index == discountsIndex,
+                  onTap: () => _selectIndex(discountsIndex),
+                ),
+              ],
+            ),
           if (kIsWeb && store.isSuperAdmin)
             ListTile(
               leading: const Icon(Icons.public),
@@ -277,21 +289,21 @@ class _HomeShellState extends State<HomeShell> {
               selected: index == inventoryIndex,
               onTap: () => _selectIndex(inventoryIndex),
             ),
-          if (kIsWeb && store.showReports)
+          if (canViewReports)
             ListTile(
               leading: const Icon(Icons.bar_chart),
               title: const Text('Reportes'),
               selected: index == reportsIndex,
               onTap: () => _selectIndex(reportsIndex),
             ),
-          if (store.showCustomers)
+          if (canManageCustomers)
             ListTile(
               leading: const Icon(Icons.people),
               title: const Text('Clientes'),
               selected: index == customersIndex,
               onTap: () => _selectIndex(customersIndex),
             ),
-          if (kIsWeb && store.showEmployees) ...[
+          if (canManageEmployees) ...[
             const Divider(color: _sidebarMuted, height: 24),
             ListTile(
               leading: const Icon(Icons.badge_outlined),
@@ -310,12 +322,13 @@ class _HomeShellState extends State<HomeShell> {
               onTap: () => _selectIndex(storesIndex),
             ),
           ],
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Configuración'),
-            selected: index == settingsIndex,
-            onTap: () => _selectIndex(settingsIndex),
-          ),
+          if (store.isStoreAdmin)
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Configuración'),
+              selected: index == settingsIndex,
+              onTap: () => _selectIndex(settingsIndex),
+            ),
               ],
             ),
           ),
