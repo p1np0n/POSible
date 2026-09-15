@@ -118,6 +118,57 @@ class _StoresScreenState extends State<StoresScreen> {
     );
   }
 
+  /// Pausar corta el acceso a TODA la tienda de inmediato (nadie de ahí
+  /// puede seguir usando la app ni sus datos, ver is_approved() en
+  /// schema.sql) — para cuando el negocio no paga el servicio. Reactivar
+  /// no pide confirmación, pausar sí (es lo que de verdad interrumpe a
+  /// alguien).
+  Future<void> _toggleActive(Store store) async {
+    if (store.active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Pausar tienda'),
+          content: Text(
+            '¿Pausar "${store.name}"? Nadie de esa tienda va a poder seguir usando la '
+            'app hasta que la reactives.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Pausar')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    await _repository.setActive(store.id, !store.active);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(store.active ? '${store.name} pausada' : '${store.name} reactivada')),
+    );
+    _load();
+  }
+
+  /// Borra la tienda y todos sus datos — irreversible. Solo se puede
+  /// llamar si ya está pausada (lo exige también la base de datos, ver
+  /// public.delete_store); acá además se pide escribir el nombre exacto,
+  /// para que no sea un solo toque sin querer.
+  Future<void> _deleteStore(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DeleteStoreDialog(storeName: store.name),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await _repository.deleteStore(store.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${store.name} eliminada')));
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const LoadingIndicator();
@@ -165,6 +216,8 @@ class _StoresScreenState extends State<StoresScreen> {
                   onCopyCode: () => _copyStoreCode(store),
                   onResetPassword: () => _resetOwnerPassword(store),
                   onShowEmployees: () => _showEmployees(store),
+                  onToggleActive: () => _toggleActive(store),
+                  onDelete: () => _deleteStore(store),
                 )),
         ],
       ),
@@ -178,6 +231,8 @@ class _StoreCard extends StatelessWidget {
   final VoidCallback onCopyCode;
   final VoidCallback onResetPassword;
   final VoidCallback onShowEmployees;
+  final VoidCallback onToggleActive;
+  final VoidCallback onDelete;
 
   const _StoreCard({
     required this.store,
@@ -185,12 +240,15 @@ class _StoreCard extends StatelessWidget {
     required this.onCopyCode,
     required this.onResetPassword,
     required this.onShowEmployees,
+    required this.onToggleActive,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      color: store.active ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -208,7 +266,15 @@ class _StoreCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(store.name, style: Theme.of(context).textTheme.titleMedium),
+                      Row(
+                        children: [
+                          Flexible(child: Text(store.name, style: Theme.of(context).textTheme.titleMedium)),
+                          if (!store.active) ...[
+                            const SizedBox(width: 8),
+                            const StatusBadge(label: 'Pausada', tone: StatusBadgeTone.danger, dense: true),
+                          ],
+                        ],
+                      ),
                       const SizedBox(height: 2),
                       if (store.ownerEmail != null)
                         Row(
@@ -284,11 +350,80 @@ class _StoreCard extends StatelessWidget {
                   icon: const Icon(Icons.badge_outlined),
                   label: const Text('Ver empleados'),
                 ),
+                OutlinedButton.icon(
+                  onPressed: onToggleActive,
+                  icon: Icon(store.active ? Icons.pause_circle_outline : Icons.play_circle_outline),
+                  label: Text(store.active ? 'Pausar tienda' : 'Reactivar tienda'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: store.active ? null : onDelete,
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: Text(store.active ? 'Eliminar (pausa primero)' : 'Eliminar tienda'),
+                ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Pide escribir el nombre exacto de la tienda para confirmar el borrado
+/// — una acción irreversible que borra ventas, productos, clientes,
+/// empleados y todo lo demás de esa tienda.
+class _DeleteStoreDialog extends StatefulWidget {
+  final String storeName;
+
+  const _DeleteStoreDialog({required this.storeName});
+
+  @override
+  State<_DeleteStoreDialog> createState() => _DeleteStoreDialogState();
+}
+
+class _DeleteStoreDialogState extends State<_DeleteStoreDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Eliminar tienda'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Esto borra para siempre las ventas, productos, clientes, empleados y todo lo '
+            'demás de "${widget.storeName}". No se puede deshacer.',
+          ),
+          const SizedBox(height: 12),
+          Text('Escribe "${widget.storeName}" para confirmar:'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: _controller.text.trim() == widget.storeName.trim()
+              ? () => Navigator.of(context).pop(true)
+              : null,
+          child: const Text('Eliminar para siempre'),
+        ),
+      ],
     );
   }
 }

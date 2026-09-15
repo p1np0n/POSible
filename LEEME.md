@@ -1386,3 +1386,28 @@ Ahora:
 
 No hace falta borrar la sesión actual de nadie — este cambio no cierra
 sesiones activas, solo cambia cómo se inicia una nueva.
+
+## Pausar y eliminar tiendas (solo tú, desde "Tiendas")
+
+Para cuando le vendes el servicio de POSible a un negocio y no paga:
+ahora puedes **pausarle la tienda** y, más adelante, **eliminarla** del
+todo con sus datos.
+
+- **Pausar tienda** (botón nuevo en cada tarjeta de "Tiendas"): corta el
+  acceso de inmediato — nadie de esa tienda (ni el administrador, ni sus
+  cajeros) puede seguir usando la app ni ver sus datos, aparece una
+  pantalla avisando que está pausada. El corte es a nivel de base de
+  datos, no solo de la app, así que no depende de que nadie tenga
+  instalada la última versión. **Reactivar tienda** deshace esto al
+  toque, sin pedir confirmación.
+- **Eliminar tienda**: borra para siempre las ventas, productos,
+  clientes, empleados, turnos — todo lo de esa tienda. Es irreversible.
+  Por seguridad, **el botón solo se activa si la tienda ya está
+  pausada** (no se puede borrar una tienda activa de un tirón), y pide
+  escribir el nombre exacto de la tienda para confirmar.
+- Tu propia tienda (la que usas is_super_admin) nunca se puede pausar
+  ni eliminar por accidente: tú siempre puedes entrar a cualquier
+  tienda pausada para reactivarla, así que nunca quedas afuera.
+
+**Solo hace falta volver a correr `sql/schema.sql`** — no hay ninguna
+Edge Function nueva ni que redesplegar para esto.

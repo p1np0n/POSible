@@ -16,6 +16,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/pending_approval_screen.dart';
 import 'screens/auth/pin_login_screen.dart';
 import 'screens/auth/reset_password_screen.dart';
+import 'screens/auth/store_paused_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/profile_repository.dart';
 import 'theme/app_theme.dart';
@@ -152,6 +153,13 @@ class _AuthGateState extends State<AuthGate> {
                   WidgetsBinding.instance.addPostFrameCallback((_) => context.read<StoreProvider>().load());
                 }
                 return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+              // Una tienda pausada (ej. el cliente no pagó el servicio) le
+              // muestra esto a todos sus empleados en vez de la app — salvo
+              // al administrador principal, que siempre puede entrar
+              // (aunque sea a alguna tienda pausada) para reactivarla.
+              if (store.myStore != null && !store.myStore!.active && !store.isSuperAdmin) {
+                return const StorePausedScreen();
               }
               // El bloqueo automático (pedir PIN de nuevo) también es solo
               // para Android, ya que depende del login con PIN.

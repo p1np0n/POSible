@@ -57,4 +57,18 @@ class StoreRepository {
     if (updates.isEmpty) return;
     await _client.from('stores').update(updates).eq('id', storeId).withTimeout();
   }
+
+  /// Pausa o reactiva una tienda — mientras está pausada, nadie de esa
+  /// tienda puede usar la app ni sus datos (lo exige is_approved() a
+  /// nivel de base de datos, no solo la app). Para cuando el servicio se
+  /// le vende a un negocio y no paga.
+  Future<void> setActive(String storeId, bool active) async {
+    await _client.from('stores').update({'active': active}).eq('id', storeId).withTimeout();
+  }
+
+  /// Borra una tienda y TODOS sus datos — irreversible. Solo funciona si
+  /// la tienda ya está pausada (ver public.delete_store en schema.sql).
+  Future<void> deleteStore(String storeId) async {
+    await _client.rpc('delete_store', params: {'target_store_id': storeId}).withTimeout();
+  }
 }
