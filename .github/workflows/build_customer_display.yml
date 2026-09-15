@@ -39,6 +39,14 @@ jobs:
             sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
           fi
 
+      - name: Desactivar Impeller (evita caídas conocidas en Android 10/11/12 con ciertas GPUs)
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'EnableImpeller' "$MANIFEST"; then
+            perl -0777 -pi -e 's/(<application\b[^>]*>)/$1\n        <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" \/>/' "$MANIFEST"
+          fi
+          grep -n 'EnableImpeller' "$MANIFEST"
+
       - name: Cambiar el ID y el nombre de la app (para instalarla junto a POSible sin reemplazarla)
         run: |
           for f in android/app/build.gradle android/app/build.gradle.kts; do
