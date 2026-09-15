@@ -7,7 +7,6 @@ import '../../models/discount.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/cash_session_provider.dart';
 import '../../providers/store_provider.dart';
-import '../../services/customer_repository.dart';
 import '../../services/sales_repository.dart';
 import '../../utils/currency_format_cl.dart';
 import '../../widgets/currency_text.dart';
@@ -180,6 +179,10 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
       final total = _total;
       final customer = cart.selectedCustomer;
       final pointsEarned = (total * AppConfig.loyaltyPointsPerCurrencyUnit).floor();
+      // La función "create_sale" ya deja registrados, en una sola
+      // transacción, la venta, sus ítems, el descuento de stock y (si hay
+      // cliente) sus puntos/gasto acumulado — no hace falta un segundo
+      // paso aparte para el cliente.
       await _salesRepository.createSale(
         items: cart.items,
         cashSessionId: cashSession.current!.id,
@@ -192,14 +195,6 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
         otherAmount: _splitPayment ? _splitOther : (_paymentMethod == 'other' ? total : 0),
         loyaltyPointsEarned: customer != null ? pointsEarned : 0,
       );
-
-      if (customer != null) {
-        await CustomerRepository().addPointsAndSpend(
-          customer.id,
-          pointsDelta: pointsEarned,
-          spendDelta: total,
-        );
-      }
 
       cart.clear();
       widget.onSaleCompleted?.call();

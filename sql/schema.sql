@@ -1215,3 +1215,105 @@ begin
   delete from public.stores where id = target_store_id;
 end;
 $$;
+
+-- ============================================================
+-- Registrar una venta de forma atómica: antes, la app hacía 3-4
+-- escrituras separadas (la venta, sus ítems, el descuento de stock
+-- producto por producto, y aparte los puntos del cliente) — si la
+-- conexión se cortaba a mitad de camino, podía quedar una venta sin sus
+-- ítems, o con el stock descontado solo de algunos productos, o (si el
+-- cajero reintentaba pensando que no se cobró nada) una venta duplicada
+-- completa. Ahora todo pasa por esta única función: si cualquier parte
+-- falla, Postgres deshace TODO (no queda ni la venta ni el descuento de
+-- stock ni los puntos) y el cajero ve un error claro para reintentar sin
+-- miedo a duplicar la venta.
+-- ============================================================
+create or replace function public.create_sale(
+  p_items jsonb,
+  p_cash_session_id uuid,
+  p_customer_id uuid,
+  p_discount_id uuid,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_cash_amount numeric,
+  p_card_amount numeric,
+  p_other_amount numeric,
+  p_loyalty_points_earned integer,
+  p_store_id uuid
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  v_sale_id uuid;
+  v_subtotal numeric;
+  v_total numeric;
+  v_methods_used int;
+  v_payment_method text;
+begin
+  -- El subtotal se recalcula acá a partir de los ítems (no se confía
+  -- ciegamente en un número aparte que mande la app).
+  select coalesce(sum((item->>'subtotal')::numeric), 0) into v_subtotal
+  from jsonb_array_elements(p_items) as item;
+  v_total := v_subtotal - p_discount_amount;
+
+  v_methods_used := (case when p_cash_amount > 0 then 1 else 0 end)
+                   + (case when p_card_amount > 0 then 1 else 0 end)
+                   + (case when p_other_amount > 0 then 1 else 0 end);
+  v_payment_method := case
+    when v_methods_used > 1 then 'mixed'
+    when p_card_amount > 0 then 'card'
+    when p_other_amount > 0 then 'other'
+    else 'cash'
+  end;
+
+  insert into public.sales (
+    cash_session_id, customer_id, discount_id, discount_amount, tax_amount,
+    subtotal, total, payment_method, cash_amount, card_amount, other_amount,
+    loyalty_points_earned, user_id, store_id
+  ) values (
+    p_cash_session_id, p_customer_id, p_discount_id, p_discount_amount, p_tax_amount,
+    v_subtotal, v_total, v_payment_method, p_cash_amount, p_card_amount, p_other_amount,
+    p_loyalty_points_earned, auth.uid(), p_store_id
+  )
+  returning id into v_sale_id;
+
+  insert into public.sale_items (
+    sale_id, product_id, product_name, unit_price, quantity, subtotal, modifiers_summary, store_id
+  )
+  select
+    v_sale_id,
+    (item->>'product_id')::uuid,
+    item->>'product_name',
+    (item->>'unit_price')::numeric,
+    (item->>'quantity')::numeric,
+    (item->>'subtotal')::numeric,
+    item->>'modifiers_summary',
+    p_store_id
+  from jsonb_array_elements(p_items) as item;
+
+  -- Descuenta el stock de cada producto que lo controla, todos juntos
+  -- (agrupando por si el mismo producto aparece más de una vez en el
+  -- carrito, ej. con distintos modificadores) en vez de una llamada por
+  -- producto — no toca "archived", igual que adjust_product_stock con un
+  -- delta negativo (una venta nunca desarchiva un producto).
+  update public.products p
+  set stock_quantity = p.stock_quantity - agg.total_qty
+  from (
+    select (item->>'product_id')::uuid as product_id, sum((item->>'quantity')::numeric) as total_qty
+    from jsonb_array_elements(p_items) as item
+    where (item->>'track_stock')::boolean is true and item->>'product_id' is not null
+    group by (item->>'product_id')::uuid
+  ) as agg
+  where p.id = agg.product_id;
+
+  if p_customer_id is not null then
+    update public.customers
+    set loyalty_points = loyalty_points + p_loyalty_points_earned,
+        total_spent = total_spent + v_total
+    where id = p_customer_id;
+  end if;
+
+  return v_sale_id;
+end;
+$$;
