@@ -20,6 +20,7 @@ import 'screens/auth/store_paused_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/profile_repository.dart';
 import 'theme/app_theme.dart';
+import 'widgets/screen_dimmer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -161,9 +162,16 @@ class _AuthGateState extends State<AuthGate> {
               if (store.myStore != null && !store.myStore!.active && !store.isSuperAdmin) {
                 return const StorePausedScreen();
               }
-              // El bloqueo automático (pedir PIN de nuevo) también es solo
-              // para Android, ya que depende del login con PIN.
-              return kIsWeb ? widget.home : LockGate(child: widget.home);
+              // El bloqueo automático (pedir PIN de nuevo) y el
+              // oscurecimiento de pantalla por inactividad también son solo
+              // para Android/iOS, ya que el primero depende del login con
+              // PIN y el segundo no tiene sentido en un navegador.
+              if (kIsWeb) return widget.home;
+              final prefs = context.watch<AppPreferencesProvider>();
+              return ScreenDimmer(
+                enabled: prefs.screenDimmingEnabled,
+                child: LockGate(child: widget.home),
+              );
             }
             return PendingApprovalScreen(
               onRetry: () => setState(() => _loadProfile(session.user.id)),

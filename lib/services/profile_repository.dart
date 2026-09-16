@@ -35,6 +35,13 @@ class ProfileRepository {
     await _client.from('profiles').update({'approved': approved}).eq('id', id).withTimeout();
   }
 
+  /// Cambia el nombre a mostrar de un empleado (o el propio) — solo afecta
+  /// cómo aparece en la app, no su correo real ni su forma de iniciar
+  /// sesión.
+  Future<void> setDisplayName(String id, String displayName) async {
+    await _client.from('profiles').update({'display_name': displayName}).eq('id', id).withTimeout();
+  }
+
   Future<void> remove(String id) async {
     await _client.from('profiles').delete().eq('id', id).withTimeout();
   }

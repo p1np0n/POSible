@@ -12,11 +12,18 @@ class AppPreferencesProvider extends ChangeNotifier {
   static const _knownDisplayNamesKey = 'pin_known_display_names';
   static const _autoLockMinutesKey = 'auto_lock_minutes';
   static const _lastActiveAtKey = 'last_active_at';
+  static const _screenDimmingKey = 'screen_dimming_enabled';
 
   bool darkMode = false;
   bool useListLayout = false;
   bool cameraScanEnabled = true;
   bool loaded = false;
+
+  /// Si está activo, la pantalla se oscurece sola (sin llegar a apagarse)
+  /// después de un minuto sin tocarla, para ahorrar batería en el
+  /// mostrador — apenas se vuelve a tocar, recupera el brillo normal. Solo
+  /// aplica al APK (Android/iOS), no al panel web.
+  bool screenDimmingEnabled = true;
 
   /// Si está activo, en Ventas el buscador (donde también se puede
   /// escanear) recupera el foco solo después de cada acción — así un
@@ -60,6 +67,7 @@ class AppPreferencesProvider extends ChangeNotifier {
       }
     }
     autoLockMinutes = prefs.getInt(_autoLockMinutesKey) ?? 15;
+    screenDimmingEnabled = prefs.getBool(_screenDimmingKey) ?? true;
     loaded = true;
     notifyListeners();
   }
@@ -138,5 +146,12 @@ class AppPreferencesProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_usbScannerModeKey, value);
+  }
+
+  Future<void> setScreenDimmingEnabled(bool value) async {
+    screenDimmingEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_screenDimmingKey, value);
   }
 }
