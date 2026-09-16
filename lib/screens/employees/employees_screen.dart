@@ -112,6 +112,34 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _renameEmployee(EmployeeProfile profile) async {
+    final controller = TextEditingController(text: profile.displayName ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cambiar nombre'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty || !mounted) return;
+    await _repository.setDisplayName(profile.id, name);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nombre actualizado')));
+    _load();
+  }
+
   Future<void> _resetPin(EmployeeProfile profile) async {
     final pin = await showPinEntryDialog(context, title: 'Nuevo PIN', subtitle: profile.label);
     if (pin == null || !mounted) return;
@@ -228,6 +256,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Cambiar nombre',
+                                onPressed: () => _renameEmployee(profile),
+                              ),
                               if (!kIsWeb)
                                 IconButton(
                                   icon: const Icon(Icons.add_to_home_screen),

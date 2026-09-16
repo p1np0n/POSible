@@ -1477,3 +1477,33 @@ pero cada quien ve solo lo que le corresponde:
 
 No requiere ningún cambio en Supabase ni en `sql/schema.sql` — es solo
 un ajuste de la app.
+
+## Cambiar el nombre de un trabajador
+
+En **Empleados**, ahora hay un ícono de lápiz junto a cada persona (al
+lado de "Agregar a este dispositivo" y "Cambiar PIN") para corregir o
+cambiar el nombre con el que aparece en la app — por ejemplo, si se
+escribió mal al crear el cajero, o cambió de nombre. Solo cambia cómo
+se ve dentro de POSible, no su correo ni su forma de iniciar sesión.
+
+No requiere ningún cambio en Supabase ni en `sql/schema.sql`.
+
+## La pantalla se oscurece sola para ahorrar batería
+
+Si pasa un minuto sin tocar la pantalla (en el APK, no en el panel
+web), se oscurece sola —sin llegar a apagarse— para gastar menos
+batería en el mostrador durante los ratos muertos. Apenas se la vuelve
+a tocar, recupera el brillo normal al instante. Se puede apagar desde
+**Configuración → General → "Oscurecer la pantalla para ahorrar
+batería"** (queda prendido por defecto), tanto por el administrador
+como por cualquier cajero, ya que es una preferencia del propio
+celular.
+
+Esto solo cambia el brillo mientras POSible está abierto en primer
+plano (nunca el brillo del sistema, así que no pide ningún permiso
+especial en Android) y se restablece solo al pasar a segundo plano.
+
+No requiere ningún cambio en Supabase ni en `sql/schema.sql` — sí
+agrega una librería nueva (`screen_brightness`), así que la próxima
+vez que compiles el APK puede tardar un poco más de lo normal la
+primera vez.

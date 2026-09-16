@@ -486,6 +486,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         value: prefs.usbScannerModeEnabled,
         onChanged: prefs.setUsbScannerModeEnabled,
       ),
+      if (!kIsWeb)
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Oscurecer la pantalla para ahorrar batería'),
+          subtitle: const Text(
+            'Si pasa un minuto sin tocar la pantalla, se oscurece sola (sin '
+            'llegar a apagarse) — apenas la tocas de nuevo, vuelve al brillo '
+            'normal al instante.',
+          ),
+          value: prefs.screenDimmingEnabled,
+          onChanged: prefs.setScreenDimmingEnabled,
+        ),
     ]);
 
     if (isAdmin && !kIsWeb) {
