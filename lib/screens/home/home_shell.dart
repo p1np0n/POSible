@@ -71,11 +71,12 @@ class _HomeShellState extends State<HomeShell> {
     // Un cajero solo ve lo esencial para atender en el mostrador (Ventas,
     // Recibos, Turno, Reloj, Inventario) más lo que su administrador le
     // haya activado puntualmente (ver Empleados → Permisos): Artículos,
-    // Reportes y/o Clientes. Configuración y Empleados quedan siempre
-    // exclusivos del administrador de la tienda — un cajero nunca los ve,
-    // aunque los toque directo por la URL en el panel web. Catálogo
-    // global y Tiendas siguen aparte, solo para el administrador
-    // principal (el dueño de POSible).
+    // Reportes y/o Clientes. Empleados queda siempre exclusivo del
+    // administrador de la tienda. Configuración sí es visible para
+    // cualquiera con sesión iniciada (cajero incluido) — es la propia
+    // pantalla la que muestra solo lo que le corresponde ver a cada quien
+    // (ver settings_screen.dart). Catálogo global y Tiendas siguen aparte,
+    // solo para el administrador principal (el dueño de POSible).
     //
     // Solo se muestra _screens[index] (no IndexedStack), así cada pantalla
     // vuelve a cargar sus datos al seleccionarla.
@@ -92,7 +93,7 @@ class _HomeShellState extends State<HomeShell> {
       const StockMovementsScreen(),
       if (canViewReports) const ReportsScreen(),
       if (canManageCustomers) const CustomerListScreen(),
-      if (store.isStoreAdmin) const SettingsScreen(),
+      const SettingsScreen(),
       if (canManageProducts) ...[
         const ProductListScreen(),
         const CategoriesScreen(),
@@ -114,7 +115,7 @@ class _HomeShellState extends State<HomeShell> {
       'Inventario',
       if (canViewReports) 'Reportes',
       if (canManageCustomers) 'Clientes',
-      if (store.isStoreAdmin) 'Configuración',
+      'Configuración',
       if (canManageProducts) ...[
         'Lista de artículos',
         'Categorías',
@@ -136,7 +137,7 @@ class _HomeShellState extends State<HomeShell> {
     var next = 5;
     final reportsIndex = canViewReports ? next++ : -1;
     final customersIndex = canManageCustomers ? next++ : -1;
-    final settingsIndex = store.isStoreAdmin ? next++ : -1;
+    final settingsIndex = next++;
     final productsIndex = canManageProducts ? next++ : -1;
     final categoriesIndex = canManageProducts ? next++ : -1;
     final modifiersIndex = canManageProducts ? next++ : -1;
@@ -322,13 +323,12 @@ class _HomeShellState extends State<HomeShell> {
               onTap: () => _selectIndex(storesIndex),
             ),
           ],
-          if (store.isStoreAdmin)
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Configuración'),
-              selected: index == settingsIndex,
-              onTap: () => _selectIndex(settingsIndex),
-            ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Configuración'),
+            selected: index == settingsIndex,
+            onTap: () => _selectIndex(settingsIndex),
+          ),
               ],
             ),
           ),

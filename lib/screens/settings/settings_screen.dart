@@ -247,319 +247,339 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final email = Supabase.instance.client.auth.currentUser?.email ?? '';
     final prefs = context.watch<AppPreferencesProvider>();
+    // Solo el administrador de la tienda ve las secciones sensibles
+    // (impuestos, margen, claves de API, empleados/PIN, etc.) — "General"
+    // (modo oscuro, vista de lista, cámara y lector USB) y "Cuenta" son
+    // para cualquiera con sesión iniciada, cajero incluido: son
+    // preferencias del propio celular, no algo que administre la cuenta.
+    final isAdmin = context.watch<StoreProvider>().isStoreAdmin;
 
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            padding: const EdgeInsets.all(16),
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    // Arma la lista de secciones a mostrar, con un separador entre cada
+    // una que SÍ queda visible (nunca antes de la primera ni después de
+    // la última) — así ocultar secciones para un cajero no deja
+    // separadores de más ni huecos raros.
+    final children = <Widget>[];
+    void addSection(List<Widget> section) {
+      if (children.isNotEmpty) {
+        children.addAll([const SizedBox(height: 32), const Divider(), const SizedBox(height: 16)]);
+      }
+      children.addAll(section);
+    }
+
+    if (isAdmin) {
+      addSection([
+        Text('Impuestos', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _taxRateController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Tasa de IVA / impuesto (%)',
+            helperText:
+                'El precio de tus artículos ya lo incluye — esto solo sirve para mostrar '
+                'el desglose en la venta y el ticket, no se suma aparte',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Guardar'),
+        ),
+      ]);
+
+      addSection([
+        Text('Margen', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _marginController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Margen general (%)',
+            helperText: 'Se usa para sugerir el precio de venta a partir del costo, en los '
+                'artículos que no tengan su propio margen configurado',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _savingMargin ? null : _saveMargin,
+          child: _savingMargin
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Guardar'),
+        ),
+      ]);
+
+      if (kIsWeb) {
+        addSection([
+          Text('Alertas de inventario bajo', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _notifyEmailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Correo para avisos de inventario bajo (opcional)',
+              helperText: 'Requiere activar la función "notify-low-stock" en Supabase — ver LEEME.md',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Text('Impuestos', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _taxRateController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Tasa de IVA / impuesto (%)',
-                  helperText:
-                      'El precio de tus artículos ya lo incluye — esto solo sirve para mostrar '
-                      'el desglose en la venta y el ticket, no se suma aparte',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Guardar'),
-              ),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Margen', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _marginController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Margen general (%)',
-                  helperText: 'Se usa para sugerir el precio de venta a partir del costo, en los '
-                      'artículos que no tengan su propio margen configurado',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _savingMargin ? null : _saveMargin,
-                child: _savingMargin
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Guardar'),
-              ),
-              if (kIsWeb) ...[
-                const SizedBox(height: 32),
-                const Divider(),
-                const SizedBox(height: 16),
-                Text('Alertas de inventario bajo', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _notifyEmailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo para avisos de inventario bajo (opcional)',
-                    helperText:
-                        'Requiere activar la función "notify-low-stock" en Supabase — ver LEEME.md',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _savingNotifyEmail ? null : _saveNotifyEmail,
-                        child: _savingNotifyEmail
-                            ? const SizedBox(
-                                height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Guardar'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _sendingTest ? null : _sendTestEmail,
-                        child: _sendingTest
-                            ? const SizedBox(
-                                height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Enviar prueba ahora'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Escanear facturas (Inventario)', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _ocrApiKeyController,
-                decoration: const InputDecoration(
-                  labelText: 'Clave de OCR.space (opcional)',
-                  helperText: 'Sin esto, usa una clave de prueba compartida y limitada. '
-                      'Consigue la tuya gratis en ocr.space/ocrapi',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _savingOcrApiKey ? null : _saveOcrApiKey,
-                child: _savingOcrApiKey
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Guardar'),
-              ),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Fotos de productos', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              const Text(
-                'Todas las noches se revisan solos los artículos con código de barras que '
-                'todavía no tienen foto, y se les busca una en internet (requiere activar la '
-                'función "fill-missing-photos" en Supabase — ver LEEME.md). Con este botón '
-                'puedes correrlo ahora mismo, sin esperar a la noche.',
-                style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _fillingPhotos ? null : _fillMissingPhotosNow,
-                child: _fillingPhotos
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Buscar fotos faltantes ahora'),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'La búsqueda de fotos por código de barras revisa, en orden, el catálogo '
-                'global, Open Food Facts, Open Beauty Facts, Open Products Facts y '
-                'UPCitemdb — todo gratis, sin configurar nada. Si ninguna encuentra una '
-                'foto, y pones tu propia clave de Google Custom Search acá abajo, se '
-                'intenta también ahí como último recurso.',
-                style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _googleSearchApiKeyController,
-                decoration: const InputDecoration(
-                  labelText: 'Clave de Google Custom Search (opcional)',
-                  helperText: 'Gratis hasta 100 búsquedas/día. Créala en console.cloud.google.com '
-                      '(API "Custom Search API").',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _googleSearchEngineIdController,
-                decoration: const InputDecoration(
-                  labelText: 'ID del motor de búsqueda (opcional)',
-                  helperText: 'Créalo en programmablesearchengine.google.com, activando '
-                      '"Búsqueda de imágenes" y "Buscar en toda la red".',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _savingGoogleSearchConfig ? null : _saveGoogleSearchConfig,
-                child: _savingGoogleSearchConfig
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Guardar'),
-              ),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Ahorrar ancho de banda de las fotos', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              const Text(
-                'Las fotos nuevas que subas generan sola una versión chica (miniatura) que '
-                'usan el mosaico de Ventas y las listas en vez de la foto completa — pesa '
-                'mucho menos ancho de banda. Para que los productos que ya tenían foto de '
-                'antes también la tengan, corre esto una vez (requiere activar la función '
-                '"generate-thumbnails" en Supabase — ver LEEME.md). Si dice que quedan más '
-                'pendientes, tócalo de nuevo.',
-                style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _generatingThumbnails ? null : _generateThumbnailsNow,
-                child: _generatingThumbnails
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Generar miniaturas de fotos existentes'),
-              ),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('General', style: Theme.of(context).textTheme.titleMedium),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Modo oscuro'),
-                value: prefs.darkMode,
-                onChanged: prefs.setDarkMode,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Vista en lista de artículos'),
-                subtitle: const Text('En vez de la cuadrícula, en la pantalla de Ventas'),
-                value: prefs.useListLayout,
-                onChanged: prefs.setUseListLayout,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Utilice la cámara para escanear códigos de barras'),
-                value: prefs.cameraScanEnabled,
-                onChanged: prefs.setCameraScanEnabled,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Uso un lector de código de barras USB en Ventas'),
-                subtitle: const Text(
-                  'El buscador de Ventas se mantiene siempre listo para que el lector '
-                  'escriba ahí y agregue el producto de inmediato, sin tener que tocar '
-                  'la pantalla entre un escaneo y otro. Déjalo apagado si vendes solo '
-                  'tocando la pantalla, para no abrir el teclado de más.',
-                ),
-                value: prefs.usbScannerModeEnabled,
-                onChanged: prefs.setUsbScannerModeEnabled,
-              ),
-              if (!kIsWeb) ...[
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 16),
-                Text('Pantalla para el cliente', style: Theme.of(context).textTheme.titleMedium),
-                const _CustomerDisplaySettings(),
-                const SizedBox(height: 8),
-                const Divider(),
-                const SizedBox(height: 16),
-                Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Mi PIN de acceso rápido'),
-                  subtitle: const Text(
-                    'Para elegirte en "¿Quién eres?" sin escribir tu correo y contraseña '
-                    'completos. Es un código aparte, no tu contraseña.',
-                  ),
-                  trailing: _changingPin
+              Expanded(
+                child: FilledButton(
+                  onPressed: _savingNotifyEmail ? null : _saveNotifyEmail,
+                  child: _savingNotifyEmail
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : OutlinedButton(onPressed: _changeMyPin, child: const Text('Cambiar')),
+                      : const Text('Guardar'),
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Bloqueo automático'),
-                  subtitle: const Text('Pedir el PIN de nuevo si la app estuvo en segundo plano este tiempo'),
-                  trailing: DropdownButton<int>(
-                    value: prefs.autoLockMinutes,
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('Nunca')),
-                      DropdownMenuItem(value: 5, child: Text('5 min')),
-                      DropdownMenuItem(value: 15, child: Text('15 min')),
-                      DropdownMenuItem(value: 30, child: Text('30 min')),
-                      DropdownMenuItem(value: 60, child: Text('1 hora')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) prefs.setAutoLockMinutes(value);
-                    },
-                  ),
-                ),
-              ],
-              if (kIsWeb) ...[
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 16),
-                Text('Cambiar contraseña', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _newPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Repite la contraseña', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _changingPassword ? null : _changePassword,
-                  child: _changingPassword
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Actualizar contraseña'),
-                ),
-              ],
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Cuenta', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Text(email, style: const TextStyle(color: const Color(0xFF616161))),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () {
-                  context.read<StoreProvider>().reset();
-                  Supabase.instance.client.auth.signOut();
-                },
-                icon: const Icon(Icons.logout),
-                label: Text(kIsWeb ? 'Cerrar sesión' : 'Cerrar sesión / Cambiar de cajero'),
               ),
-              if (!kIsWeb)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Si tu correo ya inició sesión antes en este dispositivo, al cerrar sesión '
-                    'aparece el acceso rápido con PIN para el próximo cajero.',
-                    style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
-                  ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _sendingTest ? null : _sendTestEmail,
+                  child: _sendingTest
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Enviar prueba ahora'),
                 ),
+              ),
             ],
-          );
+          ),
+        ]);
+      }
+
+      addSection([
+        Text('Escanear facturas (Inventario)', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _ocrApiKeyController,
+          decoration: const InputDecoration(
+            labelText: 'Clave de OCR.space (opcional)',
+            helperText: 'Sin esto, usa una clave de prueba compartida y limitada. '
+                'Consigue la tuya gratis en ocr.space/ocrapi',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _savingOcrApiKey ? null : _saveOcrApiKey,
+          child: _savingOcrApiKey
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Guardar'),
+        ),
+      ]);
+
+      addSection([
+        Text('Fotos de productos', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        const Text(
+          'Todas las noches se revisan solos los artículos con código de barras que '
+          'todavía no tienen foto, y se les busca una en internet (requiere activar la '
+          'función "fill-missing-photos" en Supabase — ver LEEME.md). Con este botón '
+          'puedes correrlo ahora mismo, sin esperar a la noche.',
+          style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: _fillingPhotos ? null : _fillMissingPhotosNow,
+          child: _fillingPhotos
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Buscar fotos faltantes ahora'),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'La búsqueda de fotos por código de barras revisa, en orden, el catálogo '
+          'global, Open Food Facts, Open Beauty Facts, Open Products Facts y '
+          'UPCitemdb — todo gratis, sin configurar nada. Si ninguna encuentra una '
+          'foto, y pones tu propia clave de Google Custom Search acá abajo, se '
+          'intenta también ahí como último recurso.',
+          style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _googleSearchApiKeyController,
+          decoration: const InputDecoration(
+            labelText: 'Clave de Google Custom Search (opcional)',
+            helperText: 'Gratis hasta 100 búsquedas/día. Créala en console.cloud.google.com '
+                '(API "Custom Search API").',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _googleSearchEngineIdController,
+          decoration: const InputDecoration(
+            labelText: 'ID del motor de búsqueda (opcional)',
+            helperText: 'Créalo en programmablesearchengine.google.com, activando '
+                '"Búsqueda de imágenes" y "Buscar en toda la red".',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _savingGoogleSearchConfig ? null : _saveGoogleSearchConfig,
+          child: _savingGoogleSearchConfig
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Guardar'),
+        ),
+      ]);
+
+      addSection([
+        Text('Ahorrar ancho de banda de las fotos', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        const Text(
+          'Las fotos nuevas que subas generan sola una versión chica (miniatura) que '
+          'usan el mosaico de Ventas y las listas en vez de la foto completa — pesa '
+          'mucho menos ancho de banda. Para que los productos que ya tenían foto de '
+          'antes también la tengan, corre esto una vez (requiere activar la función '
+          '"generate-thumbnails" en Supabase — ver LEEME.md). Si dice que quedan más '
+          'pendientes, tócalo de nuevo.',
+          style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: _generatingThumbnails ? null : _generateThumbnailsNow,
+          child: _generatingThumbnails
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Generar miniaturas de fotos existentes'),
+        ),
+      ]);
+    }
+
+    // "General": visible para cualquiera con sesión iniciada (cajero
+    // incluido) — son preferencias de este celular, no algo que
+    // administre la cuenta de la tienda.
+    addSection([
+      Text('General', style: Theme.of(context).textTheme.titleMedium),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Modo oscuro'),
+        value: prefs.darkMode,
+        onChanged: prefs.setDarkMode,
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Vista en lista de artículos'),
+        subtitle: const Text('En vez de la cuadrícula, en la pantalla de Ventas'),
+        value: prefs.useListLayout,
+        onChanged: prefs.setUseListLayout,
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Utilice la cámara para escanear códigos de barras'),
+        value: prefs.cameraScanEnabled,
+        onChanged: prefs.setCameraScanEnabled,
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Uso un lector de código de barras USB en Ventas'),
+        subtitle: const Text(
+          'El buscador de Ventas se mantiene siempre listo para que el lector '
+          'escriba ahí y agregue el producto de inmediato, sin tener que tocar '
+          'la pantalla entre un escaneo y otro. Déjalo apagado si vendes solo '
+          'tocando la pantalla, para no abrir el teclado de más.',
+        ),
+        value: prefs.usbScannerModeEnabled,
+        onChanged: prefs.setUsbScannerModeEnabled,
+      ),
+    ]);
+
+    if (isAdmin && !kIsWeb) {
+      addSection([
+        Text('Pantalla para el cliente', style: Theme.of(context).textTheme.titleMedium),
+        const _CustomerDisplaySettings(),
+      ]);
+
+      addSection([
+        Text('Seguridad', style: Theme.of(context).textTheme.titleMedium),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Mi PIN de acceso rápido'),
+          subtitle: const Text(
+            'Para elegirte en "¿Quién eres?" sin escribir tu correo y contraseña '
+            'completos. Es un código aparte, no tu contraseña.',
+          ),
+          trailing: _changingPin
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : OutlinedButton(onPressed: _changeMyPin, child: const Text('Cambiar')),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Bloqueo automático'),
+          subtitle: const Text('Pedir el PIN de nuevo si la app estuvo en segundo plano este tiempo'),
+          trailing: DropdownButton<int>(
+            value: prefs.autoLockMinutes,
+            items: const [
+              DropdownMenuItem(value: 0, child: Text('Nunca')),
+              DropdownMenuItem(value: 5, child: Text('5 min')),
+              DropdownMenuItem(value: 15, child: Text('15 min')),
+              DropdownMenuItem(value: 30, child: Text('30 min')),
+              DropdownMenuItem(value: 60, child: Text('1 hora')),
+            ],
+            onChanged: (value) {
+              if (value != null) prefs.setAutoLockMinutes(value);
+            },
+          ),
+        ),
+      ]);
+    }
+
+    if (isAdmin && kIsWeb) {
+      addSection([
+        Text('Cambiar contraseña', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _newPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Contraseña nueva', border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _confirmPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Repite la contraseña', border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _changingPassword ? null : _changePassword,
+          child: _changingPassword
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Actualizar contraseña'),
+        ),
+      ]);
+    }
+
+    // "Cuenta": visible para cualquiera, cajero incluido — necesita poder
+    // cerrar sesión / cambiar de cajero igual que el administrador.
+    addSection([
+      Text('Cuenta', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      Text(email, style: const TextStyle(color: const Color(0xFF616161))),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: () {
+          context.read<StoreProvider>().reset();
+          Supabase.instance.client.auth.signOut();
+        },
+        icon: const Icon(Icons.logout),
+        label: Text(kIsWeb ? 'Cerrar sesión' : 'Cerrar sesión / Cambiar de cajero'),
+      ),
+      if (!kIsWeb)
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+            'Si tu correo ya inició sesión antes en este dispositivo, al cerrar sesión '
+            'aparece el acceso rápido con PIN para el próximo cajero.',
+            style: TextStyle(color: const Color(0xFF616161), fontSize: 12),
+          ),
+        ),
+    ]);
+
+    return ListView(padding: const EdgeInsets.all(16), children: children);
   }
 }
 
