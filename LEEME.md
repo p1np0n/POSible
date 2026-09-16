@@ -1454,3 +1454,26 @@ cara al usuario, solo cómo está organizado el código por dentro:
   ni comportarse distinto.
 
 No requiere ningún cambio en Supabase ni en `sql/schema.sql`.
+
+## Los cajeros ahora también pueden usar modo oscuro, vista de lista, cámara y lector USB
+
+Antes, la pantalla de Configuración era invisible por completo para
+cualquier cuenta que no fuera administradora de la tienda — un cajero
+no podía activar modo oscuro, cambiar la vista de artículos a lista,
+ni prender la cámara o el modo de lector de código de barras USB en
+Ventas, aunque son preferencias de su propio celular, no algo que
+afecte a la tienda.
+
+Ahora Configuración es visible para cualquiera con sesión iniciada,
+pero cada quien ve solo lo que le corresponde:
+
+- **Todos** (cajero incluido) ven "General" (modo oscuro, vista de
+  lista, cámara para escanear, lector USB) y "Cuenta" (cerrar sesión /
+  cambiar de cajero).
+- **Solo el administrador** de la tienda sigue viendo el resto:
+  impuestos, margen, alertas de inventario bajo, OCR de facturas,
+  fotos de productos, pantalla para el cliente, su PIN, bloqueo
+  automático y cambiar contraseña.
+
+No requiere ningún cambio en Supabase ni en `sql/schema.sql` — es solo
+un ajuste de la app.
